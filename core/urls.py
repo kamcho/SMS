@@ -17,6 +17,7 @@ urlpatterns = [
     path('configurations/academic-year/create/', views.create_academic_year, name='create-academic-year'),
     path('configurations/term/create/', views.create_term, name='create-term'),
     path('configurations/grade/create/', views.create_grade, name='create-grade'),
+    path('configurations/class/create/', views.create_class, name='create-class'),
     path('configurations/exam/create/', views.create_exam, name='create-exam'),
     path('configurations/exam-mode/<int:exam_mode_id>/update/', views.update_exam_mode, name='update-exam-mode'),
     path('configurations/delete/<str:model_type>/<int:item_id>/', views.delete_item, name='delete-item'),

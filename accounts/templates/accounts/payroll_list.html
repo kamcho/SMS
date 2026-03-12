@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}Payroll Management — Linakuu{% endblock %}
+
+{% block header %}
+<div class="flex items-center gap-4">
+    <div>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Staff Payroll</h1>
+        <p class="text-slate-500 mt-1 font-medium">Manage salaries and process payments for school staff</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Stat Cards -->
+    <div class="glass-card bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                <i class="fas fa-users text-xl"></i>
+            </div>
+            <div>
+                <p class="text-indigo-100 text-xs font-bold uppercase tracking-wider">Total Staff</p>
+                <h3 class="text-2xl font-black">{{ total_staff }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card border-l-4 border-l-amber-500">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
+                <i class="fas fa-wallet text-xl"></i>
+            </div>
+            <div>
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-wider">Total Unpaid Balance</p>
+                <h3 class="text-2xl font-black text-slate-800">KES {{ total_unpaid|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <form method="get" class="flex gap-2 h-full items-center">
+            <div class="relative flex-1">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" name="q" value="{{ q }}" placeholder="Search staff name..." 
+                       class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm">
+            </div>
+            <button type="submit" class="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors">
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="glass-card p-0 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-50/50 border-bottom border-slate-100">
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Staff Member</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Role</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Basic Salary</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Current Balance</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for staff in staff_members %}
+                <tr class="hover:bg-slate-50/50 transition-colors group">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                                {{ staff.first_name|first }}{{ staff.last_name|first }}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-800 leading-tight">{{ staff.get_full_name }}</h4>
+                                <p class="text-xs text-slate-500">{{ staff.email }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider 
+                            {% if staff.role == 'Teacher' %}bg-blue-50 text-blue-600
+                            {% elif staff.role == 'Admin' %}bg-purple-50 text-purple-600
+                            {% elif staff.role == 'Accountant' %}bg-emerald-50 text-emerald-600
+                            {% else %}bg-slate-50 text-slate-600{% endif %}">
+                            {{ staff.role }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 font-bold text-slate-700">
+                        KES {{ staff.salary_profile.basic_salary|floatformat:2 }}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="font-bold {% if staff.salary_profile.salary_balance > 0 %}text-amber-600{% elif staff.salary_profile.salary_balance < 0 %}text-emerald-600{% else %}text-slate-400{% endif %}">
+                            KES {{ staff.salary_profile.salary_balance|floatformat:2 }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="openConfigModal('{{ staff.id }}', '{{ staff.get_full_name }}', '{{ staff.salary_profile.basic_salary }}')" 
+                                    class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Configure Salary">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                            <a href="{% url 'accounts:process-payroll-payment' staff.id %}" 
+                               class="btn btn-primary text-xs py-2">
+                                <i class="fas fa-hand-holding-usd mr-1"></i> Pay
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center">
+                        <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-user-slash text-slate-300 text-2xl"></i>
+                        </div>
+                        <p class="text-slate-500 font-medium">No staff members found matching your search.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal for Salary Configuration -->
+<div id="configModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="p-8 pb-4">
+            <h3 class="text-2xl font-black text-slate-900 mb-1">Salary Setup</h3>
+            <p id="modalStaffName" class="text-slate-500 font-medium"></p>
+        </div>
+        
+        <form id="configForm" method="post" action="" class="p-8 pt-4 space-y-6">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Basic Salary (KES)</label>
+                <input type="number" step="0.01" name="basic_salary" id="modalBasicSalary" 
+                       class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-slate-800">
+            </div>
+            
+            <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                <label class="block text-xs font-black text-amber-700 uppercase tracking-widest mb-2">Balance Adjustment</label>
+                <input type="number" step="0.01" name="balance_adjustment" value="0"
+                       class="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all font-bold text-slate-800"
+                       placeholder="Enter amount to ADD to balance...">
+                <p class="mt-2 text-[10px] text-amber-600 font-medium">
+                    <i class="fas fa-info-circle mr-1"></i> Use this to bill the staff (e.g. at the end of the month).
+                </p>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeConfigModal()" class="flex-1 px-6 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-xs">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 px-6 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all uppercase tracking-widest text-xs">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openConfigModal(staffId, staffName, basicSalary) {
+    const modal = document.getElementById('configModal');
+    const form = document.getElementById('configForm');
+    const nameLabel = document.getElementById('modalStaffName');
+    const salaryInput = document.getElementById('modalBasicSalary');
+    
+    nameLabel.textContent = staffName;
+    salaryInput.value = basicSalary;
+    form.action = `/accounts/payroll/config/${staffId}/`;
+    
+    modal.classList.remove('hidden');
+}
+
+function closeConfigModal() {
+    document.getElementById('configModal').classList.add('hidden');
+}
+</script>
+{% endblock %}

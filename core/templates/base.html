@@ -73,10 +73,7 @@
             <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
                 <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">System Control</p>
             </div>
-            <a href="#" class="menu-item">
-                <i class="fas fa-school w-5 text-lg"></i>
-                Schools
-            </a>
+        
             <a href="{% url 'core:configurations' %}" class="menu-item {% if 'configurations' in request.path %}active{% endif %}">
                 <i class="fas fa-cog w-5 text-lg"></i>
                 Configurations
@@ -130,6 +127,10 @@
             <a href="{% url 'accounts:fees-analytics' %}" class="menu-item {% if 'analytics' in request.path %}active{% endif %}">
                 <i class="fas fa-chart-line w-5 text-lg"></i>
                 Analytics
+            </a>
+            <a href="{% url 'accounts:payroll-list' %}" class="menu-item {% if 'payroll' in request.path %}active{% endif %}">
+                <i class="fas fa-hand-holding-usd w-5 text-lg"></i>
+                Payroll
             </a>
             {% endif %}
             <a href="{% url 'accounts:payments-list' %}" class="menu-item {% if 'payments-list' in request.path %}active{% endif %}">

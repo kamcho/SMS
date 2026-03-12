@@ -1,9 +1,13 @@
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
-from .models import Payment, FeeStructure, Invoice
+from .models import Payment, FeeStructure, Invoice, StaffSalary, StaffPayment
 from core.models import School, Student, StudentProfile
+from users.models import MyUser
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -174,3 +178,93 @@ class PaymentListView(LoginRequiredMixin, ListView):
         context['selected_method'] = self.request.GET.get('method', '')
         
         return context
+
+class PayrollListView(LoginRequiredMixin, ListView):
+    model = MyUser
+    template_name = 'accounts/payroll_list.html'
+    context_object_name = 'staff_members'
+    paginate_by = 25
+
+    def get_queryset(self):
+        # Filter only staff-related roles
+        queryset = MyUser.objects.filter(role__in=['Admin', 'Teacher', 'Accountant', 'Receptionist']).order_by('role', 'first_name')
+        
+        query = self.request.GET.get('q')
+        if query:
+            queryset = queryset.filter(
+                Q(first_name__icontains=query) | 
+                Q(last_name__icontains=query) | 
+                Q(email__icontains=query)
+            )
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Ensure every staff in queryset has a StaffSalary profile
+        for staff in context['staff_members']:
+            StaffSalary.objects.get_or_create(staff=staff)
+            
+        context['q'] = self.request.GET.get('q', '')
+        context['total_staff'] = self.get_queryset().count()
+        context['total_unpaid'] = StaffSalary.objects.aggregate(Sum('salary_balance'))['salary_balance__sum'] or 0
+        return context
+
+@login_required
+def process_payroll_payment(request, staff_id):
+    staff = get_object_or_404(MyUser, id=staff_id)
+    salary_profile, created = StaffSalary.objects.get_or_create(staff=staff)
+    
+    if request.method == 'POST':
+        amount_str = request.POST.get('amount', '0')
+        if amount_str:
+            amount = Decimal(amount_str)
+        else:
+            amount = Decimal('0')
+            
+        method = request.POST.get('method')
+        reference = request.POST.get('reference')
+        payment_date = request.POST.get('payment_date') or timezone.now().date()
+        
+        if amount <= 0:
+            messages.error(request, "Payment amount must be greater than zero.")
+        else:
+            try:
+                StaffPayment.objects.create(
+                    staff=staff,
+                    amount=amount,
+                    payment_date=payment_date,
+                    payment_method=method,
+                    reference=reference,
+                    recorded_by=request.user
+                )
+                messages.success(request, f"Successfully processed payment of {amount} for {staff.get_full_name()}.")
+                return redirect('accounts:payroll-list')
+            except Exception as e:
+                messages.error(request, f"Error processing payment: {str(e)}")
+            
+    return render(request, 'accounts/process_payroll.html', {
+        'staff': staff,
+        'salary_profile': salary_profile,
+        'payment_methods': [('Cash', 'Cash'), ('Bank', 'Bank Transfer'), ('Mpesa', 'Mpesa')]
+    })
+
+@login_required
+def update_salary_config(request, staff_id):
+    staff = get_object_or_404(MyUser, id=staff_id)
+    salary_profile, created = StaffSalary.objects.get_or_create(staff=staff)
+    
+    if request.method == 'POST':
+        basic_salary_str = request.POST.get('basic_salary', '0')
+        if basic_salary_str:
+            basic_salary = Decimal(basic_salary_str)
+            salary_profile.basic_salary = basic_salary
+        
+        adjustment_str = request.POST.get('balance_adjustment', '0')
+        if adjustment_str:
+            adjustment = Decimal(adjustment_str)
+            salary_profile.salary_balance += adjustment
+        
+        salary_profile.save()
+        messages.success(request, f"Updated salary configuration for {staff.get_full_name()}.")
+        
+    return redirect('accounts:payroll-list')

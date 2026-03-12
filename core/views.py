@@ -719,6 +719,7 @@ def configurations(request):
         'academic_years': AcademicYear.objects.all().order_by('-start_date'),
         'terms': Term.objects.all().order_by('id'),
         'grades': Grade.objects.all().select_related('school').order_by('name', 'school__name'),
+        'classes': Class.objects.all().select_related('school', 'grade').order_by('grade__name', 'name'),
         'exams': Exam.objects.all().select_related('year', 'term').order_by('-year__start_date', 'term__name'),
         'exam_modes': ExamMode.objects.all().select_related('school'),
         'schools': School.objects.all(),
@@ -728,6 +729,7 @@ def configurations(request):
     context['academic_year_form'] = AcademicYearForm()
     context['term_form'] = TermForm()
     context['grade_form'] = GradeForm()
+    context['class_form'] = ClassForm()
     context['exam_form'] = ExamForm()
     context['exam_mode_form'] = ExamModeForm()
     
@@ -775,9 +777,25 @@ def create_grade(request):
         form = GradeForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Grade created successfully!')
+            messages.success(request, 'Grade level created successfully!')
         else:
-            messages.error(request, 'Error creating grade. Please check the form.')
+            messages.error(request, 'Error creating grade level. Please check the form.')
+    
+    return redirect('core:configurations')
+
+
+def create_class(request):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('core:configurations')
+    
+    if request.method == 'POST':
+        form = ClassForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Class created successfully!')
+        else:
+            messages.error(request, f'Error creating class: {form.errors}')
     
     return redirect('core:configurations')
 
@@ -836,7 +854,12 @@ def delete_item(request, model_type, item_id):
             item = get_object_or_404(Grade, id=item_id)
             item_name = item.name
             item.delete()
-            messages.success(request, f'Grade "{item_name}" deleted successfully!')
+            messages.success(request, f'Grade level "{item_name}" deleted successfully!')
+        elif model_type == 'class':
+            item = get_object_or_404(Class, id=item_id)
+            item_name = item.name
+            item.delete()
+            messages.success(request, f'Class "{item_name}" deleted successfully!')
         elif model_type == 'exam':
             item = get_object_or_404(Exam, id=item_id)
             item_name = item.name
