@@ -1,0 +1,402 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ student.first_name }}'s Profile | Excel SMS{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 20px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+</style>
+{% endblock %}
+
+
+
+{% block content %}
+<!-- DASHBOARD HEADER: QUICK METRICS -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="bg-indigo-950/40 p-6 rounded-[2rem] shadow-xl border border-indigo-500/20 flex items-center gap-5 group hover:scale-[1.02] transition-transform cursor-default">
+        <div class="w-14 h-14 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+            <i class="fas fa-graduation-cap"></i>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Grade Avg</p>
+            <h3 class="text-2xl font-black text-indigo-100">{{ student_average|default:"0" }}%</h3>
+        </div>
+    </div>
+    
+    <div class="bg-rose-950/40 p-6 rounded-[2rem] shadow-xl border border-rose-500/20 flex items-center gap-5 group hover:scale-[1.02] transition-transform cursor-default">
+        <div class="w-14 h-14 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl group-hover:bg-rose-600 group-hover:text-white transition-colors">
+            <i class="fas fa-wallet"></i>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Fee Balance</p>
+            <h3 class="text-2xl font-black text-rose-400">KES {{ profile.fee_balance|default:"0" }}</h3>
+        </div>
+    </div>
+
+    <div class="bg-emerald-950/40 p-6 rounded-[2rem] shadow-xl border border-emerald-500/20 flex items-center gap-5 group hover:scale-[1.02] transition-transform cursor-default">
+        <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+            <i class="fas fa-money-check-dollar"></i>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Paid</p>
+            <h3 class="text-2xl font-black text-emerald-400">KES {{ total_paid|default:"0" }}</h3>
+        </div>
+    </div>
+
+    <div class="bg-amber-950/40 p-6 rounded-[2rem] shadow-xl border border-amber-500/20 flex items-center gap-5 group hover:scale-[1.02] transition-transform cursor-default">
+        <div class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl group-hover:bg-amber-600 group-hover:text-white transition-colors">
+            <i class="fas fa-shield-heart"></i>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Conduct Score</p>
+            <h3 class="text-2xl font-black text-amber-400">{{ discipline_score|default:100 }}%</h3>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    
+    <!-- LEFT COLUMN: IDENTITY & RADAR -->
+    <div class="lg:col-span-4 space-y-8">
+        <!-- Identity Card -->
+        <div class="bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-950 rounded-[2.5rem] shadow-2xl shadow-indigo-900/40 border border-slate-800 p-8 overflow-hidden relative">
+            <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500 rounded-full mix-blend-overlay filter blur-[60px] opacity-20"></div>
+            
+            <div class="relative z-10 flex flex-col items-center">
+                <div class="w-32 h-32 rounded-3xl border-4 border-white/10 shadow-2xl overflow-hidden mb-6 group relative">
+                    <img src="https://ui-avatars.com/api/?name={{ student.first_name }}+{{ student.last_name }}&size=200&background=4f46e5&color=fff" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-indigo-600/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                         <i class="fas fa-camera text-white text-2xl"></i>
+                    </div>
+                </div>
+                
+                <h2 class="text-2xl font-black text-white tracking-tight mb-2">{{ student.first_name }} {{ student.last_name }}</h2>
+                <div class="flex items-center gap-3 mb-6">
+                    <span class="px-3 py-1 bg-white/10 text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-widest">{{ student.adm_no }}</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active • {{ profile.class_id.name }}</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 w-full">
+                    <button class="py-3 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                        <i class="fas fa-envelope mr-2"></i> Message
+                    </button>
+                    <button class="py-3 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                        <i class="fas fa-phone mr-2"></i> Call
+                    </button>
+                    <a href="{% url 'core:student-report' student.id selected_exam.id %}" target="_blank" class="col-span-2 py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-900/40 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-file-pdf"></i>
+                        Print Report Card
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Radar Card -->
+        <div class="bg-slate-900/50 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-800">
+            <h3 class="text-lg font-black text-white tracking-tight mb-6 flex items-center gap-3">
+                <div class="w-2 h-6 bg-indigo-500 rounded-full"></div>
+                Subject Analysis
+            </h3>
+            <div class="h-64 relative">
+                <canvas id="subjectRadarChart"></canvas>
+            </div>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mt-6 italic">Multi-dimensional subject footprint</p>
+        </div>
+
+        <!-- Disciplinary Summary -->
+        <div class="bg-slate-900/50 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-800">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-black text-white tracking-tight">Incidents</h3>
+                <span class="px-3 py-1 bg-rose-500/10 text-rose-400 rounded-lg text-[10px] font-black border border-rose-500/20">{{ discipline_records.count }} Recorded</span>
+            </div>
+            <div class="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                {% for incident in discipline_records %}
+                <div class="p-4 bg-slate-800/40 rounded-2xl border border-slate-700/50 hover:border-rose-500/30 transition-all">
+                    <div class="flex items-center gap-3 mb-2">
+                         <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm
+                            {% if incident.severity == 'Minor' %}bg-amber-500/20 text-amber-400{% elif incident.severity == 'Moderate' %}bg-orange-500/20 text-orange-400{% else %}bg-rose-500/20 text-rose-400{% endif %}">
+                            <i class="fas {% if incident.severity == 'Minor' %}fa-exclamation{% elif incident.severity == 'Moderate' %}fa-exclamation-triangle{% else %}fa-skull{% endif %}"></i>
+                         </div>
+                         <span class="text-[10px] font-black uppercase text-slate-500">{{ incident.date|date:"d M Y" }}</span>
+                    </div>
+                    <p class="text-sm font-bold text-slate-300">{{ incident.description|truncatechars:100 }}</p>
+                </div>
+                {% empty %}
+                <div class="py-12 text-center">
+                    <div class="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-400/30">
+                         <i class="fas fa-shield-check text-3xl"></i>
+                    </div>
+                    <p class="text-xs font-bold text-emerald-500/60 uppercase tracking-widest">Clean disciplinary record</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT CONTENT: TABS & DATA -->
+    <div class="lg:col-span-8 space-y-8">
+        <!-- Academic Summary Card -->
+        <div class="bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 pb-8 border-b border-slate-800">
+                <div>
+                    <h3 class="text-2xl font-black text-white tracking-tight">Academic Scoreboard</h3>
+                    <p class="text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Selected Exam History</p>
+                </div>
+                <!-- Exam Switcher -->
+                <form method="GET" class="flex gap-2">
+                    <select name="exam_id" onchange="this.form.submit()" class="pl-4 pr-10 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 focus:ring-4 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer">
+                        {% for exam in all_exams %}
+                            <option value="{{ exam.id }}" {% if exam.id == selected_exam.id %}selected{% endif %}>{{ exam.name }} ({{ exam.year }})</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for score in exam_scores %}
+                <div class="group p-5 bg-slate-800/40 rounded-[1.5rem] border border-slate-700/50 hover:bg-slate-800 hover:border-indigo-500/30 transition-all duration-300">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-slate-900 rounded-xl shadow-sm flex items-center justify-center text-indigo-400 text-lg border border-slate-700 group-hover:scale-110 transition-transform">
+                                <i class="fas {% if 'Math' in score.subject.name %}fa-calculator{% elif 'Sci' in score.subject.name %}fa-atom{% elif 'Eng' in score.subject.name %}fa-language{% else %}fa-book{% endif %}"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-base font-black text-slate-100 tracking-tight">{{ score.subject.name }}</h4>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-black px-2 py-0.5 rounded
+                                        {% if score.grade == 'EE' %}bg-emerald-500/10 text-emerald-400
+                                        {% elif score.grade == 'ME' %}bg-sky-500/10 text-sky-400
+                                        {% elif score.grade == 'AE' %}bg-amber-500/10 text-amber-400
+                                        {% else %}bg-rose-500/10 text-rose-400{% endif %}">
+                                        {{ score.grade|default:"AE" }}
+                                    </span>
+                                    {% if score.score_diff is not None %}
+                                        <span class="text-[10px] font-black {% if score.score_diff > 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">
+                                            <i class="fas {% if score.score_diff > 0 %}fa-caret-up{% else %}fa-caret-down{% endif %}"></i> {{ score.abs_score_diff }}%
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xl font-black text-white">{{ score.score }}%</span>
+                        </div>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                        <div class="h-full bg-indigo-500 rounded-full transition-all duration-1000" style="width:{{ score.score }}%"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-2 py-20 text-center">
+                    <div class="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-700">
+                         <i class="fas fa-ghost text-4xl"></i>
+                    </div>
+                    <p class="text-sm font-bold text-slate-500 italic tracking-widest uppercase">No score records found</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <!-- Attendance Hub -->
+            <div id="attendance-hub" class="bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-800">
+                <div class="flex items-center justify-between mb-8">
+                    <h3 class="text-lg font-black text-white tracking-tight">Attendance Trend</h3>
+                    <div class="flex items-center gap-2">
+                        <a href="{{ prev_month_params }}#attendance-hub" class="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-700 hover:text-white transition-all"><i class="fas fa-chevron-left text-xs"></i></a>
+                        <span class="text-[10px] font-black uppercase text-slate-400 min-w-[80px] text-center">{{ current_month }}</span>
+                        {% if next_month_params %}
+                        <a href="{{ next_month_params }}#attendance-hub" class="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-700 hover:text-white transition-all"><i class="fas fa-chevron-right text-xs"></i></a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-7 gap-2 mb-8">
+                    {% for day in "SMTWTFS" %}
+                        <div class="text-center text-[10px] font-black text-slate-600 uppercase pb-2">{{ day }}</div>
+                    {% endfor %}
+                    {% for day_data in calendar_data %}
+                        <div class="aspect-square rounded-xl flex items-center justify-center text-[10px] font-black transition-all cursor-default relative group
+                            {% if day_data.status == 'Present' %}bg-emerald-500 text-white shadow-xl shadow-emerald-500/20
+                            {% elif day_data.status == 'Late' %}bg-amber-500 text-white shadow-xl shadow-amber-500/20
+                            {% elif day_data.status == 'Absent' %}bg-rose-500 text-white shadow-xl shadow-rose-500/20
+                            {% else %}bg-slate-800/50 text-slate-600 border border-slate-700/30 hover:bg-slate-800{% endif %}">
+                            {{ day_data.day }}
+                            {% if day_data.status %}
+                            <div class="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1 bg-slate-950 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 border border-slate-800 shadow-2xl">
+                                {{ day_data.status }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="flex items-center justify-between p-4 bg-sky-500/10 rounded-2xl border border-sky-500/20">
+                    <div class="flex items-center gap-4">
+                         <div class="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center text-lg">
+                            <i class="fas fa-percentage"></i>
+                         </div>
+                         <div>
+                            <p class="text-[10px] font-black text-sky-400 uppercase tracking-widest">Monthly Avg</p>
+                            <h4 class="text-lg font-black text-sky-100">{{ attendance_percentage }}%</h4>
+                         </div>
+                    </div>
+                    <div class="text-xs font-black text-sky-400 bg-sky-950 px-3 py-1 rounded-lg border border-sky-800">EXCELLENT</div>
+                </div>
+            </div>
+
+            <!-- Financial Hub -->
+            <div id="financial-hub" class="bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-800">
+                <h3 class="text-lg font-black text-white tracking-tight mb-8">Recent Payments</h3>
+                <div class="space-y-4">
+                    {% for payment in payments|slice:":4" %}
+                    <div class="flex items-center justify-between p-4 bg-slate-800/40 rounded-2xl border border-transparent hover:border-emerald-500/30 transition-all group">
+                         <div class="flex items-center gap-4">
+                             <div class="w-10 h-10 rounded-xl bg-slate-900 text-emerald-400 shadow-sm flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all border border-slate-700">
+                                 <i class="fas fa-check"></i>
+                             </div>
+                             <div>
+                                 <p class="text-sm font-black text-slate-100 tracking-tight">KES {{ payment.amount|floatformat:0 }}</p>
+                                 <p class="text-[10px] font-bold text-slate-500 uppercase">{{ payment.date_paid|date:"d M Y" }} • {{ payment.method }}</p>
+                             </div>
+                         </div>
+                         <i class="fas fa-chevron-right text-slate-600 text-xs"></i>
+                    </div>
+                    {% empty %}
+                    <div class="py-12 text-center">
+                        <i class="fas fa-receipt text-3xl text-slate-700 mb-4 block"></i>
+                        <p class="text-xs font-bold text-slate-600 uppercase">No payment history</p>
+                    </div>
+                    {% endfor %}
+                    
+                    <a href="#payments-list" class="block w-full py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-center hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20">
+                        View Full History
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Transaction History -->
+        <div id="payments-list" class="bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-800">
+            <div class="flex items-center justify-between mb-8">
+                <h3 class="text-xl font-black text-white tracking-tight">Payment Log</h3>
+                <button class="w-10 h-10 bg-slate-800 text-slate-500 rounded-xl hover:bg-slate-700 hover:text-white transition-all">
+                     <i class="fas fa-file-export text-xs"></i>
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-slate-800">
+                            <th class="py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Transaction</th>
+                            <th class="py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Method</th>
+                            <th class="py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Amount</th>
+                            <th class="py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        {% for payment in payments %}
+                        <tr class="group hover:bg-slate-800/30 transition-colors">
+                            <td class="py-5">
+                                <p class="text-xs font-black text-slate-100">{{ payment.date_paid|date:"M d, Y" }}</p>
+                                <p class="text-[9px] font-bold text-slate-500 uppercase font-mono tracking-tighter">{{ payment.reference|default:"TRX-SYSTEM" }}</p>
+                            </td>
+                            <td class="py-5">
+                                <span class="px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-black text-slate-400 uppercase">{{ payment.method }}</span>
+                            </td>
+                            <td class="py-5 text-right font-black text-slate-200 text-sm">KES {{ payment.amount|floatformat:2 }}</td>
+                            <td class="py-5 text-right font-black text-sm {% if payment.current_balance > 0 %}text-rose-400{% else %}text-emerald-400{% endif %}">
+                                {{ payment.current_balance|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // FORCE DARK MODE FOR DASHBOARD
+    document.documentElement.classList.add('dark');
+
+    // PERFORMANCE RADAR CHART (DARK THEME)
+    const radarCtx = document.getElementById('subjectRadarChart').getContext('2d');
+    new Chart(radarCtx, {
+        type: 'radar',
+        data: {
+            labels: JSON.parse('{{ subject_names_json|safe }}'),
+            datasets: [{
+                label: 'Performance Footprint',
+                data: JSON.parse('{{ subject_values_json|safe }}'),
+                backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                borderColor: '#818cf8',
+                borderWidth: 3,
+                pointBackgroundColor: '#818cf8',
+                pointBorderColor: '#020617',
+                pointHoverBackgroundColor: '#020617',
+                pointHoverBorderColor: '#818cf8',
+                pointRadius: 4,
+                tension: 0.1
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    angleLines: { display: true, color: 'rgba(255,255,255,0.05)' },
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    suggestedMin: 0,
+                    suggestedMax: 100,
+                    ticks: { display: false, stepSize: 20 },
+                    pointLabels: {
+                        font: { size: 10, family: "'Outfit', sans-serif", weight: '600' },
+                        color: '#94a3b8'
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    padding: 12,
+                    titleFont: { size: 12, weight: '700' },
+                    bodyFont: { size: 10, weight: '600' },
+                    cornerRadius: 12,
+                    displayColors: false
+                }
+            }
+        }
+    });
+
+    // Doughnut Chart Logic (DARK THEME)
+    const ctxPerformance = document.getElementById('performanceChart')?.getContext('2d');
+    if (ctxPerformance) {
+        new Chart(ctxPerformance, {
+            type: 'doughnut',
+            data: {
+                labels: ['Exams', 'Attendance', 'Discipline'],
+                datasets: [{
+                    data: [Number("{{ student_average|default:'0' }}"), Number("{{ attendance_percentage|default:'0' }}"), Number("{{ discipline_score|default:'100' }}")],
+                    backgroundColor: ['#6366f1', '#fbbf24', '#f87171'],
+                    borderWidth: 0,
+                    spacing: 5,
+                    cutout: '80%'
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+</script>
+{% endblock %}

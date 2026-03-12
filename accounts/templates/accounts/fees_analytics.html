@@ -1,0 +1,362 @@
+{% extends 'base.html' %}
+
+{% block title %}Fees Analytics | Excel SMS{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stat-card {
+        @apply bg-slate-900/50 backdrop-blur-xl rounded-[2rem] p-6 shadow-2xl border border-slate-800 transition-all hover:scale-[1.02] hover:border-indigo-500/30;
+    }
+    .filter-input {
+        @apply w-full pl-4 pr-10 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none cursor-pointer placeholder:text-slate-600;
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between mb-2">
+    <div>
+        <h1 class="text-3xl font-black text-white tracking-tight">Financial Analytics</h1>
+        <p class="text-slate-500 mt-1 text-xs font-bold uppercase tracking-widest">Revenue & Collection Reports</p>
+    </div>
+    <div class="flex items-center gap-4">
+        <span class="px-4 py-2 bg-indigo-500/10 text-indigo-400 rounded-xl font-black text-[10px] uppercase tracking-widest border border-indigo-500/20 shadow-sm">
+            <i class="fas fa-circle text-[6px] mr-2 animate-pulse"></i> Live Reports
+        </span>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <!-- Main Content Area -->
+    <div class="lg:col-span-9 space-y-10">
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-indigo-950/40 p-6 rounded-[2rem] shadow-xl border border-indigo-500/20 flex items-center gap-5 group hover:scale-[1.02] transition-all cursor-default relative overflow-hidden">
+                <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-colors"></div>
+                <div class="w-14 h-14 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors relative z-10">
+                    <i class="fas fa-hand-holding-usd"></i>
+                </div>
+                <div class="relative z-10 flex-grow">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Collected</p>
+                        <span class="text-[9px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">+12.5%</span>
+                    </div>
+                    <h3 class="text-2xl font-black text-indigo-100 tracking-tight">KSh {{ total_collected|floatformat:0 }}</h3>
+                </div>
+            </div>
+
+            <div class="bg-rose-950/40 p-6 rounded-[2rem] shadow-xl border border-rose-500/20 flex items-center gap-5 group hover:scale-[1.02] transition-all cursor-default relative overflow-hidden">
+                <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl group-hover:bg-rose-500/10 transition-colors"></div>
+                <div class="w-14 h-14 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl group-hover:bg-rose-600 group-hover:text-white transition-colors relative z-10">
+                    <i class="fas fa-receipt"></i>
+                </div>
+                <div class="relative z-10">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Invoiced</p>
+                    <h3 class="text-2xl font-black text-rose-100 tracking-tight">KSh {{ total_invoiced|floatformat:0 }}</h3>
+                </div>
+            </div>
+
+            <div class="bg-amber-950/40 p-6 rounded-[2rem] shadow-xl border border-amber-500/20 flex items-center gap-5 group hover:scale-[1.02] transition-all cursor-default relative overflow-hidden">
+                <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-colors"></div>
+                <div class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl group-hover:bg-amber-600 group-hover:text-white transition-colors relative z-10">
+                    <i class="fas fa-hourglass-half"></i>
+                </div>
+                <div class="relative z-10">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Outstanding Balance</p>
+                    <h3 class="text-2xl font-black text-amber-100 tracking-tight">KSh {{ pending_balance|floatformat:0 }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            <!-- DONUT: Distribution per School -->
+            <div class="xl:col-span-5 bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-800 relative overflow-hidden group">
+                <!-- Visual Background Accents -->
+                <div class="absolute -right-20 -top-20 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl"></div>
+                <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-emerald-600/5 rounded-full blur-3xl"></div>
+                
+                <div class="relative">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 class="text-lg font-black text-white tracking-tight">Collection by School</h3>
+                            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Institutions Performance</p>
+                        </div>
+                        <div class="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-indigo-400 transition-colors">
+                            <i class="fas fa-chart-pie text-sm"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="relative h-64 flex items-center justify-center">
+                        <canvas id="schoolChart"></canvas>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span class="text-3xl font-black text-white leading-none">{{ school_distribution.0.percentage|floatformat:0|default:"0" }}%</span>
+                            <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-2 px-3 py-1 bg-white/5 rounded-full">Top Performer</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 space-y-4" id="schoolLegend">
+                        <!-- Dynamic Legend with Dark Styling -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- LINE: Monthly Trends -->
+            <div class="xl:col-span-7 bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-800">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 class="text-lg font-black text-white tracking-tight">Payment Trends</h3>
+                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Last 6 Months Revenue</p>
+                    </div>
+                    <div class="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/5">
+                        <span class="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-[0_0_10px_#6366f1]"></span>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-tight">Monthly Total</span>
+                    </div>
+                </div>
+                <div class="h-80">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Sidebar Filter Panel -->
+    <div class="lg:col-span-3 lg:sticky lg:top-8 space-y-8">
+        <div class="bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-slate-800">
+            <h3 class="text-lg font-black text-white mb-6 tracking-tight flex items-center gap-3">
+                <i class="fas fa-sliders-h text-indigo-500 text-sm"></i>
+                Filter Reports
+            </h3>
+            
+            <form method="get" class="space-y-6">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">School Campus</label>
+                    <div class="relative group">
+                        <select name="school" class="w-full pl-4 pr-12 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                            <option value="">All Schools</option>
+                            {% for school in schools %}
+                            <option value="{{ school.id }}" {% if selected_school == school.id|stringformat:"s" %}selected{% endif %}>{{ school.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <i class="fas fa-school absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 group-hover:text-indigo-500 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Start Date</label>
+                    <div class="relative group">
+                        <input type="date" name="date_from" value="{{ date_from }}" class="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
+                        <i class="fas fa-calendar-alt absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 group-hover:text-indigo-500 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">End Date</label>
+                    <div class="relative group">
+                        <input type="date" name="date_to" value="{{ date_to }}" class="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
+                        <i class="fas fa-calendar-alt absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 group-hover:text-indigo-500 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Balance Type</label>
+                    <div class="relative group">
+                        <select name="balance" class="w-full pl-4 pr-12 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                            <option value="">All Balances</option>
+                            <option value="positive" {% if selected_balance == 'positive' %}selected{% endif %}>In Arrears</option>
+                            <option value="negative" {% if selected_balance == 'negative' %}selected{% endif %}>In Credit</option>
+                            <option value="zero" {% if selected_balance == 'zero' %}selected{% endif %}>Fully Cleared</option>
+                        </select>
+                        <i class="fas fa-wallet absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 group-hover:text-indigo-500 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-3 pt-4">
+                    <button type="submit" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-900/40 hover:bg-indigo-700 transition-all active:scale-95">
+                        Apply Filters
+                    </button>
+                    <a href="{% url 'accounts:fees-analytics' %}" class="w-full py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-[10px] text-center uppercase tracking-widest hover:bg-slate-700 transition-all">
+                        Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Target Student KPI on Right -->
+        <div class="bg-indigo-600/20 backdrop-blur-xl rounded-[2.5rem] p-8 text-white shadow-2xl border border-indigo-500/20 relative overflow-hidden group">
+            <i class="fas fa-users absolute -right-4 -bottom-4 text-8xl text-indigo-500/10 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+            <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Target Population</p>
+            <h3 class="text-4xl font-black text-white tracking-tight">{{ student_count }}</h3>
+            <p class="text-[10px] text-emerald-400 font-bold mt-4 uppercase tracking-widest leading-none">
+                <i class="fas fa-check-circle mr-1"></i> Enrolled Students
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Balance Distribution Mixed Stats -->
+<div class="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+    <div class="bg-indigo-600/20 backdrop-blur-xl rounded-[2.5rem] p-8 text-white shadow-2xl border border-indigo-500/20 relative overflow-hidden group">
+        <i class="fas fa-check-circle absolute -right-4 -bottom-4 text-8xl text-indigo-400/10 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+        <h4 class="text-xs font-black uppercase tracking-[0.2em] mb-4 text-indigo-400">Cleared Students</h4>
+        <div class="space-y-1">
+            <div class="flex items-baseline gap-2">
+                <span class="text-5xl font-black text-white">{{ zero_bal_count }}</span>
+                <span class="text-sm font-black text-indigo-400/60">Students</span>
+            </div>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fully paid all invoices</p>
+        </div>
+        <div class="mt-8 flex items-center justify-between">
+            <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex-grow mr-4">
+                <div class="h-full bg-indigo-500 rounded-full shadow-[0_0_10px_#6366f1]" style="width: {{ zero_bal_pct }}%"></div>
+            </div>
+            <span class="text-[10px] font-black text-indigo-400">{{ zero_bal_pct|floatformat:0 }}%</span>
+        </div>
+    </div>
+
+    <div class="bg-rose-600/20 backdrop-blur-xl rounded-[2.5rem] p-8 text-white shadow-2xl border border-rose-500/20 relative overflow-hidden group">
+        <i class="fas fa-exclamation-triangle absolute -right-4 -bottom-4 text-8xl text-rose-400/10 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+        <h4 class="text-xs font-black uppercase tracking-[0.2em] mb-4 text-rose-400">Positive Balance</h4>
+        <div class="space-y-4">
+            <div class="flex items-baseline gap-2">
+                <span class="text-5xl font-black text-rose-400">{{ pos_bal_count }}</span>
+                <span class="text-sm font-black text-rose-400/60">To Collect</span>
+            </div>
+            <div class="flex flex-col">
+                <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Total Arrears</span>
+                <span class="text-xl font-black tracking-tight text-white">KSh {{ pos_bal_sum|floatformat:0 }}</span>
+            </div>
+        </div>
+        <div class="mt-8 flex items-center justify-between">
+            <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex-grow mr-4">
+                <div class="h-full bg-rose-500 rounded-full shadow-[0_0_10px_#f43f5e]" style="width: {{ pos_bal_pct }}%"></div>
+            </div>
+            <span class="text-[10px] font-black text-rose-400">{{ pos_bal_pct|floatformat:0 }}%</span>
+        </div>
+    </div>
+
+    <div class="bg-emerald-600/20 backdrop-blur-xl rounded-[2.5rem] p-8 text-white shadow-2xl border border-emerald-500/20 relative overflow-hidden group">
+        <i class="fas fa-coins absolute -right-4 -bottom-4 text-8xl text-emerald-400/10 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+        <h4 class="text-xs font-black uppercase tracking-[0.2em] mb-4 text-emerald-400">Credit Balances</h4>
+        <div class="space-y-4">
+            <div class="flex items-baseline gap-2">
+                <span class="text-5xl font-black text-emerald-400">{{ neg_bal_count }}</span>
+                <span class="text-sm font-black text-emerald-400/60">Overpaid</span>
+            </div>
+            <div class="flex flex-col">
+                <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Refundable/Advance</span>
+                <span class="text-xl font-black tracking-tight text-white">KSh {{ neg_bal_sum|floatformat:0|cut:"-" }}</span>
+            </div>
+        </div>
+        <div class="mt-8 flex items-center justify-between">
+            <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex-grow mr-4">
+                <div class="h-full bg-emerald-500 rounded-full shadow-[0_0_10px_#10b981]" style="width: {{ neg_bal_pct }}%"></div>
+            </div>
+            <span class="text-[10px] font-black text-emerald-400">{{ neg_bal_pct|floatformat:0 }}%</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.documentElement.classList.add('dark');
+    
+    // Check if data exists to avoid JS errors
+    const schoolData = {{ school_distribution_json|safe|default:"[]" }};
+    const trendData = {{ monthly_trends_json|safe|default:"[]" }};
+
+    // Donut Chart: Collection by School
+    const ctxSchool = document.getElementById('schoolChart').getContext('2d');
+    if (schoolData.length > 0) {
+        new Chart(ctxSchool, {
+            type: 'doughnut',
+            data: {
+                labels: schoolData.map(d => d.name),
+                datasets: [{
+                    data: schoolData.map(d => d.total),
+                    backgroundColor: ['#6366f1', '#fbbf24', '#f87171', '#10b981', '#3b82f6'],
+                    borderWidth: 0,
+                    spacing: 4,
+                    cutout: '80%'
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Populate Custom Legend (Dark Theme)
+        const legendEl = document.getElementById('schoolLegend');
+        const colors = ['#818cf8', '#fbbf24', '#f87171', '#34d399', '#60a5fa'];
+        legendEl.innerHTML = '';
+        schoolData.forEach((d, i) => {
+            legendEl.innerHTML += `
+                <div class="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors group/item">
+                    <div class="flex items-center gap-3">
+                        <span class="w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]" style="background: ${colors[i % colors.length]}"></span>
+                        <span class="text-[11px] font-bold text-slate-400 group-hover/item:text-white transition-colors uppercase tracking-tight">${d.name}</span>
+                    </div>
+                    <span class="text-[11px] font-black text-white tracking-tight">KSh ${d.total.toLocaleString()}</span>
+                </div>
+            `;
+        });
+    }
+
+    // Line Chart: Trends
+    const ctxTrend = document.getElementById('trendChart').getContext('2d');
+    if (trendData.length > 0) {
+        const gradient = ctxTrend.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+        gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+        new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+                labels: trendData.map(d => d.month),
+                datasets: [{
+                    label: 'Collection',
+                    data: trendData.map(d => d.total),
+                    borderColor: '#6366f1',
+                    borderWidth: 4,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#6366f1',
+                    pointBorderWidth: 3,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    fill: true,
+                    backgroundColor: gradient,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0f172a',
+                        titleFont: { family: 'Outfit', size: 13, weight: 'bold' },
+                        bodyFont: { family: 'Outfit', size: 12 },
+                        padding: 12,
+                        cornerRadius: 12,
+                        displayColors: false
+                    }
+                },
+                scales: {
+                    y: { 
+                        grid: { color: 'rgba(255, 255, 255, 0.05)', borderDash: [5, 5] },
+                        ticks: { font: { family: 'Outfit', size: 10, weight: '700' }, color: '#64748b' }
+                    },
+                    x: { 
+                        grid: { display: false }, 
+                        ticks: { font: { family: 'Outfit', size: 10, weight: '700' }, color: '#64748b' } 
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

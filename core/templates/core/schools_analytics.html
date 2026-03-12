@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Schools Analytics | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight">Schools Analytics</h1>
+        <p class="text-slate-500 mt-1 font-medium">Comparative performance analysis across schools and classes.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Filter Section -->
+    <div class="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100">
+        <form method="get" class="flex flex-col md:flex-row gap-6 items-end">
+            <div class="w-full md:w-1/3 space-y-2">
+                <label for="grade" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Grade</label>
+                <div class="relative">
+                    <select name="grade" id="grade" class="w-full pl-6 pr-12 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer" required>
+                        <option value="">-- Select Grade --</option>
+                        {% for grade_name in grade_choices %}
+                            <option value="{{ grade_name }}" {% if selected_grade_name == grade_name %}selected{% endif %}>
+                                {{ grade_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-colors text-xs"></i>
+                </div>
+            </div>
+            
+            <button type="submit" class="h-14 px-8 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/20 active:scale-95 transition-all">
+                Analyze
+            </button>
+        </form>
+    </div>
+
+    <!-- Results Section -->
+    {% if selected_grade_name %}
+        {% if analytics_data %}
+            <div class="space-y-12">
+            {% for data in analytics_data %}
+                <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 p-6 text-center border-b border-slate-200">
+                        <h2 class="text-xl font-black text-slate-800 uppercase tracking-widest">{{ selected_grade_name }} {{ data.exam.term.name|upper }} ANALYSIS</h2>
+                        <h3 class="text-md font-bold text-slate-600 mt-2 uppercase tracking-wide">{{ data.exam.name|upper }}</h3>
+                    </div>
+                    <div class="overflow-x-auto p-6">
+                        <table class="w-full text-center border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 border-b-2 border-slate-300">
+                                    <th class="py-4 px-6 text-left text-xs font-black text-slate-700 uppercase tracking-widest border-r border-slate-300">Class / School</th>
+                                    {% for subject in data.subjects %}
+                                        <th class="py-4 px-4 text-xs font-black text-slate-700 uppercase tracking-widest border-r border-slate-300 min-w-[80px]">{{ subject.name|upper|truncatechars:10|slice:":-3" }}</th>
+                                    {% endfor %}
+                                    <th class="py-4 px-6 text-xs font-black text-indigo-700 uppercase tracking-widest">Totals</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                {% for row in data.class_rows %}
+                                    <tr class="hover:bg-slate-50 transition-colors border-b border-slate-200">
+                                        <td class="py-4 px-6 text-left font-bold text-slate-800 text-sm border-r border-slate-200 whitespace-nowrap">
+                                            {{ row.class_name|upper }} <span class="text-slate-400 text-xs">({{ row.school_name|upper }})</span>
+                                        </td>
+                                        {% for score in row.scores %}
+                                            <td class="py-4 px-4 font-medium text-sm border-r border-slate-200 relative {% if score.is_highest %}text-indigo-700 font-black bg-indigo-50/50{% else %}text-slate-700{% endif %}">
+                                                {{ score.value|default:"-" }}
+                                                {% if score.is_highest %}
+                                                <i class="fas fa-crown text-amber-500 absolute top-2 right-2 text-[10px] drop-shadow-sm" title="Highest Score"></i>
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                        <td class="py-4 px-6 font-black text-sm text-indigo-600">{{ row.total_mean|default:"0.00" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <div class="bg-white rounded-[2rem] p-16 shadow-sm border border-slate-100 text-center">
+                <div class="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <h3 class="text-xl font-black text-slate-900 tracking-tight">No Data Available</h3>
+                <p class="text-slate-500 font-medium mt-2 max-w-sm mx-auto">We couldn't find any exam scores for the selected grade across all schools.</p>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="bg-white rounded-[2rem] p-16 shadow-sm border border-slate-100 text-center relative overflow-hidden group">
+            <i class="fas fa-chart-pie absolute -right-10 -bottom-10 text-9xl text-slate-50 rotate-12 group-hover:scale-110 transition-transform duration-700"></i>
+            <h3 class="text-xl font-black text-slate-900 tracking-tight relative z-10">Select a Grade</h3>
+            <p class="text-slate-500 font-medium mt-2 max-w-sm mx-auto relative z-10">Please select a grade from the dropdown above to view the schools analytics and comparative performance.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

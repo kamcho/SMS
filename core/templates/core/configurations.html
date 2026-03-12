@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+
+{% block title %}Configurations | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center gap-4">
+    <div>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">System Configurations</h1>
+        <p class="text-slate-500 mt-1 font-medium">Manage academic years, terms, grades, exams, and exam modes</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    
+    <!-- Academic Years Section -->
+    <div class="glass-card">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-calendar-alt text-indigo-500"></i>
+                Academic Years
+            </h3>
+            <button class="btn btn-primary text-sm" onclick="toggleForm('academic-year-form')">
+                <i class="fas fa-plus"></i> Add Year
+            </button>
+        </div>
+        
+        <div id="academic-year-form" class="hidden mb-6 p-4 bg-slate-50 rounded-2xl">
+            <form method="post" action="{% url 'core:create-academic-year' %}">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {{ academic_year_form.name }}
+                    {{ academic_year_form.start_date }}
+                    {{ academic_year_form.end_date }}
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">Create</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleForm('academic-year-form')">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="space-y-3">
+            {% for year in academic_years %}
+                <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
+                    <div>
+                        <h4 class="font-bold text-slate-800">Academic Year {{ year.start_date|date:"Y" }}</h4>
+                        <p class="text-xs text-slate-500">{{ year.start_date|date:"M d, Y" }} - {{ year.end_date|date:"M d, Y" }}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <form method="post" action="{% url 'core:delete-item' 'academic_year' year.id %}" onsubmit="return confirm('Are you sure you want to delete this academic year?')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-red-500 hover:text-red-700">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-slate-400 text-center py-8">No academic years configured yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Terms Section -->
+    <div class="glass-card">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-layer-group text-indigo-500"></i>
+                Terms
+            </h3>
+            <button class="btn btn-primary text-sm" onclick="toggleForm('term-form')">
+                <i class="fas fa-plus"></i> Add Term
+            </button>
+        </div>
+        
+        <div id="term-form" class="hidden mb-6 p-4 bg-slate-50 rounded-2xl">
+            <form method="post" action="{% url 'core:create-term' %}">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 gap-4">
+                    {{ term_form.name }}
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">Create</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleForm('term-form')">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="space-y-3">
+            {% for term in terms %}
+                <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
+                    <div>
+                        <h4 class="font-bold text-slate-800">{{ term.name }}</h4>
+                    </div>
+                    <div class="flex gap-2">
+                        <form method="post" action="{% url 'core:delete-item' 'term' term.id %}" onsubmit="return confirm('Are you sure you want to delete this term?')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-red-500 hover:text-red-700">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-slate-400 text-center py-8">No terms configured yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Grades Section -->
+    <div class="glass-card">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-graduation-cap text-indigo-500"></i>
+                Grades
+            </h3>
+            <button class="btn btn-primary text-sm" onclick="toggleForm('grade-form')">
+                <i class="fas fa-plus"></i> Add Grade
+            </button>
+        </div>
+        
+        <div id="grade-form" class="hidden mb-6 p-4 bg-slate-50 rounded-2xl">
+            <form method="post" action="{% url 'core:create-grade' %}">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {{ grade_form.name }}
+                    {{ grade_form.school }}
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">Create</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleForm('grade-form')">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        {% regroup grades by name as grade_list %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {% for g in grade_list %}
+                <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all border-b-4 border-b-slate-50 hover:border-b-indigo-500">
+                    <h4 class="text-sm font-black text-slate-900 mb-4 uppercase tracking-widest flex items-center gap-2">
+                        <div class="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
+                        {{ g.grouper }}
+                    </h4>
+                    <div class="space-y-3">
+                        {% for item in g.list %}
+                            <div class="flex items-center justify-between group/grade">
+                                <span class="text-[10px] font-bold text-slate-500 group-hover/grade:text-indigo-600 transition-colors">{{ item.school.name }}</span>
+                                <form method="post" action="{% url 'core:delete-item' 'grade' item.id %}" onsubmit="return confirm('Are you sure you want to delete this grade for {{ item.school.name }}?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover/grade:opacity-100">
+                                        <i class="fas fa-times text-[9px]"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-slate-400 text-center py-8 col-span-full">No grades configured yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Exams Section -->
+    <div class="glass-card">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-file-alt text-indigo-500"></i>
+                Exams
+            </h3>
+            <button class="btn btn-primary text-sm" onclick="toggleForm('exam-form')">
+                <i class="fas fa-plus"></i> Add Exam
+            </button>
+        </div>
+        
+        <div id="exam-form" class="hidden mb-6 p-4 bg-slate-50 rounded-2xl">
+            <form method="post" action="{% url 'core:create-exam' %}">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {{ exam_form.name }}
+                    {{ exam_form.year }}
+                    {{ exam_form.term }}
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">Create</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleForm('exam-form')">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="space-y-3">
+            {% for exam in exams %}
+                <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
+                    <div>
+                        <small>{{ exam.year.start_date|date:"Y" }} - {{ exam.year.end_date|date:"Y" }}</small>
+                        <h4 class="font-bold text-slate-800">{{ exam.name }}</h4>
+                        <p class="text-xs text-slate-500">{{ exam.term.name }}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <form method="post" action="{% url 'core:delete-item' 'exam' exam.id %}" onsubmit="return confirm('Are you sure you want to delete this exam?')">
+                            {% csrf_token %}
+                            <button type="submit" class="text-red-500 hover:text-red-700">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-slate-400 text-center py-8">No exams configured yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Exam Modes Section -->
+    <div class="glass-card lg:col-span-2">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-toggle-on text-indigo-500"></i>
+                Exam Modes
+            </h3>
+            <button class="btn btn-primary text-sm" onclick="toggleForm('exam-mode-form')">
+                <i class="fas fa-plus"></i> Add Exam Mode
+            </button>
+        </div>
+        
+        <div id="exam-mode-form" class="hidden mb-6 p-4 bg-slate-50 rounded-2xl">
+            <form method="post" >
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {{ exam_mode_form.school }}
+                    <div class="flex items-center gap-3">
+                        {{ exam_mode_form.active }}
+                        <label for="{{ exam_mode_form.active.id_for_label }}" class="text-sm font-medium text-slate-700">
+                            Active
+                        </label>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">Create</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleForm('exam-mode-form')">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for exam_mode in exam_modes %}
+                <div class="p-4 bg-white border border-slate-200 rounded-xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-bold text-slate-800">{{ exam_mode.school.name }}</h4>
+                        <span class="px-2 py-1 text-xs rounded-full {% if exam_mode.active %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                            {% if exam_mode.active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="btn btn-sm btn-info" onclick="editExamMode({{ exam_mode.id }})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <form method="post" action="{% url 'core:delete-item' 'exam_mode' exam_mode.id %}" onsubmit="return confirm('Are you sure you want to delete this exam mode?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-slate-400 text-center py-8 md:col-span-2 lg:col-span-3">No exam modes configured yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<style>
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-danger {
+    background-color: #dc2626;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #b91c1c;
+}
+
+.btn-secondary {
+    background-color: #6b7280;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #4b5563;
+}
+</style>
+
+<script>
+function toggleForm(formId) {
+    const form = document.getElementById(formId);
+    form.classList.toggle('hidden');
+}
+
+function editExamMode(examModeId) {
+    // This would typically open a modal or navigate to an edit page
+    // For now, we'll just show an alert
+    alert('Edit functionality would be implemented here for exam mode ID: ' + examModeId);
+}
+
+// Auto-hide forms after successful submission
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if there are success messages and hide forms
+    {% if messages %}
+        {% for message in messages %}
+            {% if message.tags == 'success' %}
+                document.querySelectorAll('[id$="-form"]').forEach(form => {
+                    form.classList.add('hidden');
+                });
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+});
+</script>
+{% endblock %}

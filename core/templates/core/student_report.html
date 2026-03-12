@@ -1,0 +1,204 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Card - {{ student.first_name }} {{ student.last_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
+        
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            background-color: #f3f4f6;
+            color: #1a1a1a;
+        }
+
+        @media print {
+            body { background-color: white; margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+            .report-container { 
+                box-shadow: none !important; 
+                margin: 0 !important; 
+                padding: 1cm !important;
+                width: 100% !important;
+                border: none !important;
+            }
+        }
+
+        .report-container {
+            max-width: 800px;
+            margin: 40px auto;
+            background: white;
+            padding: 60px;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .line-field {
+            border-bottom: 2px solid #000;
+            display: inline-block;
+            min-width: 300px;
+            padding-left: 10px;
+            font-weight: bold;
+        }
+
+        table.formal-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table.formal-table th, table.formal-table td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: center;
+        }
+
+        table.formal-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        .subject-column {
+            text-align: left !important;
+            width: 50%;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    
+    <!-- Controls -->
+    <div class="no-print max-w-[800px] mx-auto mb-6 flex justify-between items-center">
+        <button onclick="history.back()" class="text-blue-600 hover:underline flex items-center gap-2">
+            ← Back
+        </button>
+        <button onclick="window.print()" class="bg-black text-white px-6 py-2 rounded font-bold hover:bg-slate-800 transition-colors">
+            PRINT REPORT
+        </button>
+    </div>
+
+    <div class="report-container">
+        <!-- School Logo & Header -->
+        <div class="text-center mb-8">
+            <div class="inline-block mb-4">
+                <div class="w-32 h-32 border-4 border-slate-900 rounded-full flex items-center justify-center overflow-hidden bg-slate-50">
+                    {% if profile.school.logo %}
+                        <img src="{{ profile.school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
+                    {% else %}
+                        <span class="text-4xl font-black">EX</span>
+                    {% endif %}
+                </div>
+            </div>
+            <h1 class="text-2xl font-black uppercase mb-1">{{ profile.school.name|default:"EXCEL ACADEMY" }}</h1>
+            <h2 class="text-lg font-bold uppercase underline mb-1">
+                {{ exam.name|upper }} ASSESSMENT REPORT {{ exam.year.start_date.year }}
+            </h2>
+            <h3 class="text-md font-bold uppercase underline">{{ class_obj.grade.name|default:"UPPER PRIMARY"|upper }}</h3>
+        </div>
+
+        <!-- Learner Details -->
+        <div class="space-y-4 mb-8 text-sm">
+            <div>
+                <span class="uppercase font-bold">Learner's Name:</span>
+                <span class="line-field">{{ student.first_name }} {{ student.middle_name }} {{ student.last_name }}</span>
+            </div>
+            <div>
+                <span class="uppercase font-bold">Grade:</span>
+                <span class="line-field">{{ profile.class_id.name }}</span>
+            </div>
+            <div>
+                <span class="uppercase font-bold">Class-Manager:</span>
+                <span class="line-field">
+                    {% if profile.class_id.teacherclassprofile_set.first %}
+                        {{ profile.class_id.teacherclassprofile_set.first.user.get_full_name }}
+                    {% else %}
+                        ___________________________
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Performance Legend -->
+        <table class="formal-table mb-8 text-xs">
+            <tr>
+                <td class="font-bold">Performance level</td>
+                <td class="font-bold">EE</td>
+                <td class="font-bold">ME</td>
+                <td class="font-bold">AE</td>
+                <td class="font-bold">BE</td>
+            </tr>
+            <tr class="uppercase">
+                <td></td>
+                <td>Exceeding Expectation</td>
+                <td>Meeting Expectation</td>
+                <td>Approaching Expectation</td>
+                <td>Below Expectation</td>
+            </tr>
+        </table>
+
+        <!-- Results Table -->
+        <table class="formal-table mb-12">
+            <thead>
+                <tr>
+                    <th class="subject-column">Subject</th>
+                    <th>EE</th>
+                    <th>ME</th>
+                    <th>AE</th>
+                    <th>BE</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in subject_results %}
+                <tr>
+                    <td class="subject-column">{{ result.name|upper }}</td>
+                    <td class="text-xl checkmark-cell">{% if result.grade == 'EE' %}&#10003;{% endif %}</td>
+                    <td class="text-xl checkmark-cell">{% if result.grade == 'ME' %}&#10003;{% endif %}</td>
+                    <td class="text-xl checkmark-cell">{% if result.grade == 'AE' %}&#10003;{% endif %}</td>
+                    <td class="text-xl checkmark-cell">{% if result.grade == 'BE' %}&#10003;{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Footer Remarks -->
+        <div class="space-y-12 text-sm">
+            <div>
+                <p class="font-bold mb-4">Class-teacher's Remarks:</p>
+                <div class="border-b border-slate-400 w-full mb-4 h-6"></div>
+                <div class="border-b border-slate-400 w-full mb-4 h-6"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-12 mt-12 pb-8">
+                <div class="text-center">
+                    <div class="border-b-2 border-slate-900 w-full mb-2"></div>
+                    <p class="uppercase font-bold text-xs">Class Teacher Sig & Stamp</p>
+                </div>
+                <div class="text-center">
+                    <div class="border-b-2 border-slate-900 w-full mb-2"></div>
+                    <p class="uppercase font-bold text-xs">Headteacher Sig & Stamp</p>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-end gap-12 pt-4">
+                <div class="flex-1">
+                    <span class="font-bold">Closing Date:</span>
+                    <span class="border-b border-slate-400 min-w-[150px] inline-block ml-2"></span>
+                </div>
+                <div class="flex-1">
+                    <span class="font-bold">Opening Date:</span>
+                    <span class="border-b border-slate-400 min-w-[150px] inline-block ml-2"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-12 italic text-xs text-slate-400">
+            Page 1
+        </div>
+    </div>
+
+</body>
+</html>

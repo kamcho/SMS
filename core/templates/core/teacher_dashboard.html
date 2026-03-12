@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block title %}Teacher Dashboard | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight">Teacher Dashboard</h1>
+        <p class="text-slate-500 mt-1 font-medium">Welcome back, {{ request.user.first_name|default:request.user.email }}</p>
+    </div>
+    
+    <div class="flex items-center gap-3">
+        <div class="h-12 px-6 bg-white border border-slate-200 text-indigo-600 rounded-2xl flex items-center gap-3 shadow-sm">
+            <i class="fas fa-calendar-alt text-indigo-300"></i>
+            <span class="text-xs font-black uppercase tracking-widest">{% now "F d, Y" %}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Top Stats Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-indigo-100 relative overflow-hidden group">
+            <i class="fas fa-chalkboard absolute -right-4 -bottom-4 text-8xl text-indigo-500/30 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Total Classes</p>
+            <h3 class="text-5xl font-black leading-none">{{ total_classes }}</h3>
+        </div>
+
+        <div class="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
+            <i class="fas fa-user-graduate absolute -right-4 -bottom-4 text-8xl text-slate-50 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Total Students</p>
+            <h3 class="text-5xl font-black text-slate-900 leading-none">{{ total_students }}</h3>
+        </div>
+
+        <div class="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
+            <i class="fas fa-book-open absolute -right-4 -bottom-4 text-8xl text-slate-50 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Subjects Taught</p>
+            <h3 class="text-5xl font-black text-slate-900 leading-none">{{ assignments.count }}</h3>
+        </div>
+
+        <div class="bg-emerald-500 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-100 relative overflow-hidden group">
+            <i class="fas fa-check-circle absolute -right-4 -bottom-4 text-8xl text-emerald-400/30 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Active Status</p>
+            <h3 class="text-3xl font-black leading-none mt-2">Verified</h3>
+        </div>
+    </div>
+
+    <!-- Assigned Classes Grid -->
+    <div class="space-y-6">
+        <h2 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <div class="w-2 h-8 bg-indigo-600 rounded-full"></div>
+            My Assigned Classes & Subjects
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {% for assignment in assignments %}
+            <div class="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 hover:border-indigo-200 transition-all group animate-in fade-in slide-in-from-bottom-4 duration-500" style="animation-delay: {{ forloop.counter0|add:1 }}00ms">
+                <div class="flex items-start justify-between mb-8">
+                    <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500 shadow-sm">
+                        <i class="fas fa-users text-2xl"></i>
+                    </div>
+                    <span class="px-4 py-1.5 bg-slate-50 text-slate-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-100">
+                        {{ assignment.class_id.grade.name }}
+                    </span>
+                </div>
+
+                <div class="space-y-1 mb-8">
+                    <h4 class="text-2xl font-black text-slate-900 tracking-tight">{{ assignment.class_id.name }}</h4>
+                    <p class="text-sm font-bold text-indigo-500">{{ assignment.subject.name }}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-6 border-t border-slate-50">
+                    {% with target_exam=active_exam|default:latest_exam %}
+                        {% if target_exam %}
+                        <a href="{% url 'core:subject-exam-analytics' assignment.class_id.id assignment.subject.id target_exam.id %}" class="h-12 flex items-center justify-center bg-white border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 hover:border-slate-300 transition-all">
+                            Analytics
+                        </a>
+                        {% else %}
+                        <div class="h-12 flex items-center justify-center bg-slate-50 border border-slate-100 text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest">
+                            No Exams
+                        </div>
+                        {% endif %}
+                    {% endwith %}
+                    <button onclick="openScorePopup({{ assignment.class_id.id }}, {{ assignment.subject.id }})" class="h-12 flex items-center justify-center bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all">
+                        Record Marks
+                    </button>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+                <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 text-3xl mb-4">
+                    <i class="fas fa-user-slash"></i>
+                </div>
+                <h3 class="text-lg font-black text-slate-900">No Assignments Found</h3>
+                <p class="text-slate-400 text-sm font-medium mt-1">You haven't been assigned any subjects or classes yet.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal logic for score entry (Exam Selection) -->
+<div id="scoreModal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeScorePopup()"></div>
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl relative animate-in zoom-in duration-300">
+            <button onclick="closeScorePopup()" class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6 text-2xl">
+                    <i class="{% if active_exam %}fas fa-file-invoice{% else %}fas fa-exclamation-triangle text-rose-500{% endif %}"></i>
+                </div>
+                {% if active_exam %}
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight">Confirm Exam</h3>
+                    <p class="text-slate-500 font-medium text-sm mt-1">You are about to record marks for:<br><strong class="text-indigo-600">{{ active_exam.name }}</strong></p>
+                {% else %}
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight">Entry Disabled</h3>
+                    <p class="text-slate-500 font-medium text-sm mt-1">Exam score entry is currently disabled for your school. Please contact administration.</p>
+                {% endif %}
+            </div>
+
+            <div class="space-y-4">
+                <input type="hidden" id="modalClassId">
+                <input type="hidden" id="modalSubjectId">
+                
+                {% if active_exam %}
+                    <input type="hidden" id="modalExamSelect" value="{{ active_exam.id }}">
+
+                    <button onclick="goToScoreEntry()" class="w-full h-14 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] transition-all mt-4">
+                        Proceed to Recording
+                    </button>
+                {% else %}
+                    <button onclick="closeScorePopup()" class="w-full h-14 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-100 hover:bg-slate-800 transition-all mt-4">
+                        Close
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openScorePopup(classId, subjectId) {
+        document.getElementById('modalClassId').value = classId;
+        document.getElementById('modalSubjectId').value = subjectId;
+        document.getElementById('scoreModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeScorePopup() {
+        document.getElementById('scoreModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    function goToScoreEntry() {
+        const classId = document.getElementById('modalClassId').value;
+        const subjectId = document.getElementById('modalSubjectId').value;
+        const examId = document.getElementById('modalExamSelect').value;
+        
+        if (!examId) {
+            alert("Please select an exam first.");
+            return;
+        }
+
+        const baseUrl = "{% url 'Exam:score-entry' 0 0 0 %}";
+        const targetUrl = baseUrl.replace('0/0/0', `${classId}/${subjectId}/${examId}`);
+        window.location.href = targetUrl;
+    }
+</script>
+{% endblock %}

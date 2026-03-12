@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+{% load attendance_filters %}
+
+{% block title %}Mark Attendance | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight">Mark Attendance</h1>
+        <p class="text-slate-500 mt-1 font-medium">Record student attendance for classes</p>
+    </div>
+    <div class="flex items-center gap-3">
+        {% if selected_class and selected_date %}
+            <span class="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-black text-sm border border-indigo-100 shadow-sm">
+                {{ students.count }} Students
+            </span>
+            {% if existing_session %}
+                <span class="px-4 py-2 bg-amber-50 text-amber-700 rounded-xl font-black text-sm border border-amber-100 shadow-sm">
+                    <i class="fas fa-edit mr-2"></i>Editing Existing
+                </span>
+            {% else %}
+                <span class="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl font-black text-sm border border-emerald-100 shadow-sm">
+                    <i class="fas fa-plus mr-2"></i>New Session
+                </span>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Class Selection Form (only shown when no class_id is provided) -->
+{% if not selected_class %}
+<div class="glass-card mb-8">
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="select_class" value="1">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {{ form.class_id }}
+            {{ form.date }}
+            <div class="flex items-end">
+                <button type="submit" class="w-full h-12 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
+                    <i class="fas fa-users"></i>
+                    Load Students
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<!-- Attendance Marking Section -->
+{% if selected_class and selected_date %}
+<div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+    <div class="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+        <div>
+            <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-8 bg-indigo-600 rounded-full"></div>
+                {{ selected_class.name }} - {{ selected_date }}
+            </h3>
+            <p class="text-sm text-slate-600 mt-1">
+                {% if existing_session %}
+                    <i class="fas fa-clock-rotate-left text-amber-500 mr-2"></i>
+                    Previously marked by {{ existing_session.taken_by.get_full_name|default:existing_session.taken_by.email }} at {{ existing_session.created_at|date:"H:i" }}
+                {% else %}
+                    <i class="fas fa-calendar-plus text-emerald-500 mr-2"></i>
+                    New attendance session
+                {% endif %}
+            </p>
+            <div class="mt-2 px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-black inline-flex items-center gap-2">
+                <i class="fas fa-info-circle"></i>
+                Attendance can only be marked for today
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Quick Actions -->
+            <div class="flex gap-2">
+                <button type="button" onclick="selectAllStudents()" class="px-3 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-xs font-black hover:bg-emerald-200 transition-all">
+                    <i class="fas fa-check-square mr-1"></i>Select All
+                </button>
+                <button type="button" onclick="deselectAllStudents()" class="px-3 py-2 bg-rose-100 text-rose-700 rounded-xl text-xs font-black hover:bg-rose-200 transition-all">
+                    <i class="fas fa-times-square mr-1"></i>Deselect All
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <form method="post" id="attendanceSubmitForm">
+        {% csrf_token %}
+        <input type="hidden" name="class_id" value="{{ selected_class.id }}">
+        <input type="hidden" name="date" value="{{ selected_date }}">
+        <input type="hidden" name="submit_attendance" value="1">
+        
+        <div class="overflow-x-auto">
+            <table class="w-full divide-y divide-slate-100">
+                <thead class="bg-slate-50/50">
+                    <tr>
+                        <th class="px-6 py-4">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()" class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                        </th>
+                        <th class="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Admission No</th>
+                        <th class="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for student_profile in students %}
+                        {% with student_id=student_profile.student.id %}
+                        <tr class="hover:bg-slate-50/80 transition-colors">
+                            <td class="px-6 py-5 whitespace-nowrap">
+                                <input type="checkbox" 
+                                       name="selected_students" 
+                                       value="{{ student_id }}"
+                                       class="student-checkbox w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                                       {% if student_profile.student.id|should_be_checked:session %}checked{% endif %}>
+                            </td>
+                            <td class="px-6 py-5 whitespace-nowrap">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xs ring-4 ring-white shadow-sm">
+                                        {{ student_profile.student.first_name|first }}{{ student_profile.student.last_name|first }}
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-bold text-slate-800">
+                                            {{ student_profile.student.first_name }} 
+                                            {% if student_profile.student.middle_name %}{{ student_profile.student.middle_name }}{% endif %} 
+                                            {{ student_profile.student.last_name }}
+                                        </span>
+                                        <div class="text-[10px] text-slate-400 font-medium">
+                                            {% if student_profile.student.gender == 'male' %}Male{% else %}Female{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-5 whitespace-nowrap">
+                                <span class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-700">
+                                    {{ student_profile.student.adm_no }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-5 whitespace-nowrap text-center">
+                                {% with current_status=student_profile.student.id|get_attendance_status_value:session %}
+                                <select name="status_{{ student_id }}" 
+                                        class="w-32 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                                        onchange="updateStatusColor(this)">
+                                    <option value="Present" {% if current_status == 'Present' %}selected{% endif %}>Present</option>
+                                    <option value="Late" {% if current_status == 'Late' %}selected{% endif %}>Late</option>
+                                    <option value="Half Day" {% if current_status == 'Half Day' %}selected{% endif %}>Half Day</option>
+                                    <option value="Absent" {% if current_status == 'Absent' %}selected{% endif %}>Absent</option>
+                                </select>
+                                {% endwith %}
+                            </td>
+                            <td class="px-6 py-5 whitespace-nowrap">
+                                <input type="text" 
+                                       name="remarks_{{ student_id }}" 
+                                       value="{{ student_profile.student.id|get_attendance_remarks:session }}"
+                                       placeholder="Optional remarks"
+                                       class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all">
+                            </td>
+                        </tr>
+                        {% endwith %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-8 py-20 text-center">
+                                <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-200 text-4xl">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <p class="text-lg font-bold text-slate-400 italic">No students found in this class</p>
+                                <p class="text-sm text-slate-400 mt-2">Try selecting a different class or check if students have been enrolled.</p>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="p-8 border-t border-slate-100 bg-slate-50/30">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <input type="checkbox" id="markPresentChecked" checked class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                        <label for="markPresentChecked" class="cursor-pointer">Mark Selected as Present</label>
+                    </div>
+                    <div class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Present
+                    </div>
+                    <div class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <span class="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span> Late
+                    </div>
+                    <div class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span> Half Day
+                    </div>
+                    <div class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> Absent (Unselected)
+                    </div>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button type="button" onclick="window.location.href='{% url 'core:mark-attendance' selected_class.id %}'" class="h-12 px-6 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">
+                        Cancel
+                    </button>
+                    <button type="submit" class="h-12 px-8 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2">
+                        <i class="fas fa-save"></i>
+                        Save Attendance
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<style>
+.select-present {
+    border-color: #10b981 !important;
+    background-color: #f0fdf4 !important;
+}
+
+.select-late {
+    border-color: #8b5cf6 !important;
+    background-color: #faf5ff !important;
+}
+
+.select-absent {
+    border-color: #ef4444 !important;
+    background-color: #fef2f2 !important;
+}
+
+.select-halfday {
+    border-color: #f59e0b !important;
+    background-color: #fffbeb !important;
+}
+</style>
+
+<script>
+function updateStatusColor(select) {
+    // Remove all status classes
+    select.classList.remove('select-present', 'select-late', 'select-absent', 'select-halfday');
+    
+    // Add appropriate class based on selected value
+    switch(select.value) {
+        case 'Present':
+            select.classList.add('select-present');
+            break;
+        case 'Late':
+            select.classList.add('select-late');
+            break;
+        case 'Absent':
+            select.classList.add('select-absent');
+            break;
+        case 'Half Day':
+            select.classList.add('select-halfday');
+            break;
+    }
+}
+
+function selectAllStudents() {
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    document.getElementById('selectAllCheckbox').checked = true;
+}
+
+function deselectAllStudents() {
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    document.getElementById('selectAllCheckbox').checked = false;
+}
+
+function toggleAllCheckboxes() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+}
+
+// Initialize status colors on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const selects = document.querySelectorAll('select[name^="status_"]');
+    selects.forEach(select => {
+        updateStatusColor(select);
+    });
+});
+</script>
+{% endblock %}

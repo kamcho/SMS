@@ -1,0 +1,391 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | Excel SMS{% endblock %}
+
+{% block page_header %}
+<h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard</h1>
+<p class="text-slate-500 mt-1 font-medium">Overview of school activities</p>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card mb-10">
+    <h3 class="text-xl font-bold text-slate-800 mb-2">Welcome to Excel SMS</h3>
+    <p class="text-slate-500">Use the sidebar to navigate through the system. Your overview is updated in real-time.</p>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+        <!-- Stat Card 1 -->
+        <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200/50 hover:scale-[1.02] transition-transform cursor-default">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-2 bg-white/20 rounded-lg">
+                    <i class="fas fa-user-graduate text-xl"></i>
+                </div>
+                <span class="text-xs font-bold uppercase tracking-wider opacity-80">Students</span>
+            </div>
+            <div class="text-3xl font-black mb-1">{{ total_students|default:"0" }}</div>
+            <div class="text-xs opacity-70 font-medium leading-relaxed uppercase tracking-widest">Total Enrollment</div>
+        </div>
+
+        <!-- Stat Card 2 -->
+        <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl p-6 text-white shadow-lg shadow-purple-200/50 hover:scale-[1.02] transition-transform cursor-default">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-2 bg-white/20 rounded-lg">
+                    <i class="fas fa-chalkboard-teacher text-xl"></i>
+                </div>
+                <span class="text-xs font-bold uppercase tracking-wider opacity-80">Teachers</span>
+            </div>
+            <div class="text-3xl font-black mb-1">{{ total_teachers|default:"0" }}</div>
+            <div class="text-xs opacity-70 font-medium leading-relaxed uppercase tracking-widest">Active Staff</div>
+        </div>
+
+        <!-- Stat Card 3 -->
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl p-6 text-white shadow-lg shadow-emerald-200/50 hover:scale-[1.02] transition-transform cursor-default">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-2 bg-white/20 rounded-lg">
+                    <i class="fas fa-school text-xl"></i>
+                </div>
+                <span class="text-xs font-bold uppercase tracking-wider opacity-80">Schools</span>
+            </div>
+            <div class="text-3xl font-black mb-1">{{ total_schools|default:"0" }}</div>
+            <div class="text-xs opacity-70 font-medium leading-relaxed uppercase tracking-widest">Campus Net</div>
+        </div>
+
+        <!-- Stat Card 4 -->
+        <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-6 text-white shadow-lg shadow-amber-200/50 hover:scale-[1.02] transition-transform cursor-default">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-2 bg-white/20 rounded-lg">
+                    <i class="fas fa-wallet text-xl"></i>
+                </div>
+                <span class="text-xs font-bold uppercase tracking-wider opacity-80">Revenue</span>
+            </div>
+            <div class="text-3xl font-black mb-1">KSh {{ total_revenue|floatformat:0 }}</div>
+            <div class="text-xs opacity-70 font-medium leading-relaxed uppercase tracking-widest">Total Collection</div>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard Analytics Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+    <!-- Gender Distribution Chart -->
+    <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-200 relative overflow-hidden group">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h3 class="text-lg font-black text-slate-800 tracking-tight">Student Distribution</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">By Biological Gender</p>
+            </div>
+            <div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-indigo-500 transition-colors">
+                <i class="fas fa-venus-mars"></i>
+            </div>
+        </div>
+        <div class="h-64 relative flex items-center justify-center">
+            <canvas id="genderChart"></canvas>
+        </div>
+    </div>
+
+    <!-- School Distribution Chart -->
+    <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-200 relative overflow-hidden group">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h3 class="text-lg font-black text-slate-800 tracking-tight">Students per Campus</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Enrollment by Institution</p>
+            </div>
+            <div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-emerald-500 transition-colors">
+                <i class="fas fa-city font-light"></i>
+            </div>
+        </div>
+        <div class="h-64">
+            <canvas id="schoolChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Academic Wall of Fame -->
+{% if top_performers %}
+<div class="mb-10 bg-emerald-50/40 rounded-[3rem] p-8 border border-emerald-100/50">
+    <div class="flex items-center justify-between mb-8 px-2">
+        <div>
+            <h2 class="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-8 bg-purple-600 rounded-full"></div>
+                Academic Wall of Fame
+            </h2>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 italic">Based on {{ target_exam.name }} Performance</p>
+        </div>
+        <div class="hidden sm:flex bg-white px-4 py-2 rounded-xl items-center gap-2 border border-emerald-100 shadow-sm">
+            <i class="fas fa-medal text-emerald-500"></i>
+            <span class="text-[10px] font-black text-emerald-700 uppercase">Elite Performance</span>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {% for student in top_performers %}
+        <div class="bg-white rounded-[2.5rem] p-6 shadow-xl shadow-emerald-900/5 border-2 border-emerald-100 hover:border-purple-300 transition-all group relative overflow-hidden">
+            <!-- Rank Badge -->
+            <div class="absolute -right-2 -top-2 w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center -rotate-12 group-hover:rotate-0 transition-transform">
+                {% if forloop.counter == 1 %}
+                    <span class="text-xs font-black text-purple-600">RANK #1</span>
+                {% elif forloop.counter == 2 %}
+                    <span class="text-xs font-black text-indigo-500">RANK #2</span>
+                {% elif forloop.counter == 3 %}
+                    <span class="text-xs font-black text-slate-400">RANK #3</span>
+                {% else %}
+                    <span class="text-xs font-black text-slate-300">#{{ forloop.counter }}</span>
+                {% endif %}
+            </div>
+
+            <div class="flex flex-col items-center text-center mt-4">
+                <div class="w-20 h-20 rounded-3xl bg-slate-50 border-4 border-white shadow-inner flex items-center justify-center text-xl font-black text-slate-700 mb-4 group-hover:scale-110 transition-transform">
+                    {{ student.student__first_name|first }}{{ student.student__last_name|first }}
+                </div>
+                <h4 class="text-sm font-black text-slate-900 leading-tight">{{ student.student__first_name }} {{ student.student__last_name }}</h4>
+                <p class="text-[10px] font-bold text-slate-400 uppercase mt-1">{{ student.student__adm_no }}</p>
+                
+                <div class="mt-6 w-full pt-6 border-t border-slate-50 flex items-center justify-between">
+                    <div class="text-left">
+                        <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Avg Score</p>
+                        <p class="text-lg font-black text-purple-600">{{ student.avg_score|floatformat:1 }}%</p>
+                    </div>
+                    <a href="{% url 'core:student-detail' student.student__id %}" class="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center hover:bg-purple-600 transition-colors shadow-lg">
+                        <i class="fas fa-chevron-right text-xs"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Motivational Glow -->
+            {% if forloop.counter == 1 %}
+                <div class="absolute inset-x-0 bottom-0 h-1 bg-purple-600 shadow-[0_0_15px_#9333ea]"></div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center bg-slate-50/50 gap-4">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i class="fas fa-clock text-indigo-500"></i>
+            {% if search_query %}Search Results for "{{ search_query }}"{% else %}Recent Students{% endif %}
+        </h3>
+        
+        <form method="get" class="relative group w-full sm:w-auto">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors"></i>
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Search name or adm no..." 
+                   class="w-full sm:w-80 pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
+            {% if search_query %}
+            <a href="{% url 'core:dashboard' %}" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-500 transition-colors">
+                <i class="fas fa-times-circle"></i>
+            </a>
+            {% endif %}
+        </form>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-100 min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Adm No</th>
+                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Name & Date Joined</th>
+                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">School</th>
+                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gender</th>
+                    <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Status</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                {% for student in recent_students %}
+                <tr class="even:bg-slate-100/80 hover:bg-indigo-50 transition-colors group">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-3 py-1 bg-white text-slate-700 border border-slate-200 rounded-lg text-xs font-bold">{{ student.adm_no }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <a href="{% url 'core:student-detail' student.pk %}" class="flex items-center gap-3 hover:text-indigo-600 transition-colors">
+                            <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                                {{ student.first_name|first }}{{ student.last_name|first }}
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-sm font-bold text-slate-700 group-hover:text-indigo-600">{{ student.first_name }} {{ student.last_name }}</span>
+                                <span class="text-[10px] text-slate-400 font-medium italic">Joined {{ student.joined_date|date:"M d, Y" }}</span>
+                            </div>
+                        </a>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm font-bold text-slate-600">{{ student.studentprofile.school.name|default:"-" }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm font-medium text-slate-500 capitalize">{{ student.get_gender_display }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200 uppercase tracking-wider">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Active
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-400">
+                        <div class="flex flex-col items-center gap-3">
+                            <i class="fas fa-folder-open text-4xl opacity-20"></i>
+                            <p class="font-medium">No recent students found.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Academic Performance Benchmark -->
+{% if grade_perf_json %}
+<div class="mt-10 bg-white rounded-[3rem] p-10 shadow-xl shadow-slate-200/50 border border-slate-100 group">
+    <div class="flex items-center justify-between mb-10">
+        <div>
+            <h3 class="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-8 bg-indigo-600 rounded-full"></div>
+                Academic Performance Benchmark
+            </h3>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 italic">Average Score Progression Across All Grades</p>
+        </div>
+        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
+            <i class="fas fa-chart-line text-xl"></i>
+        </div>
+    </div>
+    <div class="h-80 relative">
+        <canvas id="gradePerfChart"></canvas>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const genderData = {{ gender_dist_json|safe|default:"[]" }};
+    const schoolData = {{ school_dist_json|safe|default:"[]" }};
+
+    // Gender Distribution Chart
+    const ctxGender = document.getElementById('genderChart').getContext('2d');
+    new Chart(ctxGender, {
+        type: 'doughnut',
+        data: {
+            labels: genderData.map(d => d.name),
+            datasets: [{
+                data: genderData.map(d => d.count),
+                backgroundColor: ['#6366f1', '#f43f5e'],
+                borderWidth: 0,
+                spacing: 8,
+                cutout: '75%'
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20,
+                        font: { family: 'Outfit', size: 11, weight: 'bold' }
+                    }
+                }
+            }
+        }
+    });
+
+    // School Distribution Chart
+    const ctxSchool = document.getElementById('schoolChart').getContext('2d');
+    new Chart(ctxSchool, {
+        type: 'bar',
+        data: {
+            labels: schoolData.map(d => d.name),
+            datasets: [{
+                label: 'Students',
+                data: schoolData.map(d => d.count),
+                backgroundColor: '#10b981',
+                borderRadius: 12,
+                barThickness: 30
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0,0,0,0.03)', drawBorder: false },
+                    ticks: { font: { family: 'Outfit', size: 10, weight: '700' }, color: '#94a3b8' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { family: 'Outfit', size: 11, weight: '700' }, color: '#64748b' }
+                }
+            }
+        }
+    });
+
+    // Grade Performance Line Chart
+    const gradePerfData = {{ grade_perf_json|safe|default:"[]" }};
+    if (gradePerfData.length > 0) {
+        const ctxGrade = document.getElementById('gradePerfChart').getContext('2d');
+        const gradient = ctxGrade.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.15)');
+        gradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
+
+        new Chart(ctxGrade, {
+            type: 'line',
+            data: {
+                labels: gradePerfData.map(d => d.name),
+                datasets: [{
+                    label: 'Avg Score %',
+                    data: gradePerfData.map(d => d.avg),
+                    borderColor: '#4f46e5',
+                    borderWidth: 4,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#4f46e5',
+                    pointBorderWidth: 3,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    fill: true,
+                    backgroundColor: gradient,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleFont: { family: 'Outfit', size: 13, weight: 'bold' },
+                        bodyFont: { family: 'Outfit', size: 12 },
+                        padding: 12,
+                        cornerRadius: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `Average: ${context.parsed.y.toFixed(1)}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        max: 100,
+                        grid: { color: 'rgba(0,0,0,0.03)', drawBorder: false },
+                        ticks: { 
+                            font: { family: 'Outfit', size: 11, weight: '700' },
+                            color: '#94a3b8',
+                            callback: value => value + '%'
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Outfit', size: 11, weight: '700' }, color: '#64748b' }
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

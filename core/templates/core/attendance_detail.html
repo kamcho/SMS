@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance Details - {{ class_obj.name }} {{ attendance_date }} | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+        <a href="{% url 'core:class-detail' class_obj.id %}" class="btn bg-white border border-slate-200 text-slate-500 hover:text-slate-800 p-2.5 rounded-xl shadow-sm">
+            <i class="fas fa-arrow-left text-sm"></i>
+        </a>
+        <div>
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight">Attendance Details</h1>
+            <p class="text-slate-500 mt-1 font-medium">{{ class_obj.name }} • {{ class_obj.grade.name }} • {{ attendance_date }}</p>
+        </div>
+    </div>
+    
+    <div class="flex items-center gap-3">
+        <a href="{% url 'core:mark-attendance' class_obj.id %}" class="h-12 px-6 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center gap-2">
+            <i class="fas fa-edit"></i>
+            Edit Attendance
+        </a>
+        <button class="h-12 px-6 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center gap-2">
+            <i class="fas fa-download"></i>
+            Export
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Session Information -->
+<div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100 mb-8">
+    <div class="p-8 border-b border-slate-50 bg-slate-50/30">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                    <div class="w-2 h-8 bg-indigo-600 rounded-full"></div>
+                    Session Information
+                </h3>
+                <p class="text-sm text-slate-600 mt-1">
+                    <i class="fas fa-user-check text-indigo-500 mr-2"></i>
+                    Marked by {{ session.taken_by.get_full_name|default:session.taken_by.email }} 
+                    at {{ session.created_at|date:"H:i" }}
+                </p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right">
+                    <p class="text-xs text-slate-400">Total Students</p>
+                    <p class="text-2xl font-black text-slate-600">{{ statistics.total }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-slate-400">Attendance Rate</p>
+                    <p class="text-2xl font-black text-emerald-600">{{ statistics.present_percentage }}%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Overview -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-emerald-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-100 relative overflow-hidden group">
+        <i class="fas fa-user-check absolute -right-4 -bottom-4 text-8xl text-emerald-500/30 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Present</p>
+        <h3 class="text-5xl font-black leading-none">{{ statistics.present }}</h3>
+        <p class="text-sm font-bold mt-2 opacity-80">{{ statistics.present_percentage }}%</p>
+    </div>
+
+    <div class="bg-purple-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-purple-100 relative overflow-hidden group">
+        <i class="fas fa-clock absolute -right-4 -bottom-4 text-8xl text-purple-500/30 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Late</p>
+        <h3 class="text-5xl font-black leading-none">{{ statistics.late }}</h3>
+        <p class="text-sm font-bold mt-2 opacity-80">{{ statistics.late_percentage }}%</p>
+    </div>
+
+    <div class="bg-amber-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-amber-100 relative overflow-hidden group">
+        <i class="fas fa-user-clock absolute -right-4 -bottom-4 text-8xl text-amber-500/30 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Half Day</p>
+        <h3 class="text-5xl font-black leading-none">{{ statistics.half_day }}</h3>
+        <p class="text-sm font-bold mt-2 opacity-80">{{ statistics.half_day_percentage }}%</p>
+    </div>
+
+    <div class="bg-rose-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-rose-100 relative overflow-hidden group">
+        <i class="fas fa-user-times absolute -right-4 -bottom-4 text-8xl text-rose-500/30 rotate-12 group-hover:scale-110 transition-transform duration-500"></i>
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Absent</p>
+        <h3 class="text-5xl font-black leading-none">{{ statistics.absent }}</h3>
+        <p class="text-sm font-bold mt-2 opacity-80">{{ statistics.absent_percentage }}%</p>
+    </div>
+</div>
+
+<!-- Attendance Records by Status -->
+<div class="space-y-8">
+    <!-- Present Students -->
+    {% if status_groups.Present %}
+    <div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+        <div class="p-6 border-b border-slate-50 bg-emerald-50/30 flex items-center justify-between">
+            <h3 class="text-lg font-black text-emerald-700 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-6 bg-emerald-600 rounded-full"></div>
+                Present Students ({{ status_groups.Present|length }})
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for record in status_groups.Present %}
+                <div class="flex items-center gap-3 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-xs">
+                        {{ record.student.first_name|first }}{{ record.student.last_name|first }}
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-bold text-slate-800">{{ record.student.first_name }} {{ record.student.last_name }}</p>
+                        <p class="text-xs text-slate-500">{{ record.student.adm_no }}</p>
+                    </div>
+                    <div class="px-3 py-1 bg-emerald-600 text-white rounded-full text-xs font-black">
+                        Present
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Late Students -->
+    {% if status_groups.Late %}
+    <div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+        <div class="p-6 border-b border-slate-50 bg-purple-50/30 flex items-center justify-between">
+            <h3 class="text-lg font-black text-purple-700 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-6 bg-purple-600 rounded-full"></div>
+                Late Students ({{ status_groups.Late|length }})
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for record in status_groups.Late %}
+                <div class="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100">
+                    <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-black text-xs">
+                        {{ record.student.first_name|first }}{{ record.student.last_name|first }}
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-bold text-slate-800">{{ record.student.first_name }} {{ record.student.last_name }}</p>
+                        <p class="text-xs text-slate-500">{{ record.student.adm_no }}</p>
+                        {% if record.remarks %}
+                        <p class="text-xs text-purple-600 mt-1">{{ record.remarks }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="px-3 py-1 bg-purple-600 text-white rounded-full text-xs font-black">
+                        Late
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Half Day Students -->
+    {% if status_groups.Half_Day %}
+    <div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+        <div class="p-6 border-b border-slate-50 bg-amber-50/30 flex items-center justify-between">
+            <h3 class="text-lg font-black text-amber-700 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-6 bg-amber-600 rounded-full"></div>
+                Half Day Students ({{ status_groups.Half_Day|length }})
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for record in status_groups.Half_Day %}
+                <div class="flex items-center gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100">
+                    <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-black text-xs">
+                        {{ record.student.first_name|first }}{{ record.student.last_name|first }}
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-bold text-slate-800">{{ record.student.first_name }} {{ record.student.last_name }}</p>
+                        <p class="text-xs text-slate-500">{{ record.student.adm_no }}</p>
+                        {% if record.remarks %}
+                        <p class="text-xs text-amber-600 mt-1">{{ record.remarks }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="px-3 py-1 bg-amber-600 text-white rounded-full text-xs font-black">
+                        Half Day
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Absent Students -->
+    {% if status_groups.Absent %}
+    <div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+        <div class="p-6 border-b border-slate-50 bg-rose-50/30 flex items-center justify-between">
+            <h3 class="text-lg font-black text-rose-700 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-6 bg-rose-600 rounded-full"></div>
+                Absent Students ({{ status_groups.Absent|length }})
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for record in status_groups.Absent %}
+                <div class="flex items-center gap-3 p-4 bg-rose-50 rounded-xl border border-rose-100">
+                    <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-black text-xs">
+                        {{ record.student.first_name|first }}{{ record.student.last_name|first }}
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-bold text-slate-800">{{ record.student.first_name }} {{ record.student.last_name }}</p>
+                        <p class="text-xs text-slate-500">{{ record.student.adm_no }}</p>
+                        {% if record.remarks %}
+                        <p class="text-xs text-rose-600 mt-1">{{ record.remarks }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="px-3 py-1 bg-rose-600 text-white rounded-full text-xs font-black">
+                        Absent
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Complete List (Optional) -->
+<div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100 mt-8">
+    <div class="p-6 border-b border-slate-50 bg-slate-50/30">
+        <h3 class="text-lg font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <div class="w-2 h-6 bg-slate-600 rounded-full"></div>
+            Complete Attendance List
+        </h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full divide-y divide-slate-100">
+            <thead class="bg-slate-50/50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
+                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Admission No</th>
+                    <th class="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50">
+                {% for record in attendance_records %}
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="px-6 py-5 whitespace-nowrap">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xs ring-4 ring-white shadow-sm">
+                                {{ record.student.first_name|first }}{{ record.student.last_name|first }}
+                            </div>
+                            <span class="text-sm font-bold text-slate-800">
+                                {{ record.student.first_name }} {{ record.student.last_name }}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-5 whitespace-nowrap">
+                        <span class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-700">
+                            {{ record.student.adm_no }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-5 whitespace-nowrap text-center">
+                        {% if record.status == 'Present' %}
+                            <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-black">Present</span>
+                        {% elif record.status == 'Late' %}
+                            <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-black">Late</span>
+                        {% elif record.status == 'Half Day' %}
+                            <span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-black">Half Day</span>
+                        {% else %}
+                            <span class="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-black">Absent</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-5 whitespace-nowrap">
+                        <span class="text-xs text-slate-600">{{ record.remarks|default:'-' }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
