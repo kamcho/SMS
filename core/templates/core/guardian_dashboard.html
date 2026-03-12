@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+
+{% block title %}Guardian Dashboard — Linakuu{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background-color: #f4f7f9 !important; font-family: 'Outfit', sans-serif; }
+    .stat-card { background-color: white; padding: 1.5rem; border-radius: 1.25rem; border: 1px solid #edf2f7; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); }
+    .stat-icon { width: 3.5rem; height: 3.5rem; border-radius: 1rem; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; }
+    .chart-container { background-color: white; padding: 2rem; border-radius: 2rem; border: 1px solid #edf2f7; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04); position: relative; }
+    .table-container { background-color: white; border-radius: 2rem; border: 1px solid #edf2f7; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04); overflow: hidden; }
+    .badge-pending { background-color: #fff7ed; color: #f97316; padding: 0.35rem 1rem; border-radius: 9999px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
+    .badge-approved { background-color: #f0fdf4; color: #22c55e; padding: 0.35rem 1rem; border-radius: 9999px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
+    .sn-cell { color: #cbd5e1; font-weight: 800; font-size: 14px; }
+</style>
+{% endblock %}
+
+{% block header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-4">
+    <div>
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight">Welcome {{ user.get_full_name }}!</h1>
+        <p class="text-slate-400 font-bold text-sm tracking-tight">Today is {% now "l, jS F Y" %}</p>
+    </div>
+    <div class="flex items-center gap-4">
+        <!-- Date Selector -->
+        <div class="flex items-center bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm text-xs font-black text-slate-600">
+            <i class="far fa-calendar-alt mr-3 text-indigo-500 text-sm"></i>
+            {% now "M d" %} — {% now "M d, Y" %}
+        </div>
+        <!-- Period -->
+        <div class="relative">
+            <select class="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm text-xs font-black text-slate-600 outline-none appearance-none pr-10 cursor-pointer">
+                <option>Monthly</option>
+                <option>Weekly</option>
+            </select>
+            <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 pointer-events-none"></i>
+        </div>
+        <!-- Actions -->
+        <button class="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-400 hover:bg-slate-50 transition-all shadow-sm">
+            <i class="fas fa-filter text-sm"></i>
+        </button>
+        <button class="h-12 px-6 bg-white border border-slate-200 rounded-2xl text-xs font-black text-slate-600 hover:bg-slate-50 transition-all shadow-sm flex items-center gap-3">
+            <i class="fas fa-file-export text-slate-400"></i> Export
+        </button>
+        <!-- Mini Profile -->
+        <div class="flex items-center gap-3 pl-2">
+            <div class="text-right">
+                <p class="text-[11px] font-black text-slate-900 leading-none">{{ user.first_name }} {{ user.last_name }}</p>
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Guardian</p>
+            </div>
+            <div class="w-11 h-11 rounded-2xl bg-slate-200 flex items-center justify-center text-slate-400 overflow-hidden ring-4 ring-white shadow-lg">
+                <i class="fas fa-user text-lg"></i>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8 pb-12">
+    <!-- Top Widgets Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="stat-icon bg-orange-50 text-orange-500">
+                    <i class="fas fa-user-friends"></i>
+                </div>
+                <div class="flex -space-x-2">
+                    {% for student in students|slice:":4" %}
+                    <div class="w-8 h-8 rounded-lg bg-orange-100 border-2 border-white flex items-center justify-center text-[10px] font-black text-orange-600">
+                        {{ student.first_name|first }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">{{ students.count }}</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total children registered</p>
+                <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+                    {% for student in students %}
+                    <a href="{% url 'core:student-detail' student.id %}" class="text-[11px] font-black text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1">
+                        <span class="w-1 h-1 rounded-full bg-indigo-200"></span>
+                        {{ student.first_name }} {{ student.last_name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
+                <span class="text-xs font-black text-emerald-500"><i class="fas fa-arrow-up mr-1"></i>Active</span>
+                <span class="text-[10px] font-bold text-slate-400 italic">No changes this month</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="stat-icon bg-red-50 text-red-500">
+                    <i class="fas fa-credit-card"></i>
+                </div>
+                <button class="text-slate-200 hover:text-slate-400"><i class="fas fa-ellipsis-h text-xs"></i></button>
+            </div>
+            <div>
+                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">{{ total_balance|default:"0" }}</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Pending application fee</p>
+            </div>
+            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
+                <span class="text-xs font-black text-red-500 flex items-center gap-1"><i class="fas fa-exclamation-circle mr-1"></i>Due</span>
+                <span class="text-[10px] font-bold text-slate-400 italic">Immediate payment required</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="stat-icon bg-indigo-50 text-indigo-500">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <button class="text-slate-200 hover:text-slate-400"><i class="fas fa-ellipsis-h text-xs"></i></button>
+            </div>
+            <div>
+                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">04</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Recent school circulars</p>
+            </div>
+            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
+                <span class="text-xs font-black text-indigo-500"><i class="fas fa-sync mr-1"></i>4% more</span>
+                <span class="text-[10px] font-bold text-slate-400 italic">than last quarter</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="stat-icon bg-blue-50 text-blue-500">
+                    <i class="fas fa-building"></i>
+                </div>
+                <button class="text-slate-200 hover:text-slate-400"><i class="fas fa-ellipsis-h text-xs"></i></button>
+            </div>
+            <div>
+                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">01</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Registered departments</p>
+            </div>
+            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
+                <span class="text-xs font-black text-emerald-500"><i class="fas fa-check-circle mr-1"></i>Verified</span>
+                <span class="text-[10px] font-bold text-slate-400 italic">Without changes</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Donut Chart -->
+        <div class="lg:col-span-4 chart-container h-[450px]">
+            <div class="flex items-center justify-between mb-10">
+                <h3 class="text-xl font-black text-slate-800">Children status card</h3>
+                <button class="text-slate-300 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+            <div class="relative w-full h-56 mb-10 flex items-center justify-center">
+                <canvas id="statusChart"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-6">
+                    <h4 class="text-5xl font-black text-slate-800">{{ students.count }}0</h4>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Aggregate Score</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-6 pt-8 mt-4">
+                <div class="text-center group">
+                    <h5 class="text-3xl font-black text-indigo-500 group-hover:scale-110 transition-transform">100</h5>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Pending</p>
+                </div>
+                <div class="text-center group">
+                    <h5 class="text-3xl font-black text-orange-500 group-hover:scale-110 transition-transform">60</h5>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Approved</p>
+                </div>
+                <div class="text-center group">
+                    <h5 class="text-3xl font-black text-purple-600 group-hover:scale-110 transition-transform">40</h5>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Rejected</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bar Chart -->
+        <div class="lg:col-span-4 chart-container h-[450px]">
+            <div class="flex items-center justify-between mb-10">
+                <h3 class="text-xl font-black text-slate-800">Annual fee summary</h3>
+                <button class="text-slate-300 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+            <div class="h-64 mb-6">
+                <canvas id="paymentChart"></canvas>
+            </div>
+            <div class="flex items-center gap-6 justify-center">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded bg-orange-500"></span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fees</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded bg-amber-400"></span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transport</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded bg-indigo-600"></span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Exam</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Line Chart -->
+        <div class="lg:col-span-4 chart-container h-[450px]">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-black text-slate-800">Total expenditure</h3>
+                <button class="text-slate-300 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+            <div class="mb-8">
+                <h4 class="text-4xl font-black text-slate-800 tracking-tighter">KES 11,800.00</h4>
+                <p class="text-xs font-bold text-emerald-500 flex items-center gap-2 mt-2">
+                    <i class="fas fa-arrow-up"></i> 2.1% than last month
+                </p>
+            </div>
+            <div class="h-56">
+                <canvas id="expenditureChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section: Tables -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Vouchers Table -->
+        <div class="table-container">
+            <div class="p-8 border-b border-slate-50 flex items-center justify-between">
+                <h3 class="text-xl font-black text-slate-800 tracking-tight">Payment vouchers</h3>
+                <button class="text-slate-300 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+            <div class="p-4">
+                <table class="w-full">
+                    <thead class="bg-slate-50/50">
+                        <tr>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-left">S/N</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-left">Subject</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Date</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {% for p in payment_notifications %}
+                        <tr class="hover:bg-slate-50/30 transition-all cursor-pointer group">
+                            <td class="px-6 py-6 sn-cell">0{{ forloop.counter }}</td>
+                            <td class="px-6 py-6 font-bold text-slate-600 text-sm">Fee payment for {{ p.student.first_name }}</td>
+                            <td class="px-6 py-6 text-center text-slate-500 text-xs font-black">{{ p.sent_at|date:"d/m/Y" }}</td>
+                            <td class="px-6 py-6 text-center"><span class="badge-approved">Approved</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="px-4 py-20 text-center text-slate-300 italic font-black text-xs uppercase tracking-widest">No recent vouchers</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- History Table -->
+        <div class="table-container">
+            <div class="p-8 border-b border-slate-50 flex items-center justify-between">
+                <h3 class="text-xl font-black text-slate-800 tracking-tight">Budget history</h3>
+                <button class="text-slate-300 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+            <div class="p-4">
+                <table class="w-full">
+                    <thead class="bg-slate-50/50">
+                        <tr>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-left">S/N</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-left">Budget No</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Budgeted Amt</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Actual Amt</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50 font-bold text-slate-600 text-sm">
+                        <tr class="hover:bg-slate-50/30 transition-all">
+                            <td class="px-6 py-6 sn-cell">01</td>
+                            <td class="px-6 py-6">00211235</td>
+                            <td class="px-6 py-6 text-right">$1,450.000.00</td>
+                            <td class="px-6 py-6 text-right text-emerald-500">$1,380,000.00</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50/30 transition-all">
+                            <td class="px-6 py-6 sn-cell">02</td>
+                            <td class="px-6 py-6">39211235</td>
+                            <td class="px-6 py-6 text-right">$450,000.00</td>
+                            <td class="px-6 py-6 text-right text-red-500">$500,000.00</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50/30 transition-all">
+                            <td class="px-6 py-6 sn-cell">03</td>
+                            <td class="px-6 py-6">00214485</td>
+                            <td class="px-6 py-6 text-right">$2,000,000.00</td>
+                            <td class="px-6 py-6 text-right text-emerald-500">$1,450,000.00</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50/30 transition-all">
+                            <td class="px-6 py-6 sn-cell">04</td>
+                            <td class="px-6 py-6">00214455</td>
+                            <td class="px-6 py-6 text-right">$800,000.00</td>
+                            <td class="px-6 py-6 text-right text-emerald-500">$1,500,000.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [100, 60, 40],
+                backgroundColor: ['#6366f1', '#f97316', '#a855f7'], // Indigo, Orange, Purple
+                borderWidth: 0,
+                hoverOffset: 15
+            }]
+        },
+        options: {
+            cutout: '88%',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            animation: { animateRotate: true, animateScale: true }
+        }
+    });
+
+    const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+    new Chart(paymentCtx, {
+        type: 'bar',
+        data: {
+            labels: ['20 Sep', '10 Oct', '20 Oct', '30 Oct', '10 Nov'],
+            datasets: [
+                { label: 'Fee', data: [400, 300, 500, 450, 600], backgroundColor: '#f97316', borderRadius: 6, barThickness: 12 },
+                { label: 'Transport', data: [320, 380, 250, 400, 350], backgroundColor: '#fbbf24', borderRadius: 6, barThickness: 12 },
+                { label: 'Exam', data: [200, 250, 400, 300, 450], backgroundColor: '#6366f1', borderRadius: 6, barThickness: 12 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { 
+                y: { grid: { color: '#f8fafc' }, ticks: { font: { weight: '800', size: 10 }, color: '#94a3b8' } },
+                x: { grid: { display: false }, ticks: { font: { weight: '800', size: 10 }, color: '#94a3b8' } }
+            }
+        }
+    });
+
+    const expenditureCtx = document.getElementById('expenditureChart').getContext('2d');
+    const gradient = expenditureCtx.createLinearGradient(0, 0, 0, 250);
+    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.6)');
+    gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+    new Chart(expenditureCtx, {
+        type: 'line',
+        data: {
+            labels: ['20 Sep', '30 Sep', '10 Oct', '20 Oct', '30 Oct', '10 Nov'],
+            datasets: [{
+                data: [10, 15, 8, 20, 25, 45],
+                borderColor: '#6366f1',
+                borderWidth: 5,
+                fill: true,
+                backgroundColor: gradient,
+                tension: 0.5,
+                pointRadius: 6,
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: '#6366f1',
+                pointBorderWidth: 4,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { 
+                x: { grid: { display: false }, ticks: { font: { weight: '800', size: 9 }, color: '#94a3b8' } }, 
+                y: { display: false } 
+            }
+        }
+    });
+</script>
+{% endblock %}

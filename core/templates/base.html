@@ -47,6 +47,15 @@
             .btn-primary {
                 @apply bg-primary text-white hover:bg-primary-hover active:scale-95;
             }
+            .custom-scrollbar::-webkit-scrollbar {
+                @apply w-1.5;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                @apply bg-transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+            }
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -59,7 +68,7 @@
             <span class="text-white font-bold text-2xl tracking-tight">Excel SMS</span>
         </div>
 
-        <nav class="flex-grow mt-6 px-4 space-y-1">
+        <nav class="flex-grow mt-6 px-4 space-y-1 overflow-y-auto custom-scrollbar shadow-inner">
             <div class="px-4 py-3 mb-2">
                 <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Overview</p>
             </div>
@@ -101,6 +110,10 @@
                 <i class="fas fa-chalkboard w-5 text-lg"></i>
                 Classes
             </a>
+            <a href="{% url 'core:discipline-log' %}" class="menu-item {% if 'discipline' in request.path %}active{% endif %}">
+                <i class="fas fa-shield-alt w-5 text-lg"></i>
+                Discipline
+            </a>
             
             {% if user.role == 'Admin' or user.role == 'Teacher' or user.is_superuser %}
             <a href="{% url 'Exam:exam-list' %}" class="menu-item {% if 'exam-list' in request.path %}active{% endif %}">
@@ -139,14 +152,31 @@
             </a>
             {% endif %}
 
+            <!-- Operations Management (Admin, Teacher, Receptionist) -->
+            {% if user.role != 'Guardian' %}
+            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
+                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Operations</p>
+            </div>
+            <a href="{% url 'transport:dashboard' %}" class="menu-item {% if 'transport' in request.path %}active{% endif %}">
+                <i class="fas fa-bus-alt w-5 text-lg"></i>
+                Transport
+            </a>
+            <a href="{% url 'communication:dashboard' %}"
+                class="menu-item {% if 'communication' in request.path %}active{% endif %}">
+                <i class="fas fa-bullhorn w-5 text-lg"></i>
+                Broadcasts
+            </a>
+            {% endif %}
+
             <!-- Guardian Portal -->
             {% if user.role == 'Guardian' %}
             <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
                 <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Guardian Portal</p>
             </div>
-            <a href="{% url 'core:dashboard' %}" class="menu-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                <i class="fas fa-users w-5 text-lg"></i>
-                My Children
+            <a href="{% url 'core:guardian-dashboard' %}"
+                class="menu-item {% if 'guardian/dashboard' in request.path %}active{% endif %}">
+                <i class="fas fa-home w-5 text-lg"></i>
+                Guardian Home
             </a>
             <a href="#" class="menu-item">
                 <i class="fas fa-file-invoice-dollar w-5 text-lg"></i>

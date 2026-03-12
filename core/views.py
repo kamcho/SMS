@@ -13,6 +13,7 @@ from .models import Student, StudentProfile, School, Class, Grade, AcademicYear,
 from .forms import StudentForm, StudentProfileForm, AcademicYearForm, TermForm, GradeForm, ClassForm, ExamForm, ExamModeForm, PaymentForm, AttendanceSessionForm, StudentAttendanceForm
 from Exam.models import ExamSUbjectScore, Exam, Subject
 from accounts.models import Payment
+from communication.models import Notification, PaymentNotification
 from django.views.generic import TemplateView
 
 class DashboardView(LoginRequiredMixin, ListView):
@@ -28,13 +29,7 @@ class DashboardView(LoginRequiredMixin, ListView):
             return redirect('core:teacher-dashboard')
             
         if request.user.role == 'Guardian':
-            # Redirect to first linked student if exists
-            first_student = request.user.students.first()
-            if first_student:
-                return redirect('core:student-detail', pk=first_student.id)
-            else:
-                # If no linked students, maybe create a placeholder dashboard or message
-                messages.warning(request, "You have no children linked to your account. Please contact administration.")
+            return redirect('core:guardian-dashboard')
                 
         # Admins, Superusers, and default fallback see the main dashboard
         return super().dispatch(request, *args, **kwargs)
@@ -97,6 +92,39 @@ class DashboardView(LoginRequiredMixin, ListView):
             context['grade_perf_json'] = json.dumps(list(grade_perf))
 
         return context
+
+@login_required
+def guardian_dashboard(request):
+    if request.user.role != 'Guardian':
+        return redirect('core:dashboard')
+    
+    # Get students linked to this guardian
+    students = request.user.students.all().select_related('studentprofile__school', 'studentprofile__class_id__grade')
+    
+    # Get schools and grades associated with these students for filtering notifications
+    school_ids = students.values_list('studentprofile__school_id', flat=True)
+    grade_ids = students.values_list('studentprofile__class_id__grade_id', flat=True)
+    
+    # Filter notifications
+    notifications = Notification.objects.filter(
+        Q(target_type='all_schools') |
+        Q(target_type='grade_all_schools', grade_id__in=grade_ids) |
+        Q(target_type='certain_school', school_id__in=school_ids) |
+        Q(target_type='grade_certain_school', school_id__in=school_ids, grade_id__in=grade_ids)
+    ).select_related('school', 'grade', 'created_by').order_by('-created_at')[:10]
+    
+    # Payment notifications for linked students
+    payment_notifications = PaymentNotification.objects.filter(student__in=students).order_by('-sent_at')[:5]
+    
+    # Calculate total fee balance
+    total_balance = sum(student.studentprofile.fee_balance for student in students if hasattr(student, 'studentprofile'))
+    
+    return render(request, 'core/guardian_dashboard.html', {
+        'students': students,
+        'notifications': notifications,
+        'payment_notifications': payment_notifications,
+        'total_balance': total_balance
+    })
 
 class TeacherDashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'core/teacher_dashboard.html'
@@ -1311,6 +1339,14 @@ def process_payment(request, student_id):
             
             try:
                 payment.save()
+                
+                # Automatically log a payment notification
+                PaymentNotification.objects.create(
+                    student=student,
+                    payment=payment,
+                    message=f"Dear Parent, we have received KES {payment.amount} for {student.first_name}. Your new balance is KES {student_profile.fee_balance}."
+                )
+
                 messages.success(request, f'Payment of {payment.amount} recorded successfully for {student.first_name} {student.last_name}')
                 
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -2074,3 +2110,40 @@ def schools_analytics(request):
     }
     
     return render(request, 'core/schools_analytics.html', context)
+
+@login_required
+def discipline_log(request):
+    incidents = StudentDiscipline.objects.select_related('student', 'student__studentprofile__class_id', 'reported_by').order_by('-date')
+    students = Student.objects.all().order_by('first_name')
+    
+    if request.method == 'POST':
+        student_id = request.POST.get('student_id')
+        severity = request.POST.get('severity')
+        description = request.POST.get('description')
+        action = request.POST.get('action_taken')
+        
+        student = get_object_or_404(Student, id=student_id)
+        
+        StudentDiscipline.objects.create(
+            student=student,
+            severity=severity,
+            description=description,
+            action_taken=action,
+            reported_by=request.user
+        )
+        messages.success(request, f"Discipline incident logged for {student.first_name}.")
+        return redirect('core:discipline-log')
+        
+    return render(request, 'core/discipline_log.html', {
+        'incidents': incidents,
+        'students': students,
+        'severities': ['Minor', 'Moderate', 'Severe']
+    })
+
+@login_required
+def delete_discipline(request, incident_id):
+    incident = get_object_or_404(StudentDiscipline, id=incident_id)
+    student_name = incident.student.first_name
+    incident.delete()
+    messages.success(request, f"Discipline record for {student_name} deleted.")
+    return redirect('core:discipline-log')

@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications & Broadcasts — Linakuu{% endblock %}
+
+{% block header %}
+<div class="flex items-center gap-4">
+    <div>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Communication Hub</h1>
+        <p class="text-slate-500 mt-1 font-medium">Broadcast messages across schools and grades</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Main Feed -->
+    <div class="lg:col-span-2 space-y-6">
+        <div class="glass-card p-0 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <h3 class="text-lg font-black text-slate-800">Sent Broadcasts</h3>
+                <div class="flex gap-2">
+                    <a href="{% url 'communication:payment-notifications' %}" class="btn btn-primary text-[10px] py-2 px-4 uppercase tracking-widest">
+                        <i class="fas fa-history mr-2"></i> Payment History
+                    </a>
+                </div>
+            </div>
+            
+            <div class="divide-y divide-slate-100">
+                {% for notification in notifications %}
+                <div class="p-6 hover:bg-slate-50/30 transition-all group">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-sm">
+                                <i class="fas fa-bullhorn"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-900">{{ notification.title }}</h4>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    {{ notification.get_target_type_display }} • {{ notification.created_at|date:"M d, Y H:i" }}
+                                </p>
+                            </div>
+                        </div>
+                        <form method="post" action="{% url 'communication:delete-notification' notification.id %}" onsubmit="return confirm('Delete this broadcast?')">
+                            {% csrf_token %}
+                            <button type="submit" class="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                                <i class="fas fa-trash-alt text-xs"></i>
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div class="pl-13 ml-13">
+                        <div class="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm mb-4">
+                            <p class="text-sm text-slate-600 leading-relaxed">{{ notification.message }}</p>
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            {% if notification.school %}
+                            <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase tracking-tighter">
+                                <i class="fas fa-school mr-1"></i> {{ notification.school.name }}
+                            </span>
+                            {% endif %}
+                            {% if notification.grade %}
+                            <span class="px-2 py-1 bg-purple-50 text-purple-600 rounded text-[9px] font-black uppercase tracking-tighter">
+                                <i class="fas fa-layer-group mr-1"></i> {{ notification.grade.name }}
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <div class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-black">
+                                {{ notification.created_by.first_name|first|default:"A" }}
+                            </div>
+                            <p class="text-[10px] text-slate-400 font-bold">Sent by {{ notification.created_by.get_full_name|default:"Administrator" }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-12 text-center">
+                    <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                        <i class="fas fa-paper-plane text-2xl"></i>
+                    </div>
+                    <p class="text-slate-400 font-medium italic">No broadcasts sent yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: Create Broadcast -->
+    <div class="space-y-6">
+        <div class="glass-card bg-indigo-600 border-0 shadow-2xl text-white">
+            <h3 class="text-xl font-black mb-6 flex items-center gap-3">
+                <i class="fas fa-plus-circle opacity-50"></i>
+                New Broadcast
+            </h3>
+            
+            <form method="post" class="space-y-5">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_notification">
+                
+                <div>
+                    <label class="block text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-2">Target Audience</label>
+                    <select name="target_type" id="target_type" required class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white outline-none focus:ring-2 focus:ring-white/50 transition-all appearance-none cursor-pointer">
+                        {% for value, label in target_choices %}
+                            <option value="{{ value }}" class="text-slate-900">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="school_field" class="hidden animate-in fade-in slide-in-from-top-2">
+                    <label class="block text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-2">School</label>
+                    <select name="school_id" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white outline-none focus:ring-2 focus:ring-white/50 transition-all appearance-none cursor-pointer">
+                        <option value="" class="text-slate-900">Select School</option>
+                        {% for school in schools %}
+                            <option value="{{ school.id }}" class="text-slate-900">{{ school.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="grade_field" class="hidden animate-in fade-in slide-in-from-top-2">
+                    <label class="block text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-2">Grade</label>
+                    <select name="grade_id" class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white outline-none focus:ring-2 focus:ring-white/50 transition-all appearance-none cursor-pointer">
+                        <option value="" class="text-slate-900">Select Grade</option>
+                        {% for grade in grades %}
+                            <option value="{{ grade.id }}" class="text-slate-900">{{ grade.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-2">Broadcast Title</label>
+                    <input type="text" name="title" required placeholder="e.g., School Closing Notice" 
+                           class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm placeholder:text-indigo-300 outline-none focus:ring-2 focus:ring-white/50 transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-2">Content</label>
+                    <textarea name="message" rows="4" required placeholder="Type your message here..." 
+                              class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm placeholder:text-indigo-300 outline-none focus:ring-2 focus:ring-white/50 transition-all resize-none"></textarea>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" class="w-full py-4 bg-white text-indigo-600 font-black rounded-xl text-xs uppercase tracking-widest shadow-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
+                        <i class="fas fa-paper-plane"></i> Send Broadcast
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="glass-card">
+            <h4 class="text-xs font-black text-slate-800 mb-4 uppercase tracking-widest flex items-center gap-2">
+                <i class="fas fa-info-circle text-indigo-500"></i> Delivery logic
+            </h4>
+            <div class="space-y-4 text-[10px] text-slate-500 font-bold leading-relaxed">
+                <p><span class="text-indigo-600">All Schools:</span> Everyone on the platform.</p>
+                <p><span class="text-indigo-600">Grade (All Schools):</span> Specific level classes across all branches.</p>
+                <p><span class="text-indigo-600">Certain School:</span> Targeted branch notifications.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const targetType = document.getElementById('target_type');
+    const schoolField = document.getElementById('school_field');
+    const gradeField = document.getElementById('grade_field');
+
+    function toggleFields() {
+        const val = targetType.value;
+        schoolField.classList.add('hidden');
+        gradeField.classList.add('hidden');
+
+        if (val === 'certain_school' || val === 'grade_certain_school') {
+            schoolField.classList.remove('hidden');
+        }
+        if (val === 'grade_all_schools' || val === 'grade_certain_school') {
+            gradeField.classList.remove('hidden');
+        }
+    }
+
+    targetType.addEventListener('change', toggleFields);
+    window.addEventListener('load', toggleFields);
+</script>
+{% endblock %}

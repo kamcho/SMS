@@ -6,6 +6,7 @@ app_name = 'core'
 urlpatterns = [
     path('', views.DashboardView.as_view(), name='dashboard'),
     path('teacher/dashboard/', views.TeacherDashboardView.as_view(), name='teacher-dashboard'),
+    path('guardian/dashboard/', views.guardian_dashboard, name='guardian-dashboard'),
     path('students/', views.StudentsListView.as_view(), name='students-list'),
     path('student/create/', views.create_student, name='create-student'),
     path('student/<int:pk>/', views.StudentDetailView.as_view(), name='student-detail'),
@@ -29,4 +30,6 @@ urlpatterns = [
     path('attendance/<int:class_id>/<str:date>/', views.attendance_detail, name='attendance-detail'),
     path('attendance/data/', views.get_attendance_data, name='get-attendance-data'),
     path('schools-analytics/', views.schools_analytics, name='schools-analytics'),
+    path('discipline/', views.discipline_log, name='discipline-log'),
+    path('discipline/delete/<int:incident_id>/', views.delete_discipline, name='delete-discipline'),
 ]

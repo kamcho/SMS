@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'core',
     'Exam',
     'accounts',
+    'transport',
+    'communication',
 ]
 
 MIDDLEWARE = [
