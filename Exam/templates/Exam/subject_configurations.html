@@ -6,7 +6,7 @@
 <div class="flex items-center justify-between gap-4">
     <div>
         <h1 class="text-3xl font-black text-slate-900 tracking-tight">Subject Configurations</h1>
-        <p class="text-slate-500 mt-1 font-medium">Grade {{ grade }} - Manage exam subjects and papers</p>
+        <p class="text-slate-500 mt-1 font-medium">{{ grade }} - Manage exam subjects and papers</p>
     </div>
     <div class="flex items-center gap-3">
         <a href="{% url 'Exam:exam-list' %}" class="btn bg-white border border-slate-200 text-slate-500 hover:text-slate-800 p-2.5 rounded-xl shadow-sm">
@@ -96,7 +96,7 @@
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
                 <div class="w-2 h-8 bg-indigo-600 rounded-full"></div>
-                Existing Configurations
+                Existing Configurations {% if selected_exam %}for {{ selected_exam.name }}{% endif %}
             </h3>
         </div>
 
@@ -106,7 +106,7 @@
                 <div class="flex items-start justify-between mb-4">
                     <div>
                         <h4 class="text-lg font-black text-slate-900">{{ config.subject.name }}</h4>
-                        <p class="text-sm text-slate-500 font-medium">{{ config.exam.name }} • Max Score: {{ config.max_score }} • Papers: {{ config.paper_count }}</p>
+                        <p class="text-sm text-slate-500 font-medium">{{ config.exam.name }} ({{ config.exam.period }}) • Max Score: {{ config.max_score }} • Papers: {{ config.paper_count }}</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button type="button" onclick="showAddPaperForm({{ config.id }})" class="btn bg-blue-600 text-white hover:bg-blue-700 px-3 py-2 rounded-xl text-xs font-black">

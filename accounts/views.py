@@ -203,10 +203,79 @@ class PayrollListView(LoginRequiredMixin, ListView):
         # Ensure every staff in queryset has a StaffSalary profile
         for staff in context['staff_members']:
             StaffSalary.objects.get_or_create(staff=staff)
-            
+
+        # Date filters
+        date_from = self.request.GET.get('date_from', '')
+        date_to = self.request.GET.get('date_to', '')
+        context['date_from'] = date_from
+        context['date_to'] = date_to
         context['q'] = self.request.GET.get('q', '')
+        context['q_voucher'] = self.request.GET.get('q_voucher', '')
+
+        # Filtered staff payments base queryset
+        staff_payments_qs = StaffPayment.objects.all()
+        if date_from:
+            staff_payments_qs = staff_payments_qs.filter(payment_date__gte=date_from)
+        if date_to:
+            staff_payments_qs = staff_payments_qs.filter(payment_date__lte=date_to)
+
+        # Stat cards
         context['total_staff'] = self.get_queryset().count()
         context['total_unpaid'] = StaffSalary.objects.aggregate(Sum('salary_balance'))['salary_balance__sum'] or 0
+        context['total_paid'] = staff_payments_qs.aggregate(Sum('amount'))['amount__sum'] or 0
+
+        # Donut Chart
+        roles_dist = list(self.get_queryset().values('role').annotate(count=Count('id')))
+        context['roles_distribution_json'] = json.dumps(roles_dist)
+        context['total_roles'] = len(roles_dist)
+
+        # Bar Chart – monthly payroll (respects date filter window)
+        today = timezone.now().date()
+        monthly_summary = []
+        for i in range(5, -1, -1):
+            ms = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
+            me = (ms + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            bar_qs = StaffPayment.objects.filter(payment_date__range=[ms, me])
+            if date_from:
+                bar_qs = bar_qs.filter(payment_date__gte=date_from)
+            if date_to:
+                bar_qs = bar_qs.filter(payment_date__lte=date_to)
+            amt = bar_qs.aggregate(Sum('amount'))['amount__sum'] or 0
+            monthly_summary.append({'month': ms.strftime('%b %Y'), 'total': float(amt)})
+        context['monthly_summary_json'] = json.dumps(monthly_summary)
+
+        # Line Chart – income (fee payments)
+        fee_payments_qs = Payment.objects.all()
+        if date_from:
+            fee_payments_qs = fee_payments_qs.filter(date_paid__gte=date_from)
+        if date_to:
+            fee_payments_qs = fee_payments_qs.filter(date_paid__lte=date_to)
+
+        monthly_income = []
+        for i in range(5, -1, -1):
+            ms = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
+            me = (ms + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            line_qs = Payment.objects.filter(date_paid__range=[ms, me])
+            if date_from:
+                line_qs = line_qs.filter(date_paid__gte=date_from)
+            if date_to:
+                line_qs = line_qs.filter(date_paid__lte=date_to)
+            amt = line_qs.aggregate(Sum('amount'))['amount__sum'] or 0
+            monthly_income.append({'month': ms.strftime('%b %Y'), 'total': float(amt)})
+        context['monthly_income_json'] = json.dumps(monthly_income)
+        context['total_income'] = sum(m['total'] for m in monthly_income)
+
+        # Payment vouchers table (filtered + searchable)
+        vouchers_qs = staff_payments_qs.select_related('staff').order_by('-payment_date', '-created_at')
+        q_voucher = self.request.GET.get('q_voucher', '')
+        if q_voucher:
+            vouchers_qs = vouchers_qs.filter(
+                Q(staff__first_name__icontains=q_voucher) |
+                Q(staff__last_name__icontains=q_voucher) |
+                Q(reference__icontains=q_voucher)
+            )
+        context['recent_payments'] = vouchers_qs[:10]
+
         return context
 
 @login_required
@@ -268,3 +337,121 @@ def update_salary_config(request, staff_id):
         messages.success(request, f"Updated salary configuration for {staff.get_full_name()}.")
         
     return redirect('accounts:payroll-list')
+
+class MigrateFeesView(LoginRequiredMixin, ListView):
+    template_name = 'accounts/migrate_fees.html'
+    context_object_name = 'student_profiles'
+
+    def get_queryset(self):
+        from core.models import Grade
+        grade_id = self.request.GET.get('grade')
+        
+        # Default to first grade if none selected
+        if grade_id:
+            queryset = StudentProfile.objects.filter(class_id__grade_id=grade_id)
+        else:
+            first_grade = Grade.objects.all().first()
+            if first_grade:
+                queryset = StudentProfile.objects.filter(class_id__grade=first_grade)
+            else:
+                queryset = StudentProfile.objects.none()
+
+        queryset = queryset.select_related('student', 'class_id', 'class_id__grade', 'school')
+        
+        # Filter by school if user is linked to one
+        if self.request.user.school:
+            queryset = queryset.filter(school=self.request.user.school)
+            
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from core.models import Term, AcademicYear, Grade
+        
+        active_term = Term.objects.filter(is_active=True).first()
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        selected_grade_id = self.request.GET.get('grade')
+        if selected_grade_id:
+            selected_grade = Grade.objects.filter(id=selected_grade_id).first()
+        else:
+            selected_grade = Grade.objects.all().first()
+
+        context['active_term'] = active_term
+        context['active_year'] = active_year
+        context['grades'] = Grade.objects.all()
+        context['selected_grade'] = selected_grade
+        return context
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_superuser and request.user.role != 'Admin' and request.user.role != 'Accountant':
+            messages.error(request, "Permission denied.")
+            return redirect('accounts:migrate-fees')
+
+        action = request.POST.get('action')
+        
+        from core.models import Term, AcademicYear
+        active_term = Term.objects.filter(is_active=True).first()
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        
+        if not active_term or not active_year:
+            messages.error(request, "No active term/year set.")
+            return redirect('accounts:migrate-fees')
+            
+        def get_structure_for_student(profile):
+            # Map student status to student_type
+            s_type = 'boarder' if profile.student.is_boarder else 'day'
+            # Find structure for this student's school, type, grade, year, and term
+            return FeeStructure.objects.filter(
+                academic_year=active_year,
+                term=active_term,
+                school=profile.school,
+                student_type=s_type,
+                grade=profile.class_id.grade
+            ).first()
+
+        if action == 'invoice_all':
+            profiles = self.get_queryset()
+            invoice_count = 0
+            missing_structure_count = 0
+            
+            for profile in profiles:
+                fee_structure = get_structure_for_student(profile)
+                if not fee_structure:
+                    missing_structure_count += 1
+                    continue
+                    
+                if not Invoice.objects.filter(student=profile.student, fee_structure=fee_structure).exists():
+                    Invoice.objects.create(
+                        student=profile.student,
+                        fee_structure=fee_structure,
+                        amount=fee_structure.amount
+                    )
+                    invoice_count += 1
+            
+            msg = f"Successfully created {invoice_count} invoices."
+            if missing_structure_count > 0:
+                msg += f" {missing_structure_count} students skipped due to missing fee structures."
+            messages.success(request, msg)
+
+        elif action == 'invoice_single':
+            student_id = request.POST.get('student_id')
+            student = get_object_or_404(Student, id=student_id)
+            profile = student.studentprofile
+            fee_structure = get_structure_for_student(profile)
+            
+            if not fee_structure:
+                messages.error(request, f"No fee structure found for {student.get_full_name()} (School: {student.profile.school.name}, Type: {'Boarder' if student.is_boarder else 'Day Scholar'}).")
+                return redirect('accounts:migrate-fees')
+
+            if not Invoice.objects.filter(student=student, fee_structure=fee_structure).exists():
+                Invoice.objects.create(
+                    student=student,
+                    fee_structure=fee_structure,
+                    amount=fee_structure.amount
+                )
+                messages.success(request, f"Invoiced {student.get_full_name()} successfully.")
+            else:
+                messages.warning(request, f"{student.get_full_name()} has already been invoiced.")
+            
+        return redirect('accounts:migrate-fees')

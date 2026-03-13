@@ -117,7 +117,7 @@
                                     <i class="fas fa-file-alt text-indigo-600 text-sm"></i>
                                 </div>
                                 <div>
-                                    <p class="font-black text-slate-900 font-bold">{{ exam.name }}</p>
+                                    <p class="font-black text-slate-900 font-bold">{{ exam.name }} - {{ exam.period }}</p>
                                     <p class="text-xs text-slate-500 font-medium">ID: {{ exam.id }}</p>
                                 </div>
                             </div>
@@ -142,14 +142,28 @@
                         </td>
                         <td class="px-6 py-5 text-center">
                             <div class="flex items-center justify-center gap-2">
+                                {% if exam.is_running %}
+                                <span class="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                    <i class="fas fa-circle text-[6px] animate-pulse mr-1"></i>Running
+                                </span>
+                                {% if user.is_exam_manager or user.is_superuser %}
                                 <a href="{% url 'Exam:manage-exam' exam.id %}" class="btn bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-2 rounded-xl text-xs font-black">
                                     <i class="fas fa-cog"></i>
                                     Manage
                                 </a>
-                                <a href="#" class="btn bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-2 rounded-xl text-xs font-black">
-                                    <i class="fas fa-chart-line"></i>
-                                    Analytics
-                                </a>
+                                {% endif %}
+                                {% else %}
+                                <span class="px-2 py-1 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                    <i class="fas fa-lock text-[8px] mr-1"></i>Closed
+                                </span>
+                                {% if user.is_exam_manager or user.is_superuser %}
+                                <span class="btn bg-slate-200 text-slate-400 px-3 py-2 rounded-xl text-xs font-black cursor-not-allowed" title="Exam is not running">
+                                    <i class="fas fa-cog"></i>
+                                    Manage
+                                </span>
+                                {% endif %}
+                                {% endif %}
+                                
                             </div>
                         </td>
                     </tr>

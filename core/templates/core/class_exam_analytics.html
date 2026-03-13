@@ -56,7 +56,7 @@
                     <option value="">All Exams</option>
                     {% for exam in exams %}
                         <option value="{{ exam.id }}" {% if exam.id|stringformat:"s" == selected_exam %}selected{% endif %}>
-                            {{ exam.name }} ({{ exam.year.start_date|date:"Y" }} - {{ exam.term.name }})
+                            {{ exam.name }} - {{ exam.period }} ({{ exam.year.start_date|date:"Y" }} - {{ exam.term.name }})
                         </option>
                     {% endfor %}
                 </select>

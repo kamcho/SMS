@@ -108,16 +108,10 @@ class ExamForm(BaseStyledForm):
 class ExamModeForm(BaseStyledForm):
     class Meta:
         model = ExamMode
-        fields = ['active', 'school']
+        fields = ['active']
         widgets = {
             'active': forms.CheckboxInput(),
-            'school': forms.Select(),
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['school'].queryset = School.objects.all()
-        self.fields['school'].empty_label = "Select School"
 
 
 class PaymentForm(forms.ModelForm):

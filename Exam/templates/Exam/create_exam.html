@@ -23,7 +23,7 @@
         <form method="post" id="examForm" class="space-y-6">
             {% csrf_token %}
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <!-- Exam Name -->
                 <div>
                     <label for="{{ form.name.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
@@ -36,6 +36,22 @@
                         </div>
                     {% endif %}
                     <p class="mt-2 text-xs text-slate-400 font-medium">e.g., Mid-Term Exams, Final Exams, Mock Exams</p>
+                </div>
+
+                <!-- Exam Period -->
+                <div>
+                    <label for="{{ form.period.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
+                        Period <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative group">
+                        {{ form.period }}
+                        <i class="fas fa-clock absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 group-hover:text-indigo-500 pointer-events-none transition-colors"></i>
+                    </div>
+                    {% if form.period.errors %}
+                        <div class="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+                            <p class="text-xs font-bold text-red-600">{{ form.period.errors.0 }}</p>
+                        </div>
+                    {% endif %}
                 </div>
 
                 <!-- Academic Year -->

@@ -14,7 +14,7 @@ class Subject(models.Model):
     grade = models.CharField(max_length=10)
     
     def __str__(self):
-        return self.name
+        return str(self.name) + ' ' + str(self.grade)
 
 class MySubject(models.Model):
     subject = models.ManyToManyField(Subject)
@@ -24,10 +24,23 @@ class MySubject(models.Model):
         return self.student
 
 class Exam(models.Model):
+    period_choices = (
+        ('Mid Term', 'Mid Term'),
+        ('End Term', 'End Term'),
+        ('Opener', 'Opener'),
+        ('Mock', 'Mock'),
+        ('CAT', 'CAT'),
+        ('Final', 'Final'),
+    )
     name = models.CharField(max_length=100)
+    period = models.CharField(max_length=100, choices=period_choices)
     year = models.ForeignKey('core.AcademicYear', on_delete=models.CASCADE)
     term = models.ForeignKey('core.Term', on_delete=models.CASCADE)
-    
+    is_running = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey('users.MyUser', on_delete=models.CASCADE, related_name='created_exams', null=True, blank=True)
+    updated_by = models.ForeignKey('users.MyUser', on_delete=models.CASCADE, related_name='updated_exams', null=True, blank=True)
     class Meta:
         unique_together = ('name', 'year', 'term')
     

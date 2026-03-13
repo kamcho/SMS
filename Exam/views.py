@@ -151,7 +151,12 @@ class CreateExamView(LoginRequiredMixin, View):
         
         if form.is_valid():
             try:
-                exam = form.save()
+                # Deactivate all other exams
+                Exam.objects.update(is_running=False)
+                exam = form.save(commit=False)
+                exam.created_by = request.user
+                exam.updated_by = request.user
+                exam.save()
                 messages.success(request, f'Exam "{exam.name}" has been created successfully!')
                 return redirect('core:dashboard')
             except Exception as e:
@@ -182,9 +187,9 @@ class ManageExamView(LoginRequiredMixin, View):
             exam=exam
         ).select_related('subject').prefetch_related('examsubjectpaper_set').order_by('subject__grade', 'subject__name')
         from core.models import ExamMode
-        # Check if exam is active using ExamMode
-        exam_mode = ExamMode.objects.filter(exam=exam).first()
-        exam_is_active = exam_mode.active if exam_mode else False
+        # Check if exam is active: BOTH is_running AND ExamMode active for this exam
+        exam_mode = ExamMode.objects.first()
+        exam_is_active = exam.is_running and exam_mode is not None and exam_mode.exam_id == exam.id and exam_mode.active
         
         # Group configurations by grade
         configs_by_grade = {}
@@ -233,44 +238,37 @@ class ManageExamView(LoginRequiredMixin, View):
         
         exam = get_object_or_404(Exam, id=exam_id)
         
-        # Handle exam activation
+        # Handle exam activation - singleton ExamMode pattern
         if 'activate_exam' in request.POST:
             from core.models import ExamMode
-            # Get school from the current user's profile
-            try:
-                school = request.user.profile.school
-            except AttributeError:
-                # Fallback: get the first school
-                from core.models import School
-                school = School.objects.first()
-            
-            exam_mode, created = ExamMode.objects.get_or_create(
-                exam=exam,
-                defaults={'active': True, 'school': school}
-            )
-            if not created and not exam_mode.active:
+            # 1. Deactivate all other exams' is_running
+            Exam.objects.exclude(id=exam.id).update(is_running=False)
+            # 2. Set this exam's is_running to True
+            exam.is_running = True
+            exam.save()
+            # 3. Update the singleton ExamMode (get or create the single record)
+            exam_mode = ExamMode.objects.first()
+            if exam_mode:
+                exam_mode.exam = exam
                 exam_mode.active = True
-                exam_mode.school = school  # Update school if needed
                 exam_mode.save()
-                messages.success(request, f'Exam "{exam.name}" is now active. Teachers can now upload marks.')
-            elif not created and exam_mode.active:
-                messages.info(request, f'Exam "{exam.name}" is already active.')
             else:
-                messages.success(request, f'Exam "{exam.name}" is now active. Teachers can now upload marks.')
+                ExamMode.objects.create(exam=exam, active=True)
+            messages.success(request, f'Exam "{exam.name}" is now active. Teachers can now upload marks.')
             return redirect('Exam:manage-exam', exam_id=exam_id)
         
         # Handle exam deactivation
         if 'deactivate_exam' in request.POST:
             from core.models import ExamMode
-            exam_mode = ExamMode.objects.filter(exam=exam).first()
-            if exam_mode and exam_mode.active:
+            # 1. Set this exam's is_running to False
+            exam.is_running = False
+            exam.save()
+            # 2. Deactivate the singleton ExamMode
+            exam_mode = ExamMode.objects.first()
+            if exam_mode and exam_mode.exam_id == exam.id:
                 exam_mode.active = False
                 exam_mode.save()
-                messages.success(request, f'Exam "{exam.name}" has been deactivated. Teachers can no longer upload marks.')
-            elif exam_mode and not exam_mode.active:
-                messages.info(request, f'Exam "{exam.name}" is already deactivated.')
-            else:
-                messages.info(request, f'Exam "{exam.name}" is not active.')
+            messages.success(request, f'Exam "{exam.name}" has been deactivated. Teachers can no longer upload marks.')
             return redirect('Exam:manage-exam', exam_id=exam_id)
         
         # Handle different form actions
@@ -291,7 +289,9 @@ class ManageExamView(LoginRequiredMixin, View):
     def _update_exam(self, request, exam):
         form = ExamForm(request.POST, instance=exam)
         if form.is_valid():
-            form.save()
+            exam = form.save(commit=False)
+            exam.updated_by = request.user
+            exam.save()
             messages.success(request, f'Exam "{exam.name}" has been updated successfully!')
         else:
             messages.error(request, 'Please correct errors below.')
@@ -362,7 +362,7 @@ class ExamListView(LoginRequiredMixin, View):
         selected_term = request.GET.get('term')
         
         # Start with base queryset
-        exams = Exam.objects.select_related('year', 'term').order_by('-year__start_date', 'term__name', 'name')
+        exams = Exam.objects.select_related('year', 'term').order_by('-id')
         
         # Apply filters only if they have values
         if selected_year and selected_year != '':
@@ -395,23 +395,32 @@ class SubjectConfigurationView(LoginRequiredMixin, View):
             messages.error(request, 'You do not have permission to manage subject configurations.')
             return redirect('core:dashboard')
         
-        # Get all subjects for this grade
-        subjects = Subject.objects.filter(grade=grade).order_by('name')
-        
         # Get existing subject configurations for subjects in this grade
         subject_configs = ExamSubjectConfiguration.objects.filter(
             subject__grade=grade
-        ).select_related('exam', 'subject').prefetch_related('examsubjectpaper_set').order_by('subject__name')
+        )
+        
+        if exam_id:
+            subject_configs = subject_configs.filter(exam_id=exam_id)
+            
+        subject_configs = subject_configs.select_related('exam', 'subject').prefetch_related('examsubjectpaper_set').order_by('subject__name')
+        
+        # Get all subjects for this grade that are NOT yet configured (if exam_id is provided)
+        subjects = Subject.objects.filter(grade=grade).order_by('name')
+        if exam_id:
+            configured_subject_ids = subject_configs.values_list('subject_id', flat=True)
+            subjects = subjects.exclude(id__in=configured_subject_ids)
         
         # Get all exams (since grade field was removed, we'll show all exams)
-        exams = Exam.objects.all().order_by('-year__start_date', 'term__name', 'name')
+        exams = Exam.objects.all().order_by('-id')
         
         # Create form with pre-selected exam if exam_id is provided
         subject_config_form = ExamSubjectConfigurationForm(grade=grade)
+        selected_exam = None
         if exam_id:
             try:
-                exam = get_object_or_404(Exam, id=exam_id)
-                subject_config_form.fields['exam'].initial = exam
+                selected_exam = get_object_or_404(Exam, id=exam_id)
+                subject_config_form.fields['exam'].initial = selected_exam
                 subject_config_form.fields['exam'].queryset = exams
             except:
                 pass
@@ -421,6 +430,7 @@ class SubjectConfigurationView(LoginRequiredMixin, View):
             'subjects': subjects,
             'subject_configs': subject_configs,
             'exams': exams,
+            'selected_exam': selected_exam,
             'subject_config_form': subject_config_form,
             'paper_form': ExamSubjectPaperForm(),
             'score_ranking_form': ScoreRankingForm(),

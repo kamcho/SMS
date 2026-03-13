@@ -6,11 +6,14 @@ from .models import Subject
 class ExamForm(forms.ModelForm):
     class Meta:
         model = Exam
-        fields = ['name', 'year', 'term']
+        fields = ['name', 'period', 'year', 'term']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all',
                 'placeholder': 'Enter exam name (e.g., Mid-Term Exams, Final Exams)'
+            }),
+            'period': forms.Select(attrs={
+                'class': 'w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer'
             }),
             'year': forms.Select(attrs={
                 'class': 'w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer'
@@ -22,6 +25,7 @@ class ExamForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['period'].empty_label = "Select Period"
         self.fields['year'].empty_label = "Select Academic Year"
         self.fields['term'].empty_label = "Select Term"
         

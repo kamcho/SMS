@@ -3,9 +3,9 @@ from .models import FeeStructure, Invoice, Payment
 
 @admin.register(FeeStructure)
 class FeeStructureAdmin(admin.ModelAdmin):
-    list_display = ('grade', 'term', 'academic_year', 'amount', 'created_at')
-    list_filter = ('grade', 'term', 'academic_year')
-    search_fields = ('grade__name',)
+    list_display = ('term', 'academic_year', 'amount', 'created_at')
+    list_filter = ('term', 'academic_year')
+    search_fields = ('term__name',)
 
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):

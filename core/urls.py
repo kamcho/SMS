@@ -20,6 +20,7 @@ urlpatterns = [
     path('configurations/grade/create/', views.create_grade, name='create-grade'),
     path('configurations/class/create/', views.create_class, name='create-class'),
     path('configurations/exam/create/', views.create_exam, name='create-exam'),
+    path('configurations/fee-structure/create/', views.create_fee_structure, name='create-fee-structure'),
     path('configurations/exam-mode/<int:exam_mode_id>/update/', views.update_exam_mode, name='update-exam-mode'),
     path('configurations/delete/<str:model_type>/<int:item_id>/', views.delete_item, name='delete-item'),
     path('student/<int:student_id>/report/<int:exam_id>/', views.student_report, name='student-report'),
@@ -31,5 +32,6 @@ urlpatterns = [
     path('attendance/data/', views.get_attendance_data, name='get-attendance-data'),
     path('schools-analytics/', views.schools_analytics, name='schools-analytics'),
     path('discipline/', views.discipline_log, name='discipline-log'),
-    path('discipline/delete/<int:incident_id>/', views.delete_discipline, name='delete-discipline'),
+    path('configurations/academic-year/<int:year_id>/activate/', views.activate_academic_year, name='activate-academic-year'),
+    path('configurations/term/<int:term_id>/activate/', views.activate_term, name='activate-term'),
 ]

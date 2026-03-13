@@ -40,6 +40,7 @@ class MyUser(AbstractBaseUser, PermissionsMixin):
     students = models.ManyToManyField('core.Student', blank=True, related_name='guardians')
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_exam_manager = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
 
     objects = MyUserManager()

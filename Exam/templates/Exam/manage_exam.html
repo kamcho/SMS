@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
 {% load exam_filters %}
 
-{% block title %}Manage Exam: {{ exam.name }} | Excel SMS{% endblock %}
+{% block title %}Manage Exam: {{ exam.name }} ({{ exam.period }}) | Excel SMS{% endblock %}
 
 {% block page_header %}
 <div class="flex items-center justify-between gap-4">
     <div>
         <h1 class="text-3xl font-black text-slate-900 tracking-tight">Manage Exam</h1>
-        <p class="text-slate-500 mt-1 font-medium">{{ exam.name }} - {{ exam.year }} • {{ exam.term.name }}</p>
+        <p class="text-slate-500 mt-1 font-medium">{{ exam.name }} - {{ exam.period }} • {{ exam.year }} • {{ exam.term.name }}</p>
     </div>
     <div class="flex items-center gap-3">
         <a href="{% url 'core:dashboard' %}" class="btn bg-white border border-slate-200 text-slate-500 hover:text-slate-800 p-2.5 rounded-xl shadow-sm">
@@ -32,7 +32,7 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="update_exam">
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <!-- Exam Name -->
                 <div>
                     <label for="{{ exam_form.name.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
@@ -42,6 +42,22 @@
                     {% if exam_form.name.errors %}
                         <div class="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
                             <p class="text-xs font-bold text-red-600">{{ exam_form.name.errors.0 }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Exam Period -->
+                <div>
+                    <label for="{{ exam_form.period.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
+                        Period <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative group">
+                        {{ exam_form.period }}
+                        <i class="fas fa-clock absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 group-hover:text-indigo-500 pointer-events-none transition-colors"></i>
+                    </div>
+                    {% if exam_form.period.errors %}
+                        <div class="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+                            <p class="text-xs font-bold text-red-600">{{ exam_form.period.errors.0 }}</p>
                         </div>
                     {% endif %}
                 </div>

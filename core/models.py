@@ -16,10 +16,10 @@ class ExamMode(models.Model):
 
     exam = models.ForeignKey('Exam.Exam', on_delete=models.CASCADE, null=True, blank=True)
     active = models.BooleanField(default=True)
-    school = models.ForeignKey(School, on_delete=models.CASCADE, null=True, blank=True)
+    # school = models.ForeignKey(School, on_delete=models.CASCADE, null=True, blank=True)
     
     def __str__(self):
-        return self.name
+        return f"Exam Mode - {self.exam.name if self.exam else 'No Exam'}"
 
 class Grade(models.Model):
     choices = (
@@ -47,7 +47,8 @@ class Class(models.Model):
     name = models.CharField(max_length=100)
     school = models.ForeignKey(School, on_delete=models.CASCADE)
     grade = models.ForeignKey(Grade, on_delete=models.CASCADE)
-    
+    invigilator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    class_teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='class_teacher')
     def __str__(self):
         return self.name
 
@@ -64,9 +65,13 @@ class Student(models.Model):
     joined_date = models.DateField()
     gender = models.CharField(max_length=10, choices=GENDERS)
     location = models.CharField(max_length=100, null=True, blank=True)
+    is_boarder = models.BooleanField(default=False)
     
+    def get_full_name(self):
+        return f"{self.first_name} {self.middle_name} {self.last_name}".strip()
+
     def __str__(self):
-        return self.first_name
+        return self.get_full_name()
 
 class StudentProfile(models.Model):
     student = models.OneToOneField(Student, on_delete=models.CASCADE)
@@ -83,6 +88,7 @@ class AcademicYear(models.Model):
     end_date = models.DateField()
     is_active = models.BooleanField(default=False)
     
+    unique_together = ('start_date', 'end_date')
     def __str__(self):
         return str(self.start_date.year)
 

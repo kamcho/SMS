@@ -1,9 +1,111 @@
 {% extends 'base.html' %}
 
-{% block title %}Payroll Management — Linakuu{% endblock %}
+{% block title %}Payroll Management — Excel SMS{% endblock %}
 
-{% block header %}
-<div class="flex items-center gap-4">
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .payroll-card {
+        background: #fff;
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        border: 1px solid #f1f5f9;
+        transition: all 0.2s;
+    }
+    .payroll-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .stat-card-accent {
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all 0.2s;
+    }
+    .stat-card-accent:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+    .stat-icon {
+        width: 3rem; height: 3rem;
+        border-radius: 0.75rem;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem;
+    }
+    .chart-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 1.25rem;
+    }
+    .chart-header h3 {
+        font-size: 0.95rem; font-weight: 800; color: #1e293b;
+    }
+    .mini-table { width: 100%; border-collapse: collapse; }
+    .mini-table thead th {
+        font-size: 0.6rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 0.08em; color: #94a3b8; padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f1f5f9; text-align: left;
+    }
+    .mini-table tbody td {
+        font-size: 0.8rem; padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f8fafc; color: #475569;
+    }
+    .mini-table tbody tr:hover { background: #f8fafc; }
+    .status-badge {
+        font-size: 0.6rem; font-weight: 800; padding: 0.25rem 0.75rem;
+        border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .status-pending { background: #fef3c7; color: #d97706; }
+    .status-approved { background: #d1fae5; color: #059669; }
+    .filter-bar {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 1.25rem;
+        padding: 1rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .filter-bar label {
+        font-size: 0.6rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 0.08em; color: #64748b;
+    }
+    .filter-bar input[type="date"] {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #334155;
+        outline: none;
+        transition: all 0.2s;
+    }
+    .filter-bar input[type="date"]:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+    }
+    .table-search {
+        width: 100%;
+        padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #334155;
+        outline: none;
+        background: #f8fafc;
+        transition: all 0.2s;
+    }
+    .table-search:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        background: #fff;
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between mb-2">
     <div>
         <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Staff Payroll</h1>
         <p class="text-slate-500 mt-1 font-medium">Manage salaries and process payments for school staff</p>
@@ -12,114 +114,232 @@
 {% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <!-- Stat Cards -->
-    <div class="glass-card bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0">
-        <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md">
-                <i class="fas fa-users text-xl"></i>
-            </div>
-            <div>
-                <p class="text-indigo-100 text-xs font-bold uppercase tracking-wider">Total Staff</p>
-                <h3 class="text-2xl font-black">{{ total_staff }}</h3>
-            </div>
+<!-- FILTER BAR -->
+<form method="get" class="filter-bar mb-8">
+    <div class="flex items-center gap-2">
+        <label>From</label>
+        <input type="date" name="date_from" value="{{ date_from }}">
+    </div>
+    <div class="flex items-center gap-2">
+        <label>To</label>
+        <input type="date" name="date_to" value="{{ date_to }}">
+    </div>
+    <!-- preserve staff search if active -->
+    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+    {% if q_voucher %}<input type="hidden" name="q_voucher" value="{{ q_voucher }}">{% endif %}
+    <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-extrabold uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-sm">
+        <i class="fas fa-filter mr-1"></i> Filter
+    </button>
+    <a href="{% url 'accounts:payroll-list' %}" class="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-extrabold uppercase tracking-widest hover:bg-slate-200 transition-all">
+        <i class="fas fa-undo mr-1"></i> Reset
+    </a>
+</form>
+
+<!-- ROW 1: 4 Stat Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+    <div class="stat-card-accent bg-gradient-to-br from-orange-50 to-orange-100/60 border border-orange-200/40">
+        <div class="stat-icon bg-orange-500 text-white shadow-lg shadow-orange-200">
+            <i class="fas fa-users"></i>
+        </div>
+        <div>
+            <h3 class="text-2xl font-black text-slate-800">{{ total_staff }}</h3>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Staff</p>
         </div>
     </div>
-
-    <div class="glass-card border-l-4 border-l-amber-500">
-        <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
-                <i class="fas fa-wallet text-xl"></i>
-            </div>
-            <div>
-                <p class="text-slate-500 text-xs font-bold uppercase tracking-wider">Total Unpaid Balance</p>
-                <h3 class="text-2xl font-black text-slate-800">KES {{ total_unpaid|floatformat:2 }}</h3>
-            </div>
+    <div class="stat-card-accent bg-gradient-to-br from-red-50 to-red-100/60 border border-red-200/40">
+        <div class="stat-icon bg-red-500 text-white shadow-lg shadow-red-200">
+            <i class="fas fa-wallet"></i>
+        </div>
+        <div>
+            <h3 class="text-2xl font-black text-slate-800">KES {{ total_unpaid|floatformat:0 }}</h3>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unpaid Balance</p>
         </div>
     </div>
-
-    <div class="glass-card">
-        <form method="get" class="flex gap-2 h-full items-center">
-            <div class="relative flex-1">
-                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                <input type="text" name="q" value="{{ q }}" placeholder="Search staff name..." 
-                       class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm">
-            </div>
-            <button type="submit" class="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors">
-                <i class="fas fa-arrow-right"></i>
-            </button>
-        </form>
+    <div class="stat-card-accent bg-gradient-to-br from-blue-50 to-blue-100/60 border border-blue-200/40">
+        <div class="stat-icon bg-blue-500 text-white shadow-lg shadow-blue-200">
+            <i class="fas fa-money-bill-wave"></i>
+        </div>
+        <div>
+            <h3 class="text-2xl font-black text-slate-800">KES {{ total_paid|floatformat:0 }}</h3>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Paid</p>
+        </div>
+    </div>
+    <div class="stat-card-accent bg-gradient-to-br from-emerald-50 to-emerald-100/60 border border-emerald-200/40">
+        <div class="stat-icon bg-emerald-500 text-white shadow-lg shadow-emerald-200">
+            <i class="fas fa-sitemap"></i>
+        </div>
+        <div>
+            <h3 class="text-2xl font-black text-slate-800">{{ total_roles }}</h3>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Roles</p>
+        </div>
     </div>
 </div>
 
-<div class="glass-card p-0 overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="bg-slate-50/50 border-bottom border-slate-100">
-                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Staff Member</th>
-                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Role</th>
-                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Basic Salary</th>
-                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Current Balance</th>
-                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                {% for staff in staff_members %}
-                <tr class="hover:bg-slate-50/50 transition-colors group">
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm">
-                                {{ staff.first_name|first }}{{ staff.last_name|first }}
+<!-- ROW 2: 3 Charts -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+    <!-- Donut -->
+    <div class="lg:col-span-4 payroll-card">
+        <div class="chart-header">
+            <h3>Staff by Role</h3>
+            <i class="fas fa-ellipsis-v text-slate-300"></i>
+        </div>
+        <div class="relative flex items-center justify-center" style="height: 200px;">
+            <canvas id="roleDonut"></canvas>
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span class="text-3xl font-black text-slate-800">{{ total_staff }}</span>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Staff</span>
+            </div>
+        </div>
+        <div class="mt-4 grid grid-cols-3 gap-2 text-center border-t border-slate-100 pt-4" id="roleLegend"></div>
+    </div>
+
+    <!-- Bar -->
+    <div class="lg:col-span-4 payroll-card">
+        <div class="chart-header">
+            <h3>Annual Payroll Summary</h3>
+            <i class="fas fa-ellipsis-v text-slate-300"></i>
+        </div>
+        <div style="height: 260px;">
+            <canvas id="payrollBar"></canvas>
+        </div>
+    </div>
+
+    <!-- Line -->
+    <div class="lg:col-span-4 payroll-card">
+        <div class="chart-header">
+            <div>
+                <h3>Total Income</h3>
+                <p class="text-2xl font-black text-slate-800 mt-1">KES {{ total_income|floatformat:0 }}</p>
+            </div>
+            <i class="fas fa-ellipsis-v text-slate-300"></i>
+        </div>
+        <div style="height: 220px;">
+            <canvas id="incomeLine"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ROW 3: 2 Tables -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Payment Vouchers -->
+    <div class="payroll-card p-0 overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-100">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-extrabold text-slate-800">Payment Vouchers</h3>
+            </div>
+            <form method="get" class="relative">
+                <!-- preserve other params -->
+                {% if date_from %}<input type="hidden" name="date_from" value="{{ date_from }}">{% endif %}
+                {% if date_to %}<input type="hidden" name="date_to" value="{{ date_to }}">{% endif %}
+                {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" name="q_voucher" value="{{ q_voucher }}" placeholder="Search vouchers..." class="table-search">
+            </form>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="mini-table">
+                <thead>
+                    <tr>
+                        <th>S/N</th>
+                        <th>Staff</th>
+                        <th>Amount</th>
+                        <th>Date</th>
+                        <th>Method</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in recent_payments %}
+                    <tr>
+                        <td class="font-bold text-slate-400">{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td class="font-bold text-slate-700">{{ p.staff.get_full_name }}</td>
+                        <td class="font-bold">KES {{ p.amount|floatformat:0 }}</td>
+                        <td>{{ p.payment_date|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="status-badge {% if p.payment_method == 'Cash' %}status-pending{% else %}status-approved{% endif %}">
+                                {{ p.payment_method }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-8 text-slate-400">No payments found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Staff Salary Overview -->
+    <div class="payroll-card p-0 overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-100">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-extrabold text-slate-800">Staff Salary Overview</h3>
+            </div>
+            <form method="get" class="relative">
+                {% if date_from %}<input type="hidden" name="date_from" value="{{ date_from }}">{% endif %}
+                {% if date_to %}<input type="hidden" name="date_to" value="{{ date_to }}">{% endif %}
+                {% if q_voucher %}<input type="hidden" name="q_voucher" value="{{ q_voucher }}">{% endif %}
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" name="q" value="{{ q }}" placeholder="Search staff..." class="table-search">
+            </form>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="mini-table">
+                <thead>
+                    <tr>
+                        <th>S/N</th>
+                        <th>Staff Member</th>
+                        <th>Role</th>
+                        <th>Basic Salary</th>
+                        <th>Balance</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for staff in staff_members %}
+                    <tr>
+                        <td class="font-bold text-slate-400">{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-[10px]">
+                                    {{ staff.first_name|first }}{{ staff.last_name|first }}
+                                </div>
+                                <span class="font-bold text-slate-700">{{ staff.get_full_name }}</span>
                             </div>
-                            <div>
-                                <h4 class="font-bold text-slate-800 leading-tight">{{ staff.get_full_name }}</h4>
-                                <p class="text-xs text-slate-500">{{ staff.email }}</p>
+                        </td>
+                        <td>
+                            <span class="status-badge {% if staff.role == 'Teacher' %}bg-blue-50 text-blue-600{% elif staff.role == 'Admin' %}bg-purple-50 text-purple-600{% elif staff.role == 'Accountant' %}bg-emerald-50 text-emerald-600{% else %}bg-slate-50 text-slate-600{% endif %}">
+                                {{ staff.role }}
+                            </span>
+                        </td>
+                        <td class="font-bold text-slate-700">KES {{ staff.salary_profile.basic_salary|floatformat:0 }}</td>
+                        <td>
+                            <span class="font-bold {% if staff.salary_profile.salary_balance > 0 %}text-amber-600{% elif staff.salary_profile.salary_balance < 0 %}text-emerald-600{% else %}text-slate-400{% endif %}">
+                                KES {{ staff.salary_profile.salary_balance|floatformat:0 }}
+                            </span>
+                        </td>
+                        <td class="text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                <button onclick="openConfigModal('{{ staff.id }}', '{{ staff.get_full_name }}', '{{ staff.salary_profile.basic_salary }}')"
+                                        class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Configure">
+                                    <i class="fas fa-cog text-xs"></i>
+                                </button>
+                                <a href="{% url 'accounts:process-payroll-payment' staff.id %}"
+                                   class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all">
+                                    Pay
+                                </a>
                             </div>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider 
-                            {% if staff.role == 'Teacher' %}bg-blue-50 text-blue-600
-                            {% elif staff.role == 'Admin' %}bg-purple-50 text-purple-600
-                            {% elif staff.role == 'Accountant' %}bg-emerald-50 text-emerald-600
-                            {% else %}bg-slate-50 text-slate-600{% endif %}">
-                            {{ staff.role }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 font-bold text-slate-700">
-                        KES {{ staff.salary_profile.basic_salary|floatformat:2 }}
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="font-bold {% if staff.salary_profile.salary_balance > 0 %}text-amber-600{% elif staff.salary_profile.salary_balance < 0 %}text-emerald-600{% else %}text-slate-400{% endif %}">
-                            KES {{ staff.salary_profile.salary_balance|floatformat:2 }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <div class="flex items-center justify-end gap-2">
-                            <button onclick="openConfigModal('{{ staff.id }}', '{{ staff.get_full_name }}', '{{ staff.salary_profile.basic_salary }}')" 
-                                    class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Configure Salary">
-                                <i class="fas fa-cog"></i>
-                            </button>
-                            <a href="{% url 'accounts:process-payroll-payment' staff.id %}" 
-                               class="btn btn-primary text-xs py-2">
-                                <i class="fas fa-hand-holding-usd mr-1"></i> Pay
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="px-6 py-12 text-center">
-                        <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <i class="fas fa-user-slash text-slate-300 text-2xl"></i>
-                        </div>
-                        <p class="text-slate-500 font-medium">No staff members found matching your search.</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-8 text-slate-400">No staff found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -130,15 +350,13 @@
             <h3 class="text-2xl font-black text-slate-900 mb-1">Salary Setup</h3>
             <p id="modalStaffName" class="text-slate-500 font-medium"></p>
         </div>
-        
         <form id="configForm" method="post" action="" class="p-8 pt-4 space-y-6">
             {% csrf_token %}
             <div>
                 <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Basic Salary (KES)</label>
-                <input type="number" step="0.01" name="basic_salary" id="modalBasicSalary" 
+                <input type="number" step="0.01" name="basic_salary" id="modalBasicSalary"
                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-slate-800">
             </div>
-            
             <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100">
                 <label class="block text-xs font-black text-amber-700 uppercase tracking-widest mb-2">Balance Adjustment</label>
                 <input type="number" step="0.01" name="balance_adjustment" value="0"
@@ -148,7 +366,6 @@
                     <i class="fas fa-info-circle mr-1"></i> Use this to bill the staff (e.g. at the end of the month).
                 </p>
             </div>
-
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeConfigModal()" class="flex-1 px-6 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-xs">
                     Cancel
@@ -160,23 +377,109 @@
         </form>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
+// Modal
 function openConfigModal(staffId, staffName, basicSalary) {
     const modal = document.getElementById('configModal');
-    const form = document.getElementById('configForm');
-    const nameLabel = document.getElementById('modalStaffName');
-    const salaryInput = document.getElementById('modalBasicSalary');
-    
-    nameLabel.textContent = staffName;
-    salaryInput.value = basicSalary;
-    form.action = `/accounts/payroll/config/${staffId}/`;
-    
+    document.getElementById('modalStaffName').textContent = staffName;
+    document.getElementById('modalBasicSalary').value = basicSalary;
+    document.getElementById('configForm').action = `/accounts/payroll/config/${staffId}/`;
     modal.classList.remove('hidden');
 }
-
 function closeConfigModal() {
     document.getElementById('configModal').classList.add('hidden');
+}
+
+// Chart Data
+const rolesData = {{ roles_distribution_json|safe|default:"[]" }};
+const monthlySummary = {{ monthly_summary_json|safe|default:"[]" }};
+const monthlyIncome = {{ monthly_income_json|safe|default:"[]" }};
+
+const donutColors = ['#f97316', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899'];
+
+// 1. Donut
+const ctxDonut = document.getElementById('roleDonut').getContext('2d');
+if (rolesData.length > 0) {
+    new Chart(ctxDonut, {
+        type: 'doughnut',
+        data: {
+            labels: rolesData.map(d => d.role),
+            datasets: [{
+                data: rolesData.map(d => d.count),
+                backgroundColor: donutColors.slice(0, rolesData.length),
+                borderWidth: 0, spacing: 3, cutout: '75%'
+            }]
+        },
+        options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+    const legendEl = document.getElementById('roleLegend');
+    rolesData.forEach((d, i) => {
+        legendEl.innerHTML += `
+            <div>
+                <span class="inline-block w-2.5 h-2.5 rounded-full mr-1" style="background:${donutColors[i]}"></span>
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${d.role}</span>
+                <div class="text-lg font-black text-slate-800">${d.count}</div>
+            </div>`;
+    });
+}
+
+// 2. Bar
+const ctxBar = document.getElementById('payrollBar').getContext('2d');
+if (monthlySummary.length > 0) {
+    const barColors = ['#10b981', '#f97316', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
+    new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+            labels: monthlySummary.map(d => d.month),
+            datasets: [{
+                label: 'Payroll',
+                data: monthlySummary.map(d => d.total),
+                backgroundColor: barColors.slice(0, monthlySummary.length),
+                borderRadius: 8, borderSkipped: false, barThickness: 28
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { grid: { color: '#f1f5f9', drawBorder: false }, ticks: { font: { size: 10, weight: '700' }, color: '#94a3b8' } },
+                x: { grid: { display: false }, ticks: { font: { size: 10, weight: '700' }, color: '#94a3b8' } }
+            }
+        }
+    });
+}
+
+// 3. Line
+const ctxLine = document.getElementById('incomeLine').getContext('2d');
+if (monthlyIncome.length > 0) {
+    const gradient = ctxLine.createLinearGradient(0, 0, 0, 250);
+    gradient.addColorStop(0, 'rgba(239, 68, 68, 0.15)');
+    gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+    new Chart(ctxLine, {
+        type: 'line',
+        data: {
+            labels: monthlyIncome.map(d => d.month),
+            datasets: [{
+                label: 'Income',
+                data: monthlyIncome.map(d => d.total),
+                borderColor: '#ef4444', borderWidth: 3,
+                pointBackgroundColor: '#fff', pointBorderColor: '#ef4444',
+                pointBorderWidth: 2, pointRadius: 5, pointHoverRadius: 7,
+                fill: true, backgroundColor: gradient, tension: 0.4
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { grid: { color: '#f1f5f9', drawBorder: false }, ticks: { font: { size: 10, weight: '700' }, color: '#94a3b8' } },
+                x: { grid: { display: false }, ticks: { font: { size: 10, weight: '700' }, color: '#94a3b8' } }
+            }
+        }
+    });
 }
 </script>
 {% endblock %}

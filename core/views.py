@@ -9,10 +9,10 @@ from django.db.models import Q, Count, Avg, Sum, Case, When, F, FloatField
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
-from .models import Student, StudentProfile, School, Class, Grade, AcademicYear, Term, ExamMode, TeacherClassProfile, AttendanceSession, StudentAttendance
+from .models import Student, StudentProfile, School,StudentDiscipline, Class, Grade, AcademicYear, Term, ExamMode, TeacherClassProfile, AttendanceSession, StudentAttendance
 from .forms import StudentForm, StudentProfileForm, AcademicYearForm, TermForm, GradeForm, ClassForm, ExamForm, ExamModeForm, PaymentForm, AttendanceSessionForm, StudentAttendanceForm
 from Exam.models import ExamSUbjectScore, Exam, Subject
-from accounts.models import Payment
+from accounts.models import Payment, FeeStructure
 from communication.models import Notification, PaymentNotification
 from django.views.generic import TemplateView
 
@@ -135,27 +135,86 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
         # Get all class & subject assignments for this teacher
         assignments = TeacherClassProfile.objects.filter(
             user=self.request.user
-        ).select_related('class_id', 'class_id__grade', 'subject')
+        ).select_related('class_id', 'class_id__grade', 'class_id__school', 'subject')
         
         # Calculate distinct classes assigned to
-        classes_assigned = set(a.class_id for a in assignments)
+        classes_assigned = list(set(a.class_id for a in assignments))
+        
+        # Calculate distinct subjects taught
+        subjects_taught = set(a.subject_id for a in assignments)
         
         # Calculate total students across all assigned classes
+        class_ids = [c.id for c in classes_assigned]
         total_unique_students = StudentProfile.objects.filter(
-            class_id__in=[c.id for c in classes_assigned]
+            class_id__in=class_ids
         ).values('student').distinct().count()
+        
+        # Per-class student counts for chart
+        class_student_data = []
+        for cls in classes_assigned:
+            count = StudentProfile.objects.filter(class_id=cls).count()
+            class_student_data.append({
+                'name': cls.name,
+                'grade': cls.grade.name if cls.grade else '',
+                'count': count,
+                'id': cls.id,
+            })
+        class_student_data.sort(key=lambda x: x['name'])
+        
+        # Gender distribution across assigned classes
+        male_count = StudentProfile.objects.filter(
+            class_id__in=class_ids, student__gender='male'
+        ).count()
+        female_count = StudentProfile.objects.filter(
+            class_id__in=class_ids, student__gender='female'
+        ).count()
+        
+        # Recent attendance sessions for assigned classes
+        recent_attendance = AttendanceSession.objects.filter(
+            class_id__in=class_ids
+        ).select_related('class_id', 'taken_by').order_by('-date', '-created_at')[:8]
+        
+        attendance_summary = []
+        for session in recent_attendance:
+            records = session.records.all()
+            present = records.filter(status='Present').count()
+            absent = records.filter(status='Absent').count()
+            total = records.count()
+            rate = round((present / total * 100), 1) if total > 0 else 0
+            attendance_summary.append({
+                'date': session.date,
+                'class_name': session.class_id.name,
+                'taken_by': session.taken_by,
+                'present': present,
+                'absent': absent,
+                'total': total,
+                'rate': rate,
+            })
+        
+        # School name
+        school_name = ''
+        if hasattr(self.request.user, 'school') and self.request.user.school:
+            school_name = self.request.user.school.name
         
         context['assignments'] = assignments
         context['total_classes'] = len(classes_assigned)
         context['total_students'] = total_unique_students
+        context['total_subjects'] = len(subjects_taught)
+        context['class_student_data'] = class_student_data
+        context['class_names_json'] = json.dumps([d['name'] for d in class_student_data])
+        context['class_counts_json'] = json.dumps([d['count'] for d in class_student_data])
+        context['male_count'] = male_count
+        context['female_count'] = female_count
+        context['recent_attendance'] = attendance_summary
+        context['school_name'] = school_name
         
-        # Determine active exam via ExamMode
+        # Determine active exam: BOTH is_running AND ExamMode active must be true
         from core.models import ExamMode
-        active_mode = ExamMode.objects.filter(
-            school=self.request.user.school,
-            active=True
-        ).select_related('exam').first()
-        context['active_exam'] = active_mode.exam if active_mode else None
+        exam_mode = ExamMode.objects.select_related('exam').first()
+        active_exam = None
+        if exam_mode and exam_mode.active and exam_mode.exam and exam_mode.exam.is_running:
+            active_exam = exam_mode.exam
+        context['active_exam'] = active_exam
 
         from Exam.models import Exam
         context['latest_exam'] = Exam.objects.order_by('-id').first()
@@ -646,24 +705,18 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
             class_id=self.object
         ).select_related('subject')
         
-        # Debug: Print assignment info
-        print(f"DEBUG: User {self.request.user.email}, Class {self.object.id}")
-        print(f"DEBUG: Teacher assignments count: {context['teacher_assignments'].count()}")
-        for assignment in context['teacher_assignments']:
-            print(f"DEBUG: Assignment - {assignment.subject.name}")
-        
-        # Determine active exam via ExamMode
+        # Determine active exam: BOTH is_running AND ExamMode active must be true
         from core.models import ExamMode
-        active_mode = ExamMode.objects.filter(
-            active=True
-        ).select_related('exam').first()
-        context['active_exam'] = active_mode.exam if active_mode else None
         
-        # Debug: Print exam info
-        print(f"DEBUG: Active exam: {context['active_exam']}")
-        print(f"DEBUG: Latest exam: {context.get('latest_exam')}")
+        # Get the singleton ExamMode
+        exam_mode = ExamMode.objects.select_related('exam').first()
         
-        # Fallback: Get most recent exam in the system
+        # Active exam = ExamMode points to an exam that also has is_running=True
+        active_exam = None
+        if exam_mode and exam_mode.active and exam_mode.exam and exam_mode.exam.is_running:
+            active_exam = exam_mode.exam
+        
+        context['active_exam'] = active_exam
         context['latest_exam'] = Exam.objects.order_by('-id').first()
 
         # Admin View: Manage Teachers
@@ -749,8 +802,9 @@ def configurations(request):
         'grades': Grade.objects.all().select_related('school').order_by('name', 'school__name'),
         'classes': Class.objects.all().select_related('school', 'grade').order_by('grade__name', 'name'),
         'exams': Exam.objects.all().select_related('year', 'term').order_by('-year__start_date', 'term__name'),
-        'exam_modes': ExamMode.objects.all().select_related('school'),
+        'exam_modes': ExamMode.objects.all(),
         'schools': School.objects.all(),
+        'fee_structures': FeeStructure.objects.all().select_related('academic_year', 'term').prefetch_related('grade'),
     }
     
     # Get forms for each model
@@ -761,8 +815,56 @@ def configurations(request):
     context['exam_form'] = ExamForm()
     context['exam_mode_form'] = ExamModeForm()
     
+    from accounts.forms import FeeStructureForm
+    context['fee_structure_form'] = FeeStructureForm()
+    
     return render(request, 'core/configurations.html', context)
 
+def create_fee_structure(request):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'Permission denied.')
+        return redirect('core:configurations')
+    
+    if request.method == 'POST':
+        from accounts.forms import FeeStructureForm
+        form = FeeStructureForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Fee structure created successfully!')
+        else:
+            messages.error(request, 'Error creating fee structure.')
+            
+    return redirect('core:configurations')
+
+
+
+def activate_academic_year(request, year_id):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'Permission denied.')
+        return redirect('core:configurations')
+    
+    # Deactivate all others
+    AcademicYear.objects.all().update(is_active=False)
+    # Activate the selected one
+    year = get_object_or_404(AcademicYear, id=year_id)
+    year.is_active = True
+    year.save()
+    messages.success(request, f'Academic year {year.start_date.year} is now active.')
+    return redirect('core:configurations')
+
+def activate_term(request, term_id):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'Permission denied.')
+        return redirect('core:configurations')
+    
+    # Deactivate all others
+    Term.objects.all().update(is_active=False)
+    # Activate the selected one
+    term = get_object_or_404(Term, id=term_id)
+    term.is_active = True
+    term.save()
+    messages.success(request, f'Term {term.name} is now active.')
+    return redirect('core:configurations')
 
 def create_academic_year(request):
     if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
@@ -836,7 +938,10 @@ def create_exam(request):
     if request.method == 'POST':
         form = ExamForm(request.POST)
         if form.is_valid():
-            form.save()
+            exam = form.save(commit=False)
+            exam.created_by = request.user
+            exam.updated_by = request.user
+            exam.save()
             messages.success(request, 'Exam created successfully!')
         else:
             messages.error(request, 'Error creating exam. Please check the form.')
@@ -855,7 +960,7 @@ def update_exam_mode(request, exam_mode_id):
         form = ExamModeForm(request.POST, instance=exam_mode)
         if form.is_valid():
             form.save()
-            messages.success(request, f'Exam mode for {exam_mode.school.name} updated successfully!')
+            messages.success(request, f'Exam mode updated successfully!')
         else:
             messages.error(request, 'Error updating exam mode. Please check the form.')
     
@@ -893,11 +998,12 @@ def delete_item(request, model_type, item_id):
             item_name = item.name
             item.delete()
             messages.success(request, f'Exam "{item_name}" deleted successfully!')
-        elif model_type == 'exam_mode':
-            item = get_object_or_404(ExamMode, id=item_id)
-            item_name = f"Exam mode for {item.school.name}"
+        elif model_type == 'fee_structure':
+            item = get_object_or_404(FeeStructure, id=item_id)
             item.delete()
-            messages.success(request, f'{item_name} deleted successfully!')
+            messages.success(request, 'Fee structure deleted successfully!')
+        elif model_type == 'exam_mode':
+            messages.warning(request, 'Exam mode cannot be deleted. Use the exam management page to activate/deactivate exams.')
     
     return redirect('core:configurations')
 
@@ -2113,7 +2219,15 @@ def schools_analytics(request):
 
 @login_required
 def discipline_log(request):
-    incidents = StudentDiscipline.objects.select_related('student', 'student__studentprofile__class_id', 'reported_by').order_by('-date')
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role not in ['Admin', 'Teacher']:
+        messages.error(request, 'You do not have permission to view discipline logs.')
+        return redirect('core:dashboard')
+
+    if request.user.is_superuser or (hasattr(request.user, 'role') and request.user.role == 'Admin'):
+        incidents = StudentDiscipline.objects.select_related('student', 'student__studentprofile__class_id', 'reported_by').order_by('-date')
+    else:
+        incidents = StudentDiscipline.objects.select_related('student', 'student__studentprofile__class_id', 'reported_by').filter(reported_by=request.user).order_by('-date')
+        
     students = Student.objects.all().order_by('first_name')
     
     if request.method == 'POST':
@@ -2142,7 +2256,17 @@ def discipline_log(request):
 
 @login_required
 def delete_discipline(request, incident_id):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role not in ['Admin', 'Teacher']:
+        messages.error(request, 'You do not have permission to delete discipline logs.')
+        return redirect('core:dashboard')
+
     incident = get_object_or_404(StudentDiscipline, id=incident_id)
+    
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        if incident.reported_by != request.user:
+            messages.error(request, "You can only delete incidents that you reported.")
+            return redirect('core:discipline-log')
+            
     student_name = incident.student.first_name
     incident.delete()
     messages.success(request, f"Discipline record for {student_name} deleted.")

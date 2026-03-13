@@ -95,7 +95,7 @@
             </div>
             <h1 class="text-2xl font-black uppercase mb-1">{{ profile.school.name|default:"EXCEL ACADEMY" }}</h1>
             <h2 class="text-lg font-bold uppercase underline mb-1">
-                {{ exam.name|upper }} ASSESSMENT REPORT {{ exam.year.start_date.year }}
+                {{ exam.name|upper }} ({{ exam.period|upper }}) ASSESSMENT REPORT {{ exam.year.start_date.year }}
             </h2>
             <h3 class="text-md font-bold uppercase underline">{{ class_obj.grade.name|default:"UPPER PRIMARY"|upper }}</h3>
         </div>

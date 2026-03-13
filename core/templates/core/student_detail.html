@@ -154,7 +154,7 @@
                     <select name="exam_id" onchange="this.form.submit()"
                         class="bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 shadow-sm text-xs font-black text-slate-600 outline-none appearance-none pr-10 cursor-pointer w-full sm:w-auto">
                         {% for exam in all_exams %}
-                            <option value="{{ exam.id }}" {% if exam.id == selected_exam.id %}selected{% endif %}>{{ exam.name }}</option>
+                            <option value="{{ exam.id }}" {% if exam.id == selected_exam.id %}selected{% endif %}>{{ exam.name }} - {{ exam.period }}</option>
                         {% endfor %}
                     </select>
                     <i
