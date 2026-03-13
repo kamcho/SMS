@@ -17,9 +17,13 @@
 {% block header %}
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-4">
     <div class="flex items-center gap-5">
-        <div class="w-16 h-16 rounded-[1.5rem] bg-white border border-slate-200 p-1 shadow-sm">
-            <img src="https://ui-avatars.com/api/?name={{ student.first_name }}+{{ student.last_name }}&size=200&background=f8fafc&color=6366f1"
-                class="w-full h-full object-cover rounded-[1.25rem]">
+        <div class="relative">
+            <div class="w-16 h-16 rounded-[1.5rem] bg-indigo-600 border border-indigo-400 p-1 shadow-indigo-100 shadow-xl flex items-center justify-center overflow-hidden">
+                <span class="text-white font-black text-xl uppercase tracking-tighter">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+            </div>
+            <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-emerald-500 border-2 border-white shadow-sm flex items-center justify-center text-[10px] text-white">
+                <i class="fas fa-check"></i>
+            </div>
         </div>
         <div>
             <h1 class="text-3xl font-black text-slate-900 tracking-tight">{{ student.get_full_name }}</h1>
@@ -76,7 +80,7 @@
                 </div>
             <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
                 <span class="text-xs font-black text-rose-500"><i class="fas fa-exclamation-circle mr-1"></i>Pending</span>
-                <span class="text-[10px] font-bold text-slate-400 italic">Total paid: {{ total_paid|default:"0" }}</span>
+                <span class="text-[10px] font-bold text-slate-400 italic">Total paid: KES {{ total_paid|floatformat:0 }}</span>
             </div>
             </div>
 
@@ -111,6 +115,94 @@
             <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
                 <span class="text-xs font-black text-emerald-500"><i class="fas fa-check-circle mr-1"></i>Good</span>
                 <span class="text-[10px] font-bold text-slate-400 italic">Without changes</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Student Info Grid -->
+    <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
+        <div class="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+            <h3 class="text-lg font-black text-slate-800 tracking-tight">Student Particulars</h3>
+            <span class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest">Profile Details</span>
+        </div>
+        <div class="p-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-8 gap-x-12">
+                <!-- Name Breakdown -->
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">First Name</p>
+                    <p class="text-sm font-black text-slate-700 capitalize">{{ student.first_name }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Middle Name</p>
+                    <p class="text-sm font-black text-slate-700 capitalize">{{ student.middle_name|default:"-" }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Surname</p>
+                    <p class="text-sm font-black text-slate-700 capitalize">{{ student.last_name }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gender</p>
+                    <p class="text-sm font-black text-slate-700 capitalize">{{ student.gender }}</p>
+                </div>
+                
+                <!-- Row 2 -->
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date of Birth</p>
+                    <p class="text-sm font-black text-slate-700">{{ student.date_of_birth|date:"d M, Y" }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrollment Date</p>
+                    <p class="text-sm font-black text-slate-700">{{ student.joined_date|date:"d M, Y" }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Residency Status</p>
+                    <p class="text-sm font-black text-slate-700">
+                        {% if student.is_boarder %}
+                        <span class="text-indigo-600">Boarder</span>
+                        {% else %}
+                        <span class="text-emerald-600">Day Scholar</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transport Status</p>
+                    <p class="text-sm font-black text-slate-700">
+                        {% if active_transport %}
+                        <span class="text-indigo-600">{{ active_transport.route.name }}</span>
+                        <span class="text-[10px] text-slate-400"> • {{ active_transport.vehicle.plate_number }} ({{ active_transport.get_trip_type_display }})</span>
+                        {% else %}
+                        <span class="text-slate-400 italic">Private / No Transport</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Guardians</p>
+                    <p class="text-sm font-black text-slate-700">
+                        {% for g in guardians %}
+                            {{ g.get_full_name|default:g.email }}{% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            Not Set
+                        {% endfor %}
+                    </p>
+                </div>
+                
+                <!-- Row 3 -->
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Home Location</p>
+                    <p class="text-sm font-black text-slate-700">{{ student.location|default:"Not Specified" }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Primary School</p>
+                    <p class="text-sm font-black text-slate-700">{{ profile.school.name }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Class</p>
+                    <p class="text-sm font-black text-slate-700">{{ profile.class_id.name }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student ADM</p>
+                    <p class="text-sm font-black text-slate-700">{{ student.adm_no }}</p>
+                </div>
             </div>
         </div>
     </div>
@@ -180,24 +272,47 @@
                         <tr>
                             <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">S/N</th>
                             <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Description</th>
-                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Amount
-                            </th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Before</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">After</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50">
-                        {% for p in payments|slice:":5" %}
+                        {% for entry in financial_log %}
                         <tr class="hover:bg-slate-50 transition-all">
-                            <td class="px-6 py-6 sn-cell">0{{ forloop.counter }}</td>
+                            <td class="px-6 py-6 sn-cell">{{ forloop.counter }}</td>
                             <td class="px-6 py-6">
-                                <p class="text-sm font-black text-slate-700 leading-tight">Fee Payment</p>
-                                <p class="text-[10px] font-black text-slate-400 uppercase">{{ p.date_paid|date:"d M Y" }}</p>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs
+                                        {% if entry.type == 'payment' %}bg-emerald-50 text-emerald-600{% else %}bg-amber-50 text-amber-600{% endif %}">
+                                        <i class="fas {% if entry.type == 'payment' %}fa-check-circle{% else %}fa-file-invoice-dollar{% endif %}"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-black text-slate-700 leading-tight">{{ entry.description }}</p>
+                                        <div class="flex items-center gap-2 mt-0.5">
+                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-tight">{{ entry.date|date:"d M Y" }}</span>
+                                            {% if entry.method %}
+                                            <span class="w-0.5 h-0.5 rounded-full bg-slate-200"></span>
+                                            <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{{ entry.method }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
-                            <td class="px-6 py-6 text-right font-black text-slate-800">KES {{ p.amount|floatformat:2 }}</td>
+                            <td class="px-6 py-6 text-right font-black {% if entry.type == 'payment' %}text-emerald-600{% else %}text-slate-800{% endif %}">
+                                {% if entry.type == 'payment' %}-{% endif %}KES {{ entry.amount|floatformat:2 }}
+                            </td>
+                            <td class="px-6 py-6 text-right font-bold text-slate-400 text-xs">
+                                {{ entry.balance_before|floatformat:0|default:"-" }}
+                            </td>
+                            <td class="px-6 py-6 text-right font-black text-slate-700 text-xs">
+                                {{ entry.balance_after|floatformat:0|default:"-" }}
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
                             <td colspan="3" class="px-4 py-16 text-center text-slate-300 italic font-black text-xs uppercase tracking-widest">No
-                                recent transactions</td>
+                                financial activities recorded</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -213,8 +328,7 @@
                     <a href="{{ prev_month_params }}#attendance-hub"
                         class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-all"><i
                             class="fas fa-chevron-left text-[10px]"></i></a>
-                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] text-center">{{ current_month
-                        }}</span>
+                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] text-center">{{ current_month }}</span>
                     {% if next_month_params %}
                     <a href="{{ next_month_params }}#attendance-hub"
                         class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-all"><i

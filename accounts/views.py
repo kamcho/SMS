@@ -7,7 +7,9 @@ from .models import Payment, FeeStructure, Invoice, StaffSalary, StaffPayment
 from core.models import School, Student, StudentProfile
 from users.models import MyUser
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.contrib import messages
+from django.urls import reverse
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -384,19 +386,33 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
         return context
 
     def post(self, request, *args, **kwargs):
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
         if not request.user.is_superuser and request.user.role != 'Admin' and request.user.role != 'Accountant':
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
             messages.error(request, "Permission denied.")
             return redirect('accounts:migrate-fees')
 
         action = request.POST.get('action')
+        grade_id = request.POST.get('grade_id')
+        
+        def get_redirect_url():
+            url = reverse('accounts:migrate-fees')
+            if grade_id:
+                url += f"?grade={grade_id}"
+            return url
         
         from core.models import Term, AcademicYear
         active_term = Term.objects.filter(is_active=True).first()
         active_year = AcademicYear.objects.filter(is_active=True).first()
         
         if not active_term or not active_year:
-            messages.error(request, "No active term/year set.")
-            return redirect('accounts:migrate-fees')
+            msg = "No active term/year set."
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': msg})
+            messages.error(request, msg)
+            return redirect(get_redirect_url())
             
         def get_structure_for_student(profile):
             # Map student status to student_type
@@ -441,8 +457,11 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
             fee_structure = get_structure_for_student(profile)
             
             if not fee_structure:
-                messages.error(request, f"No fee structure found for {student.get_full_name()} (School: {student.profile.school.name}, Type: {'Boarder' if student.is_boarder else 'Day Scholar'}).")
-                return redirect('accounts:migrate-fees')
+                msg = f"No fee structure found for {student.get_full_name()} (School: {student.profile.school.name}, Type: {'Boarder' if student.is_boarder else 'Day Scholar'})."
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': msg})
+                messages.error(request, msg)
+                return redirect(get_redirect_url())
 
             if not Invoice.objects.filter(student=student, fee_structure=fee_structure).exists():
                 Invoice.objects.create(
@@ -450,8 +469,18 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
                     fee_structure=fee_structure,
                     amount=fee_structure.amount
                 )
-                messages.success(request, f"Invoiced {student.get_full_name()} successfully.")
+                msg = f"Invoiced {student.get_full_name()} successfully."
+                if is_ajax:
+                    return JsonResponse({'status': 'success', 'message': msg})
+                messages.success(request, msg)
             else:
-                messages.warning(request, f"{student.get_full_name()} has already been invoiced.")
+                msg = f"{student.get_full_name()} has already been invoiced."
+                if is_ajax:
+                    return JsonResponse({'status': 'info', 'message': msg})
+                messages.warning(request, msg)
             
-        return redirect('accounts:migrate-fees')
+            if is_ajax:
+                return JsonResponse({'status': 'success'})
+            
+        return redirect(get_redirect_url())
+

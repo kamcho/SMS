@@ -327,8 +327,8 @@ class StudentDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         from Exam.models import Exam, ExamSUbjectScore
         
-        # Fetch all available exams for the filter dropdown
-        context['all_exams'] = Exam.objects.all().order_by('-year', '-term', '-id')
+        # Fetch all available exams for the filter dropdown (newest first)
+        context['all_exams'] = Exam.objects.all().order_by('-id')
         
         # Handle exam filtering
         selected_exam_id = self.request.GET.get('exam_id')
@@ -345,8 +345,9 @@ class StudentDetailView(DetailView):
 
         context['selected_exam'] = selected_exam
         
-        # Fetch detailed profile
+        # Fetch detailed profile and guardians
         context['profile'] = StudentProfile.objects.filter(student=self.object).first()
+        context['guardians'] = self.object.guardians.all()
         
         # Fetch filtered exam scores with aggregation by subject
         if selected_exam:
@@ -439,7 +440,57 @@ class StudentDetailView(DetailView):
         context['exam_scores'] = scores
         
         # Fetch payment history
-        context['payments'] = Payment.objects.filter(student=self.object).order_by('-date_paid')
+        # Fetch financial log (Payments + Invoices)
+        from accounts.models import Payment, Invoice
+        student_payments = Payment.objects.filter(student=self.object)
+        student_invoices = Invoice.objects.filter(student=self.object)
+        context['total_paid'] = student_payments.aggregate(Sum('amount'))['amount__sum'] or 0
+        from core.models import StudentDiscipline, AcademicYear, Term
+        from transport.models import TransportAssignment
+        context['discipline_records'] = StudentDiscipline.objects.filter(student=self.object)
+        
+        # Get active transport assignment for current period
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        active_term = Term.objects.filter(is_active=True).first()
+        context['active_transport'] = TransportAssignment.objects.filter(
+            student=self.object,
+            academic_year=active_year,
+            term=active_term,
+            is_active=True
+        ).select_related('route', 'vehicle').first()
+        
+        financial_log = []
+        for p in student_payments:
+            financial_log.append({
+                'type': 'payment',
+                'description': 'Fee Payment',
+                'amount': p.amount,
+                'date': p.date_paid, # Keep for display
+                'sort_date': p.created_at if hasattr(p, 'created_at') else timezone.now(), # Use timestamp for sort
+                'method': getattr(p, 'method', None),
+                'balance_before': p.previous_balance,
+                'balance_after': p.current_balance
+            })
+        for i in student_invoices:
+            if i.fee_structure:
+                year = i.fee_structure.academic_year.start_date.year if i.fee_structure.academic_year else ""
+                desc = f"Billed: {i.fee_structure.term.name} {year}"
+            else:
+                desc = i.description or "General Billing"
+                
+            financial_log.append({
+                'type': 'invoice',
+                'description': desc,
+                'amount': i.amount,
+                'date': i.created_at.date() if hasattr(i, 'created_at') else timezone.now().date(),
+                'sort_date': i.created_at if hasattr(i, 'created_at') else timezone.now(),
+                'balance_before': i.previous_balance,
+                'balance_after': i.current_balance
+            })
+            
+        financial_log.sort(key=lambda x: x['sort_date'], reverse=True)
+        context['financial_log'] = financial_log[:15]
+        context['payments'] = student_payments.order_by('-date_paid')
         
         # Data for Subject Performance Chart (Progress Bars & Radar)
         context['subject_names'] = [score.subject.name for score in scores]
@@ -1725,12 +1776,20 @@ def student_report(request, student_id, exam_id):
             }
         subject_data[subj.id]['score'] += score.score
 
-    # Calculate percentages and grades
+    # Calculate percentages, points and grades
     total_percentages = []
+    is_junior_secondary = profile.class_id.grade.name in ['Grade 7', 'Grade 8', 'Grade 9'] if profile and profile.class_id.grade else False
+    
     for subj_id, data in subject_data.items():
         perc = (data['score'] / data['max']) * 100 if data['max'] > 0 else 0
         total_percentages.append(perc)
         
+        # Determine score to display
+        if is_junior_secondary:
+            data['display_score'] = f"{round(perc)}%"
+        else:
+            data['display_score'] = f"{data['score']}/{data['max']}"
+
         # Determine grade for this aggregated subject score
         config = ExamSubjectConfiguration.objects.filter(exam=exam, subject_id=subj_id).first()
         if config:
@@ -1748,6 +1807,10 @@ def student_report(request, student_id, exam_id):
             elif perc >= 60: data['grade'] = 'ME'
             elif perc >= 40: data['grade'] = 'AE'
             else: data['grade'] = 'BE'
+        
+        # Calculate Points
+        point_map = {'EE': 4, 'ME': 3, 'AE': 2, 'BE': 1}
+        data['points'] = point_map.get(data['grade'], 1)
 
     student_average = round(sum(total_percentages) / len(total_percentages), 1) if total_percentages else 0
     
@@ -1755,10 +1818,11 @@ def student_report(request, student_id, exam_id):
         'student': student,
         'exam': exam,
         'profile': profile,
-        'class_obj': profile.class_id,
+        'class_obj': profile.class_id if profile else None,
         'subject_results': subject_data.values(),
         'student_average': student_average,
         'today': datetime.now().date(),
+        'is_junior_secondary': is_junior_secondary
     }
     return render(request, 'core/student_report.html', context)
 
@@ -1800,11 +1864,20 @@ def bulk_class_reports(request, class_id, exam_id):
                 }
             subject_data[subj_id]['score'] += score.score
 
+        # Calculate percentages, points and grades
         total_percentages = []
+        is_junior_secondary = profile.class_id.grade.name in ['Grade 7', 'Grade 8', 'Grade 9'] if profile.class_id.grade else False
+        
         for subj_id, data in subject_data.items():
             perc = (data['score'] / data['max']) * 100 if data['max'] > 0 else 0
             total_percentages.append(perc)
             
+            # Determine score to display
+            if is_junior_secondary:
+                data['display_score'] = f"{round(perc)}%"
+            else:
+                data['display_score'] = f"{data['score']}/{data['max']}"
+
             config = data['config']
             if config:
                 ranking = config.scoreranking_set.filter(min_score__lte=data['score'], max_score__gte=data['score']).first()
@@ -1820,6 +1893,10 @@ def bulk_class_reports(request, class_id, exam_id):
                 elif perc >= 60: data['grade'] = 'ME'
                 elif perc >= 40: data['grade'] = 'AE'
                 else: data['grade'] = 'BE'
+            
+            # Calculate Points
+            point_map = {'EE': 4, 'ME': 3, 'AE': 2, 'BE': 1}
+            data['points'] = point_map.get(data['grade'], 1)
 
         student_average = round(sum(total_percentages) / len(total_percentages), 1) if total_percentages else 0
         
@@ -1828,6 +1905,7 @@ def bulk_class_reports(request, class_id, exam_id):
             'profile': profile,
             'subject_results': subject_data.values(),
             'student_average': student_average,
+            'is_junior_secondary': is_junior_secondary
         })
     
     context = {

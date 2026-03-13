@@ -260,7 +260,7 @@
 </div>
 
 <!-- Performance Table -->
-<div class="bg-white rounded-[14px] border border-slate-200 shadow-sm mb-6 flex flex-col h-[600px]">
+<div id="performance-ranking-card" class="bg-white rounded-[14px] border border-slate-200 shadow-sm mb-6 flex flex-col h-[600px] transition-all duration-300">
     <div class="p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
         <h3 class="text-[15px] font-bold text-slate-800">Student Performance Rankings</h3>
         <div class="flex items-center gap-4">
@@ -302,7 +302,7 @@
             </thead>
             <tbody class="divide-y divide-slate-50">
                 {% for student_data in ranked_students %}
-                    <tr class="group hover:bg-slate-50/50 transition-colors cursor-pointer" 
+                    <tr class="group hover:bg-slate-50/50 transition-colors cursor-pointer {% if forloop.counter > 8 %}hidden extra-ranking-row{% endif %}" 
                         onclick="window.location.href='{% if report_exam_id %}{% url 'core:student-report' student_data.student.id report_exam_id %}{% else %}{% url 'core:student-detail' student_data.student.id %}{% endif %}'"
                         title="{% if report_exam_id %}Click to view report card{% else %}Click to view student profile{% endif %}">
                         <td class="px-6 py-4 whitespace-nowrap min-w-[250px]">
@@ -414,6 +414,13 @@
             </tfoot>
         </table>
     </div>
+    {% if ranked_students|length > 8 %}
+    <div class="pt-4 pb-6 mt-auto border-t border-slate-100 flex justify-center">
+        <button id="view-more-rankings-btn" onclick="toggleMoreRankings()" class="text-[12px] font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-lg px-6 py-2 hover:bg-slate-50 transition-colors">
+            View All
+        </button>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Grade Legend -->
@@ -744,5 +751,32 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 });
+
+function toggleMoreRankings() {
+    const extraRows = document.querySelectorAll('.extra-ranking-row');
+    const card = document.getElementById('performance-ranking-card');
+    const btn = document.getElementById('view-more-rankings-btn');
+    const isHidden = extraRows[0].classList.contains('hidden');
+
+    extraRows.forEach(row => {
+        if (isHidden) {
+            row.classList.remove('hidden');
+        } else {
+            row.classList.add('hidden');
+        }
+    });
+
+    if (isHidden) {
+        card.classList.remove('h-[600px]');
+        card.classList.add('h-auto');
+        btn.innerText = 'View Less';
+    } else {
+        card.classList.add('h-[600px]');
+        card.classList.remove('h-auto');
+        btn.innerText = 'View All';
+        // Scroll back up if we're collapsing
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
 </script>
 {% endblock %}

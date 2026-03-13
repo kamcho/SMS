@@ -188,7 +188,7 @@
 <!-- Bottom Section: Detailed Lists (2 Columns) -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- List 1: Class Catalog -->
-    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col h-[420px]">
+    <div id="class-catalog-card" class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col h-[420px] transition-all duration-300">
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-[15px] font-bold text-slate-800">Class catalog</h3>
             <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
@@ -204,8 +204,8 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
-                    {% for class_obj in classes|slice:":6" %}
-                    <tr class="group cursor-pointer hover:bg-slate-50/50" onclick="window.location.href='{% url 'core:class-detail' class_obj.pk %}'">
+                    {% for class_obj in classes %}
+                    <tr class="group cursor-pointer hover:bg-slate-50/50 {% if forloop.counter > 6 %}hidden extra-class-row{% endif %}" onclick="window.location.href='{% url 'core:class-detail' class_obj.pk %}'">
                         <td class="py-3 text-[12px] font-semibold text-slate-800">{{ forloop.counter|stringformat:"02d" }}</td>
                         <td class="py-3 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ class_obj.name }}</td>
                         <td class="py-3 text-[12px] font-semibold text-slate-500">{{ class_obj.grade.name }}</td>
@@ -221,11 +221,13 @@
                 </tbody>
             </table>
         </div>
+        {% if classes|length > 6 %}
         <div class="pt-4 mt-auto border-t border-slate-100 flex justify-center">
-            <button class="text-[12px] font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-lg px-4 py-2 hover:bg-slate-50 transition-colors">
-                View catalog
+            <button id="view-more-btn" onclick="toggleMoreClasses()" class="text-[12px] font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-lg px-4 py-2 hover:bg-slate-50 transition-colors">
+                View more
             </button>
         </div>
+        {% endif %}
     </div>
 
     <!-- List 2: Recent Enrollments / Schedule History -->
@@ -403,6 +405,33 @@
             }
         });
     });
+
+    function toggleMoreClasses() {
+        const extraRows = document.querySelectorAll('.extra-class-row');
+        const card = document.getElementById('class-catalog-card');
+        const btn = document.getElementById('view-more-btn');
+        const isHidden = extraRows[0].classList.contains('hidden');
+
+        extraRows.forEach(row => {
+            if (isHidden) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+
+        if (isHidden) {
+            card.classList.remove('h-[420px]');
+            card.classList.add('h-auto');
+            btn.innerText = 'View less';
+        } else {
+            card.classList.add('h-[420px]');
+            card.classList.remove('h-auto');
+            btn.innerText = 'View more';
+            // Scroll back up if we're collapsing
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
 </script>
 <style>
     /* Custom thin scrollbar for lists */

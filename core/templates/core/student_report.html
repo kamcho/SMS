@@ -145,20 +145,22 @@
             <thead>
                 <tr>
                     <th class="subject-column">Subject</th>
-                    <th>EE</th>
-                    <th>ME</th>
-                    <th>AE</th>
-                    <th>BE</th>
+                    <th>Marks</th>
+                    <th>Points</th>
+                    <th>Rubric</th>
                 </tr>
             </thead>
             <tbody>
                 {% for result in subject_results %}
                 <tr>
                     <td class="subject-column">{{ result.name|upper }}</td>
-                    <td class="text-xl checkmark-cell">{% if result.grade == 'EE' %}&#10003;{% endif %}</td>
-                    <td class="text-xl checkmark-cell">{% if result.grade == 'ME' %}&#10003;{% endif %}</td>
-                    <td class="text-xl checkmark-cell">{% if result.grade == 'AE' %}&#10003;{% endif %}</td>
-                    <td class="text-xl checkmark-cell">{% if result.grade == 'BE' %}&#10003;{% endif %}</td>
+                    <td class="font-bold">{{ result.display_score }}</td>
+                    <td class="font-bold">{{ result.points }}</td>
+                    <td class="font-bold">
+                        <span class="{% if result.grade == 'EE' %}text-emerald-600{% elif result.grade == 'ME' %}text-blue-600{% elif result.grade == 'AE' %}text-amber-600{% else %}text-rose-600{% endif %}">
+                            {{ result.grade }}
+                        </span>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

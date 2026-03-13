@@ -12,6 +12,43 @@
 {% endblock %}
 
 {% block content %}
+<!-- Filter Bar -->
+<div class="glass-card mb-8 p-4 bg-slate-50/50">
+    <form method="get" class="flex flex-wrap items-end gap-4">
+        {% if can_change_school %}
+        <div class="flex-1 min-w-[200px]">
+            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Filter by School</label>
+            <select name="school" onchange="this.form.submit()" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 shadow-sm">
+                <option value="">All Schools</option>
+                {% for school in schools %}
+                    <option value="{{ school.id }}" {% if selected_school == school.id %}selected{% endif %}>{{ school.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="flex-1 min-w-[200px]">
+            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Filter by Class</label>
+            <select name="class" onchange="this.form.submit()" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 shadow-sm">
+                <option value="">All Classes</option>
+                {% for class in classes %}
+                    <option value="{{ class.id }}" {% if selected_class == class.id %}selected{% endif %}>{{ class.name }} ({{ class.school.name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="flex items-center gap-2">
+            {% if selected_school or selected_class %}
+            <a href="{% url 'transport:dashboard' %}" class="px-4 py-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-colors text-sm font-black flex items-center justify-center">
+                <i class="fas fa-times"></i>
+            </a>
+            {% endif %}
+            <button type="submit" class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all text-sm font-black uppercase tracking-tight">
+                Filter View
+            </button>
+        </div>
+    </form>
+</div>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
     <!-- Stat Cards -->
     <div class="glass-card bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-0">
@@ -57,9 +94,17 @@
         <div class="glass-card p-0 overflow-hidden">
             <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <h3 class="text-lg font-black text-slate-800">Student Assignments</h3>
-                <button onclick="toggleModal('assignModal')" class="btn btn-primary text-xs py-2">
-                    <i class="fas fa-plus mr-1"></i> New Assignment
-                </button>
+                <div class="flex items-center gap-3">
+                    {% if active_year or active_term %}
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                        <span class="text-[10px] font-black text-indigo-600 uppercase tracking-tight">Active: {{ active_term.name }} {{ active_year.start_date.year }}</span>
+                    </div>
+                    {% endif %}
+                    <button onclick="toggleModal('assignModal')" class="btn btn-primary text-xs py-2">
+                        <i class="fas fa-plus mr-1"></i> New Assignment
+                    </button>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
@@ -72,37 +117,66 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        {% for assignment in assignments %}
-                        <tr class="hover:bg-slate-50/50 transition-colors group">
+                        {% for student in students %}
+                        {% with assignment=student.active_transport %}
+                        <tr class="transition-colors group {% if assignment %}bg-emerald-50/30 hover:bg-emerald-50/50{% else %}bg-rose-50/30 hover:bg-rose-50/50{% endif %}">
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                                        {{ assignment.student.first_name|first }}
+                                    <div class="w-8 h-8 rounded-full {% if assignment %}bg-emerald-100 text-emerald-600{% else %}bg-rose-100 text-rose-600{% endif %} flex items-center justify-center font-bold text-xs uppercase">
+                                        {{ student.first_name|first }}{{ student.last_name|first }}
                                     </div>
                                     <div>
-                                        <p class="font-bold text-slate-800 text-sm leading-tight">{{ assignment.student.first_name }} {{ assignment.student.last_name }}</p>
-                                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{{ assignment.pickup_point|default:"Generic Stop" }}</p>
+                                        <p class="font-bold text-slate-800 text-sm leading-tight">{{ student.first_name }} {{ student.last_name }}</p>
+                                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                                            {% if assignment %}{{ assignment.pickup_point|default:"Generic Stop" }}{% else %}No Transport{% endif %}
+                                        </p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 font-bold text-slate-600 text-sm">{{ assignment.route.name }}</td>
                             <td class="px-6 py-4">
-                                <span class="px-2 py-1 bg-slate-100 rounded text-[10px] font-black uppercase text-slate-600">
-                                    {{ assignment.vehicle.plate_number|default:"Unassigned" }}
-                                </span>
+                                {% if assignment %}
+                                <p class="font-bold text-slate-600 text-sm leading-tight">{{ assignment.route.name }}</p>
+                                <p class="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-0.5">
+                                    {% if assignment.trip_type == 'one_way' %}1 Way{% else %}Round Trip{% endif %}
+                                </p>
+                                {% else %}
+                                <span class="text-[10px] font-black uppercase text-rose-400">Unassigned</span>
+                                {% endif %}
                             </td>
-                            <td class="px-6 py-4 text-right">
+                            <td class="px-6 py-4">
+                                {% if assignment %}
+                                <span class="px-2 py-1 bg-white border border-emerald-100 rounded text-[10px] font-black uppercase text-emerald-600 shadow-sm">
+                                    {{ assignment.vehicle.plate_number|default:"No Bus" }}
+                                </span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-white border border-rose-100 rounded text-[10px] font-black uppercase text-rose-300 shadow-sm">
+                                    N/A
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-right flex items-center justify-end gap-2">
+                                {% if assignment %}
+                                <button onclick="openAssignModal('{{ student.id }}', '{{ assignment.route.id }}', '{{ assignment.vehicle.id|default:'' }}', '{{ assignment.trip_type }}', '{{ assignment.pickup_point|default:''|escapejs }}', '{{ assignment.custom_fee|default:'' }}')" 
+                                        class="text-slate-300 hover:text-indigo-600 transition-colors">
+                                    <i class="fas fa-edit"></i>
+                                </button>
                                 <form method="post" action="{% url 'transport:delete-assignment' assignment.id %}" onsubmit="return confirm('Remove student from transport?')">
                                     {% csrf_token %}
                                     <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </form>
+                                {% else %}
+                                <button onclick="openAssignModal('{{ student.id }}')" class="text-rose-400 hover:text-rose-600 transition-colors">
+                                    <i class="fas fa-plus-circle"></i>
+                                </button>
+                                {% endif %}
                             </td>
                         </tr>
+                        {% endwith %}
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No students assigned to transport yet.</td>
+                            <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic">No students found matching current filters.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -117,16 +191,23 @@
         <div class="glass-card">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-lg font-black text-slate-800">Routes</h3>
-                <button onclick="toggleModal('routeModal')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">
+                <button onclick="openRouteModal()" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors">
                     <i class="fas fa-plus"></i>
                 </button>
             </div>
             <div class="space-y-3">
                 {% for route in routes %}
-                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <div class="flex justify-between items-start mb-1">
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group relative">
+                    <button onclick="openRouteModal('{{ route.id }}', '{{ route.name|escapejs }}', '{{ route.description|escapejs }}', '{{ route.one_way_fee }}', '{{ route.round_trip_fee }}')" 
+                            class="absolute top-4 right-4 text-slate-300 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100">
+                        <i class="fas fa-edit text-xs"></i>
+                    </button>
+                    <div class="flex flex-col mb-1">
                         <h4 class="font-black text-slate-800 text-sm">{{ route.name }}</h4>
-                        <span class="text-[10px] font-black text-indigo-600 uppercase">KES {{ route.monthly_fee }}</span>
+                        <div class="flex gap-2 mt-0.5">
+                            <span class="text-[9px] font-black text-emerald-600 uppercase">OW: {{ route.one_way_fee }}</span>
+                            <span class="text-[9px] font-black text-indigo-600 uppercase">RT: {{ route.round_trip_fee }}</span>
+                        </div>
                     </div>
                     <p class="text-xs text-slate-500 line-clamp-1 mb-2">{{ route.description }}</p>
                     <div class="flex items-center gap-2">
@@ -188,9 +269,15 @@
                     <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Description</label>
                     <textarea name="description" rows="2" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
                 </div>
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Monthly Fee (KES)</label>
-                    <input type="number" name="monthly_fee" step="0.01" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">1 Way Fee</label>
+                        <input type="number" name="one_way_fee" step="0.01" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Round Trip Fee</label>
+                        <input type="number" name="round_trip_fee" step="0.01" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
                 </div>
                 <div class="flex gap-3 mt-6">
                     <button type="button" onclick="toggleModal('routeModal')" class="flex-1 py-3 bg-slate-100 text-slate-600 font-black rounded-xl text-xs uppercase">Cancel</button>
@@ -240,12 +327,12 @@
     <div class="bg-white rounded-[2rem] w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
         <div class="p-8">
             <h3 class="text-2xl font-black text-slate-900 mb-6">Transport Assignment</h3>
-            <form method="post" action="{% url 'transport:assign-transport' %}" class="space-y-4">
+            <form method="post" action="{% url 'transport:assign-transport' %}?school={{ selected_school|default:'' }}&class={{ selected_class|default:'' }}" class="space-y-4">
                 {% csrf_token %}
-                <div>
+                <div id="student_select_div">
                     <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Student</label>
                     <select name="student_id" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
-                        {% for student in students_without_transport %}
+                        {% for student in students %}
                             <option value="{{ student.id }}">{{ student.first_name }} {{ student.last_name }} ({{ student.adm_no }})</option>
                         {% endfor %}
                     </select>
@@ -258,14 +345,23 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Vehicle</label>
-                    <select name="vehicle_id" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
-                        <option value="">Unassigned</option>
-                        {% for vehicle in vehicles %}
-                            <option value="{{ vehicle.id }}">{{ vehicle.plate_number }} ({{ vehicle.driver_name }})</option>
-                        {% endfor %}
-                    </select>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Vehicle</label>
+                        <select name="vehicle_id" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="">Unassigned</option>
+                            {% for vehicle in vehicles %}
+                                <option value="{{ vehicle.id }}">{{ vehicle.plate_number }} ({{ vehicle.driver_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Trip Type</label>
+                        <select name="trip_type" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="round_trip">Round Trip</option>
+                            <option value="one_way">One Way</option>
+                        </select>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Pickup Point</label>
@@ -289,6 +385,54 @@
 function toggleModal(id) {
     const modal = document.getElementById(id);
     modal.classList.toggle('hidden');
+}
+
+function openRouteModal(id = null, name = '', desc = '', ow = '', rt = '') {
+    const modal = document.getElementById('routeModal');
+    const form = modal.querySelector('form');
+    
+    // Find the right elements
+    const titleEl = modal.querySelector('h3');
+    const submitBtnEl = modal.querySelector('button[type="submit"]');
+    
+    if (id) {
+        titleEl.innerText = 'Edit Route';
+        submitBtnEl.innerText = 'Update Route';
+        form.action = `/transport/route/edit/${id}/`;
+        form.querySelector('[name="name"]').value = name;
+        form.querySelector('[name="description"]').value = desc;
+        form.querySelector('[name="one_way_fee"]').value = ow;
+        form.querySelector('[name="round_trip_fee"]').value = rt;
+    } else {
+        titleEl.innerText = 'New Route';
+        submitBtnEl.innerText = 'Save Route';
+        form.action = "{% url 'transport:add-route' %}";
+        form.reset();
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function openAssignModal(studentId = '', routeId = '', vehicleId = '', tripType = 'round_trip', pickup = '', customFee = '') {
+    const modal = document.getElementById('assignModal');
+    const form = modal.querySelector('form');
+    const titleEl = modal.querySelector('h3');
+    
+    // Set values
+    form.querySelector('[name="student_id"]').value = studentId;
+    form.querySelector('[name="route_id"]').value = routeId;
+    form.querySelector('[name="vehicle_id"]').value = vehicleId;
+    form.querySelector('[name="trip_type"]').value = tripType;
+    form.querySelector('[name="pickup_point"]').value = pickup;
+    form.querySelector('[name="custom_fee"]').value = customFee;
+    
+    if (routeId) {
+        titleEl.innerText = 'Update Assignment';
+    } else {
+        titleEl.innerText = 'Transport Assignment';
+    }
+    
+    modal.classList.remove('hidden');
 }
 </script>
 {% endblock %}

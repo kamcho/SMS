@@ -46,8 +46,11 @@ class Invoice(models.Model):
     the student's balance in StudentProfile is incremented.
     """
     student = models.ForeignKey('core.Student', on_delete=models.CASCADE)
-    fee_structure = models.ForeignKey(FeeStructure, on_delete=models.CASCADE)
+    fee_structure = models.ForeignKey(FeeStructure, on_delete=models.CASCADE, null=True, blank=True)
+    description = models.CharField(max_length=200, null=True, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    previous_balance = models.DecimalField(max_digits=12, decimal_places=2, editable=False, null=True, blank=True)
+    current_balance = models.DecimalField(max_digits=12, decimal_places=2, editable=False, null=True, blank=True)
     is_billed = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -56,13 +59,29 @@ class Invoice(models.Model):
         if is_new:
             # Update student balance
             from core.models import StudentProfile
-            profile = StudentProfile.objects.get(student=self.student)
-            profile.fee_balance += int(self.amount)  # StudentProfile uses IntegerField
-            profile.save()
+            try:
+                profile = StudentProfile.objects.get(student=self.student)
+                # Capture previous balance
+                self.previous_balance = Decimal(profile.fee_balance)
+                
+                # Increase balance (billing)
+                # Ensure we handle decimals before casting to int
+                fee_amount = Decimal(str(self.amount)) if self.amount else Decimal('0')
+                profile.fee_balance += int(fee_amount.to_integral_value())
+                profile.save()
+                
+                # Capture current balance
+                self.current_balance = Decimal(profile.fee_balance)
+            except StudentProfile.DoesNotExist:
+                pass
+            
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Invoice: {self.student.first_name} - {self.fee_structure.term.name}"
+        desc = self.description if self.description else "General Billing"
+        if self.fee_structure:
+            desc = f"{self.fee_structure.term.name} Fees"
+        return f"Invoice: {self.student.first_name} - {desc}"
 
 class Payment(models.Model):
     PAYMENT_METHODS = [
@@ -91,7 +110,9 @@ class Payment(models.Model):
             self.previous_balance = Decimal(profile.fee_balance)
             
             # Update profile balance
-            profile.fee_balance -= int(self.amount)
+            # Ensure we handle decimals before casting to int
+            payment_amount = Decimal(str(self.amount)) if self.amount else Decimal('0')
+            profile.fee_balance -= int(payment_amount.to_integral_value())
             profile.save()
             
             # Capture current balance after payment
