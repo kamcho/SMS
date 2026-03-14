@@ -10,18 +10,19 @@ from .forms import ExamForm, ExamSubjectConfigurationForm, ExamSubjectPaperForm,
 class TeacherScoreEntryView(LoginRequiredMixin, View):
     def get(self, request, class_id, subject_id, exam_id):
         # 1. Verify access
-        try:
-            assignment = TeacherClassProfile.objects.get(
-                user=request.user, 
-                class_id_id=class_id, 
-                subject_id=subject_id
-            )
-        except TeacherClassProfile.DoesNotExist:
-            if not request.user.is_superuser:
-                messages.error(request, "You are not assigned to teach this subject in this class.")
+        class_obj = get_object_or_404(Class, id=class_id)
+        if not request.user.is_superuser and request.user != class_obj.invigilator and request.user != class_obj.class_teacher:
+            try:
+                assignment = TeacherClassProfile.objects.get(
+                    user=request.user, 
+                    class_id_id=class_id, 
+                    subject_id=subject_id
+                )
+            except TeacherClassProfile.DoesNotExist:
+                from django.contrib import messages
+                messages.error(request, "You are not permitted to enter scores for this class subject.")
                 return redirect('core:class-detail', pk=class_id)
 
-        class_obj = get_object_or_404(Class, id=class_id)
         subject = get_object_or_404(Subject, id=subject_id)
         exam = get_object_or_404(Exam, id=exam_id)
         # 2. Get subject configuration and papers
@@ -73,18 +74,19 @@ class TeacherScoreEntryView(LoginRequiredMixin, View):
 
     def post(self, request, class_id, subject_id, exam_id):
         # 1. Verify access
-        try:
-            TeacherClassProfile.objects.get(
-                user=request.user, 
-                class_id_id=class_id, 
-                subject_id=subject_id
-            )
-        except TeacherClassProfile.DoesNotExist:
-            if not request.user.is_superuser:
+        class_obj = get_object_or_404(Class, id=class_id)
+        if not request.user.is_superuser and request.user != class_obj.invigilator and request.user != class_obj.class_teacher:
+            try:
+                TeacherClassProfile.objects.get(
+                    user=request.user, 
+                    class_id_id=class_id, 
+                    subject_id=subject_id
+                )
+            except TeacherClassProfile.DoesNotExist:
+                from django.contrib import messages
                 messages.error(request, "Permission denied.")
                 return redirect('core:class-detail', pk=class_id)
                 
-        class_obj = get_object_or_404(Class, id=class_id)
         subject = get_object_or_404(Subject, id=subject_id)
         exam = get_object_or_404(Exam, id=exam_id)
         

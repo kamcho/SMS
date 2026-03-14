@@ -195,8 +195,36 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
         school_name = ''
         if hasattr(self.request.user, 'school') and self.request.user.school:
             school_name = self.request.user.school.name
+            
+        # Build unified assignments for the "My Assignments" table
+        from django.db.models import Q
+        from core.models import Class
+        role_classes = Class.objects.filter(
+            Q(class_teacher=self.request.user) | Q(invigilator=self.request.user)
+        ).select_related('grade', 'school')
+
+        unified_assignments = []
+        for a in assignments:
+            unified_assignments.append({
+                'class_obj': a.class_id,
+                'role': a.subject.name if a.subject else 'Subject Teacher',
+            })
+            
+        for c in role_classes:
+            roles = []
+            if c.class_teacher == self.request.user:
+                roles.append('Class Teacher')
+            if c.invigilator == self.request.user:
+                roles.append('Invigilator')
+            
+            # Prevent perfectly identical assignments (though they differ by role, merging them could be done, but distinct is fine)
+            unified_assignments.append({
+                'class_obj': c,
+                'role': ' & '.join(roles),
+            })
         
         context['assignments'] = assignments
+        context['all_assignments'] = unified_assignments
         context['total_classes'] = len(classes_assigned)
         context['total_students'] = total_unique_students
         context['total_subjects'] = len(subjects_taught)
@@ -215,6 +243,24 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
         if exam_mode and exam_mode.active and exam_mode.exam and exam_mode.exam.is_running:
             active_exam = exam_mode.exam
         context['active_exam'] = active_exam
+
+        invigilated_data = []
+        if active_exam:
+            for c in role_classes:
+                tcps = TeacherClassProfile.objects.filter(class_id=c).select_related('subject')
+                subj_list = []
+                seen_subs = set()
+                for tcp in tcps:
+                    if tcp.subject and tcp.subject.id not in seen_subs:
+                        seen_subs.add(tcp.subject.id)
+                        subj_list.append(tcp.subject)
+                subj_list.sort(key=lambda s: s.name)
+                if subj_list:
+                    invigilated_data.append({
+                        'class_obj': c,
+                        'subjects': subj_list
+                    })
+        context['invigilated_data'] = invigilated_data
 
         from Exam.models import Exam
         context['latest_exam'] = Exam.objects.order_by('-id').first()
@@ -279,6 +325,35 @@ class StudentsListView(LoginRequiredMixin, ListView):
         
         context['selected_class'] = self.request.GET.get('class', '')
         context['total_students'] = self.get_queryset().count()
+        return context
+
+
+class GuardianListView(LoginRequiredMixin, ListView):
+    from users.models import MyUser
+    model = MyUser
+    template_name = 'core/guardian_list.html'
+    context_object_name = 'guardians'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        from users.models import MyUser
+        queryset = MyUser.objects.filter(role='Guardian').order_by('first_name', 'last_name')
+        
+        # Get search query
+        query = self.request.GET.get('q')
+        if query:
+            queryset = queryset.filter(
+                Q(first_name__icontains=query) | 
+                Q(last_name__icontains=query) | 
+                Q(email__icontains=query)
+            )
+            
+        return queryset.prefetch_related('students')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('q', '')
+        context['total_guardians'] = self.get_queryset().count()
         return context
 
 
@@ -614,6 +689,36 @@ class ClassesListView(LoginRequiredMixin, ListView):
     context_object_name = 'classes'
     paginate_by = 20
     
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_superuser and not (hasattr(request.user, 'role') and request.user.role == 'Admin'):
+            from django.contrib import messages
+            messages.error(request, "Only administrators can assign invigilators.")
+            return redirect('core:classes-list')
+            
+        action = request.POST.get('action')
+        if action == 'assign_invigilator':
+            class_id = request.POST.get('class_id')
+            teacher_id = request.POST.get('teacher_id')
+            
+            if class_id and teacher_id:
+                try:
+                    from .models import Class
+                    from users.models import MyUser
+                    from django.contrib import messages
+                    
+                    class_obj = Class.objects.get(id=class_id)
+                    teacher = MyUser.objects.get(id=teacher_id)
+                    
+                    class_obj.invigilator = teacher
+                    class_obj.save()
+                    
+                    messages.success(request, f"Invigilator {teacher.get_full_name() or teacher.email} assigned to {class_obj.name}.")
+                except Exception as e:
+                    from django.contrib import messages
+                    messages.error(request, f"Error assigning invigilator: {str(e)}")
+                    
+        return redirect('core:classes-list')
+    
     def get_queryset(self):
         queryset = Class.objects.all().select_related('grade', 'grade__school')
         
@@ -671,6 +776,10 @@ class ClassesListView(LoginRequiredMixin, ListView):
         
         context['selected_grade'] = self.request.GET.get('grade', '')
         context['total_classes'] = self.get_queryset().count()
+        
+        from users.models import MyUser
+        context['teachers'] = MyUser.objects.filter(role='Teacher', is_active=True).order_by('first_name', 'last_name')
+        
         return context
 
 

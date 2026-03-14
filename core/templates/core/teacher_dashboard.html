@@ -86,7 +86,7 @@
     </div>
 
     <!-- Card 4: Active Exam -->
-    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+    <div {% if active_exam %}onclick="openInvigilatorModal()"{% endif %} class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm {% if active_exam %}cursor-pointer hover:shadow-md hover:border-indigo-300{% else %}opacity-90{% endif %} transition-all">
         <div class="flex items-center gap-3 mb-2">
             <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
                 <i class="fas fa-file-alt text-emerald-500 text-sm"></i>
@@ -215,13 +215,13 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
-                    {% for assignment in assignments %}
-                    <tr class="group cursor-pointer hover:bg-slate-50/50" onclick="window.location.href='{% url 'core:class-detail' assignment.class_id.pk %}'">
+                    {% for item in all_assignments %}
+                    <tr class="group cursor-pointer hover:bg-slate-50/50" onclick="window.location.href='{% url 'core:class-detail' item.class_obj.pk %}'">
                         <td class="py-3 text-[12px] font-semibold text-slate-800">{{ forloop.counter|stringformat:"02d" }}</td>
-                        <td class="py-3 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ assignment.class_id.name }}</td>
-                        <td class="py-3 text-[12px] font-semibold text-slate-500">{{ assignment.subject.name }}</td>
+                        <td class="py-3 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ item.class_obj.name }}</td>
+                        <td class="py-3 text-[12px] font-semibold text-slate-500">{{ item.role }}</td>
                         <td class="py-3 text-right">
-                            <span class="text-[11px] font-bold text-slate-400 px-2 py-1 bg-slate-50 rounded-md">{{ assignment.class_id.grade.name }}</span>
+                            <span class="text-[11px] font-bold text-slate-400 px-2 py-1 bg-slate-50 rounded-md">{{ item.class_obj.grade.name }}</span>
                         </td>
                     </tr>
                     {% empty %}
@@ -317,12 +317,78 @@
         </div>
     </div>
 </div>
+
+<!-- Invigilator/Class Teacher Modal -->
+<div id="invigilatorModal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeInvigilatorModal()"></div>
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-[2rem] p-8 max-w-2xl w-full shadow-2xl relative animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+            <button onclick="closeInvigilatorModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+            
+            <div class="mb-6 flex items-center gap-4">
+                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl shadow-sm border border-indigo-100">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight">Invigilator Classes</h3>
+                    <p class="text-slate-500 font-medium text-[13px] mt-0.5">Select a subject to enter marks for {{ active_exam.name }}</p>
+                </div>
+            </div>
+
+            <div class="overflow-y-auto pr-2 custom-scrollbar space-y-6 flex-grow">
+                {% for icls in invigilated_data %}
+                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                    <h4 class="font-bold text-slate-800 text-[15px] mb-3 flex items-center justify-between">
+                        <span>{{ icls.class_obj.name }}</span>
+                        <span class="text-[11px] font-bold text-indigo-500 bg-indigo-100/50 px-2 py-1 rounded-lg">{{ icls.class_obj.grade.name }}</span>
+                    </h4>
+                    
+                    {% if icls.subjects %}
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {% for subj in icls.subjects %}
+                        <a href="{% url 'Exam:score-entry' icls.class_obj.id subj.id active_exam.id %}" class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:bg-indigo-600 hover:border-indigo-600 hover:text-white group transition-all shadow-sm">
+                            <span class="text-[12px] font-bold text-slate-700 group-hover:text-white transition-colors">{{ subj.name }}</span>
+                            <i class="fas fa-arrow-right text-[10px] text-slate-300 group-hover:text-white/70 transition-colors"></i>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-[13px] text-slate-500 font-medium flex items-center gap-2">
+                        <i class="fas fa-info-circle text-slate-400"></i> No subjects found for this class
+                    </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="text-center py-12">
+                    <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300 text-2xl">
+                        <i class="fas fa-folder-open"></i>
+                    </div>
+                    <h4 class="text-slate-800 font-bold mb-1">No classes found</h4>
+                    <p class="text-[13px] text-slate-500 font-medium">You are not assigned as an invigilator for any class.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Modal Functions
+    function openInvigilatorModal() {
+        document.getElementById('invigilatorModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeInvigilatorModal() {
+        document.getElementById('invigilatorModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
     function openScorePopup(classId, subjectId) {
         document.getElementById('modalClassId').value = classId;
         document.getElementById('modalSubjectId').value = subjectId;

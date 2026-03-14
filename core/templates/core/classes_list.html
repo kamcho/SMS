@@ -200,7 +200,7 @@
                         <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter w-12 border-b border-slate-100">S/N</th>
                         <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Subject / Class</th>
                         <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Grade</th>
-                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Status</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
@@ -210,7 +210,9 @@
                         <td class="py-3 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ class_obj.name }}</td>
                         <td class="py-3 text-[12px] font-semibold text-slate-500">{{ class_obj.grade.name }}</td>
                         <td class="py-3 text-right">
-                            <span class="text-[12px] font-bold text-emerald-500">Active</span>
+                            <button onclick="event.stopPropagation(); openAssignModal('{{ class_obj.id }}', '{{ class_obj.name|escapejs }}', '{% if class_obj.invigilator %}{{ class_obj.invigilator.id }}{% endif %}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-colors {% if class_obj.invigilator %}text-orange-600 hover:text-orange-800 bg-orange-50 border-orange-100 hover:bg-orange-100{% else %}text-indigo-600 hover:text-indigo-800 bg-indigo-50 border-indigo-100 hover:bg-indigo-100{% endif %}">
+                                Manage
+                            </button>
                         </td>
                     </tr>
                     {% empty %}
@@ -286,6 +288,57 @@
                 View history
             </button>
         </div>
+    </div>
+</div>
+
+<!-- Assign Invigilator Modal -->
+<div id="assignInvigilatorModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm overflow-y-auto w-full h-full flex items-center justify-center p-4">
+    <div class="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 animate-fade-in-up border border-slate-100">
+        <button onclick="closeAssignModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors">
+            <i class="fas fa-times"></i>
+        </button>
+        
+        <div class="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500 text-2xl mb-6 ring-4 ring-white shadow-sm">
+            <i class="fas fa-user-shield"></i>
+        </div>
+        
+        <h3 class="text-2xl font-black text-slate-800 mb-2 tracking-tight">Assign Invigilator</h3>
+        <p class="text-[13px] text-slate-500 mb-6 font-medium">Select a teacher to assign as invigilator for <span id="modalClassName" class="font-bold text-slate-700"></span>.</p>
+        
+        <form method="post" action="{% url 'core:classes-list' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign_invigilator">
+            <input type="hidden" name="class_id" id="modalClassId">
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Teacher</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-chalkboard-teacher text-slate-400 text-sm"></i>
+                        </div>
+                        <select name="teacher_id" id="modalTeacherId" required class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                            <option value="">Select a teacher...</option>
+                            {% for teacher in teachers %}
+                            <option value="{{ teacher.id }}">{{ teacher.first_name }} {{ teacher.last_name }} ({{ teacher.email }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <i class="fas fa-chevron-down text-slate-400 text-[10px]"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 flex gap-3">
+                <button type="button" onclick="closeAssignModal()" class="flex-1 py-3 px-4 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors border border-slate-200">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                    <i class="fas fa-check"></i> Assign
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -431,6 +484,24 @@
             // Scroll back up if we're collapsing
             card.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+    }
+
+    function openAssignModal(classId, className, teacherId) {
+        document.getElementById('modalClassId').value = classId;
+        document.getElementById('modalClassName').textContent = className;
+        
+        const teacherSelect = document.getElementById('modalTeacherId');
+        if (teacherId) {
+            teacherSelect.value = teacherId;
+        } else {
+            teacherSelect.value = '';
+        }
+        
+        document.getElementById('assignInvigilatorModal').classList.remove('hidden');
+    }
+
+    function closeAssignModal() {
+        document.getElementById('assignInvigilatorModal').classList.add('hidden');
     }
 </script>
 <style>
