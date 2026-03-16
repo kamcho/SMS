@@ -56,6 +56,20 @@
             .custom-scrollbar::-webkit-scrollbar-thumb {
                 @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
             }
+            
+            /* Sidebar Dropdown Styles */
+            .dropdown-toggle.active-group {
+                @apply bg-white/5 text-white;
+            }
+            .dropdown-toggle.active-group i.fa-chevron-right {
+                @apply rotate-90;
+            }
+            .dropdown-content {
+                @apply max-h-0 transition-all duration-300 ease-in-out;
+            }
+            .dropdown-content.open {
+                @apply max-h-[500px];
+            }
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -68,134 +82,160 @@
             <span class="text-white font-bold text-2xl tracking-tight">Excel SMS</span>
         </div>
 
-        <nav class="flex-grow mt-6 px-4 space-y-1 overflow-y-auto custom-scrollbar shadow-inner">
-            <div class="px-4 py-3 mb-2">
-                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Overview</p>
+        <nav class="flex-grow mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar shadow-inner pb-20">
+            <!-- Overview Group -->
+            <div class="dropdown-group">
+                <button class="dropdown-toggle menu-item w-full" data-group="overview">
+                    <i class="fas fa-th-large w-5 text-lg"></i>
+                    <span>Overview</span>
+                    <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
+                    <div class="pl-11 py-1 space-y-1">
+                        <a href="{% if user.role == 'Teacher' %}{% url 'core:teacher-dashboard' %}{% else %}{% url 'core:dashboard' %}{% endif %}" class="menu-item py-2 text-sm {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'teacher-dashboard' %}active{% endif %}">
+                            Dashboard
+                        </a>
+                        <a href="{% url 'core:reports' %}" class="menu-item py-2 text-sm {% if 'reports' in request.path %}active{% endif %}">
+                            System Reports
+                        </a>
+                    </div>
+                </div>
             </div>
-            <a href="{% if user.role == 'Teacher' %}{% url 'core:teacher-dashboard' %}{% else %}{% url 'core:dashboard' %}{% endif %}" class="menu-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'teacher-dashboard' %}active{% endif %}">
-                <i class="fas fa-chart-pie w-5 text-lg"></i>
-                Dashboard
-            </a>
-            <a href="{% url 'core:reports' %}" class="menu-item {% if 'reports' in request.path %}active{% endif %}">
-                <i class="fas fa-file-invoice w-5 text-lg"></i>
-                System Reports
-            </a>
 
-            <!-- System Control (Admin Only) -->
+            <!-- System Control Group (Admin Only) -->
             {% if user.role == 'Admin' or user.is_superuser %}
-            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
-                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">System Control</p>
+            <div class="dropdown-group">
+                <button class="dropdown-toggle menu-item w-full" data-group="system">
+                    <i class="fas fa-sliders-h w-5 text-lg"></i>
+                    <span>System Control</span>
+                    <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
+                    <div class="pl-11 py-1 space-y-1">
+                        <a href="{% url 'core:configurations' %}" class="menu-item py-2 text-sm {% if 'configurations' in request.path %}active{% endif %}">
+                            Configurations
+                        </a>
+                        <a href="{% url 'core:schools-analytics' %}" class="menu-item py-2 text-sm {% if 'schools-analytics' in request.path %}active{% endif %}">
+                            Schools Analytics
+                        </a>
+                        <a href="{% url 'users:create-user' %}" class="menu-item py-2 text-sm {% if 'create-user' in request.path %}active{% endif %}">
+                            Create User
+                        </a>
+                    </div>
+                </div>
             </div>
-        
-            <a href="{% url 'core:configurations' %}" class="menu-item {% if 'configurations' in request.path %}active{% endif %}">
-                <i class="fas fa-cog w-5 text-lg"></i>
-                Configurations
-            </a>
-            <a href="{% url 'core:schools-analytics' %}" class="menu-item {% if 'schools-analytics' in request.path %}active{% endif %}">
-                <i class="fas fa-chart-area w-5 text-lg"></i>
-                Schools Analytics
-            </a>
-            <a href="{% url 'users:create-user' %}" class="menu-item {% if 'create-user' in request.path %}active{% endif %}">
-                <i class="fas fa-user-plus w-5 text-lg"></i>
-                Create User
-            </a>
             {% endif %}
 
-            <!-- Academic Management (Admin, Teacher, Receptionist) -->
+            <!-- Academic Group (Admin, Teacher, Receptionist) -->
             {% if user.role != 'Guardian' %}
-            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
-                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Academic</p>
+            <div class="dropdown-group">
+                <button class="dropdown-toggle menu-item w-full" data-group="academic">
+                    <i class="fas fa-graduation-cap w-5 text-lg"></i>
+                    <span>Academic</span>
+                    <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
+                    <div class="pl-11 py-1 space-y-1">
+                        <a href="{% url 'core:students-list' %}" class="menu-item py-2 text-sm {% if request.resolver_match.url_name == 'students-list' %}active{% endif %}">
+                            Students
+                        </a>
+                        <a href="{% url 'core:student-promotion' %}" class="menu-item py-2 text-sm {% if request.resolver_match.url_name == 'student-promotion' %}active{% endif %}">
+                            Promotion
+                        </a>
+                        <a href="{% url 'core:classes-list' %}" class="menu-item py-2 text-sm {% if 'classes' in request.path %}active{% endif %}">
+                            Classes
+                        </a>
+                        <a href="{% url 'core:discipline-log' %}" class="menu-item py-2 text-sm {% if 'discipline' in request.path %}active{% endif %}">
+                            Discipline
+                        </a>
+                        {% if user.role == 'Admin' or user.role == 'Teacher' or user.is_superuser %}
+                        <a href="{% url 'Exam:exam-list' %}" class="menu-item py-2 text-sm {% if 'exam-list' in request.path %}active{% endif %}">
+                            Exams List
+                        </a>
+                        <a href="{% url 'Exam:create-exam' %}" class="menu-item py-2 text-sm {% if 'create-exam' in request.path %}active{% endif %}">
+                            Create Exam
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-            <a href="{% url 'core:students-list' %}" class="menu-item {% if request.resolver_match.url_name == 'students-list' %}active{% endif %}">
-                <i class="fas fa-graduation-cap w-5 text-lg"></i>
-                Students
-            </a>
-            <a href="{% url 'core:student-promotion' %}" class="menu-item {% if request.resolver_match.url_name == 'student-promotion' %}active{% endif %}">
-                <i class="fas fa-random w-5 text-lg"></i>
-                Promotion
-            </a>
-            <a href="{% url 'core:classes-list' %}" class="menu-item {% if 'classes' in request.path %}active{% endif %}">
-                <i class="fas fa-chalkboard w-5 text-lg"></i>
-                Classes
-            </a>
-            <a href="{% url 'core:discipline-log' %}" class="menu-item {% if 'discipline' in request.path %}active{% endif %}">
-                <i class="fas fa-shield-alt w-5 text-lg"></i>
-                Discipline
-            </a>
-            
-            {% if user.role == 'Admin' or user.role == 'Teacher' or user.is_superuser %}
-            <a href="{% url 'Exam:exam-list' %}" class="menu-item {% if 'exam-list' in request.path %}active{% endif %}">
-                <i class="fas fa-list w-5 text-lg"></i>
-                Exams List
-            </a>
-            <a href="{% url 'Exam:create-exam' %}" class="menu-item {% if 'create-exam' in request.path %}active{% endif %}">
-                <i class="fas fa-plus-circle w-5 text-lg"></i>
-                Create Exam
-            </a>
-            {% endif %}
             {% endif %}
 
-            <!-- Financial Management (Admin, Accountant, Receptionist) -->
+            <!-- Financial Group (Admin, Accountant, Receptionist) -->
             {% if user.role == 'Admin' or user.role == 'Accountant' or user.role == 'Receptionist' or user.is_superuser %}
-            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
-                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Financial</p>
+            <div class="dropdown-group">
+                <button class="dropdown-toggle menu-item w-full" data-group="financial">
+                    <i class="fas fa-wallet w-5 text-lg"></i>
+                    <span>Financial</span>
+                    <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
+                    <div class="pl-11 py-1 space-y-1">
+                        <a href="{% url 'core:manage-fee-payments' %}" class="menu-item py-2 text-sm {% if 'manage-fee-payments' in request.path %}active{% endif %}">
+                            Fee Payments
+                        </a>
+                        <a href="{% url 'accounts:migrate-fees' %}" class="menu-item py-2 text-sm {% if 'migrate-fees' in request.path %}active{% endif %}">
+                            Migrate Fees
+                        </a>
+                        {% if user.role == 'Admin' or user.is_superuser %}
+                        <a href="{% url 'accounts:fees-analytics' %}" class="menu-item py-2 text-sm {% if 'analytics' in request.path %}active{% endif %}">
+                            Finance Analytics
+                        </a>
+                        <a href="{% url 'accounts:payroll-list' %}" class="menu-item py-2 text-sm {% if 'payroll' in request.path %}active{% endif %}">
+                            Payroll
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'accounts:payments-list' %}" class="menu-item py-2 text-sm {% if 'payments-list' in request.path %}active{% endif %}">
+                            Payment History
+                        </a>
+                    </div>
+                </div>
             </div>
-            <a href="{% url 'core:manage-fee-payments' %}" class="menu-item {% if 'manage-fee-payments' in request.path %}active{% endif %}">
-                <i class="fas fa-money-bill-wave w-5 text-lg"></i>
-                Fee Payments
-            </a>
-            <a href="{% url 'accounts:migrate-fees' %}" class="menu-item {% if 'migrate-fees' in request.path %}active{% endif %}">
-                <i class="fas fa-exchange-alt w-5 text-lg"></i>
-                Migrate Fees
-            </a>
-            {% if user.role == 'Admin' or user.is_superuser %}
-            <a href="{% url 'accounts:fees-analytics' %}" class="menu-item {% if 'analytics' in request.path %}active{% endif %}">
-                <i class="fas fa-chart-line w-5 text-lg"></i>
-                Analytics
-            </a>
-            <a href="{% url 'accounts:payroll-list' %}" class="menu-item {% if 'payroll' in request.path %}active{% endif %}">
-                <i class="fas fa-hand-holding-usd w-5 text-lg"></i>
-                Payroll
-            </a>
-            {% endif %}
-            <a href="{% url 'accounts:payments-list' %}" class="menu-item {% if 'payments-list' in request.path %}active{% endif %}">
-                <i class="fas fa-receipt w-5 text-lg"></i>
-                Payment History
-            </a>
             {% endif %}
 
-            <!-- Operations Management (Admin, Teacher, Receptionist) -->
+            <!-- Operations Group -->
             {% if user.role != 'Guardian' %}
-            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
-                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Operations</p>
+            <div class="dropdown-group">
+                <button class="dropdown-toggle menu-item w-full" data-group="operations">
+                    <i class="fas fa-server w-5 text-lg"></i>
+                    <span>Operations</span>
+                    <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
+                    <div class="pl-11 py-1 space-y-1">
+                        <a href="{% url 'transport:dashboard' %}" class="menu-item py-2 text-sm {% if 'transport' in request.path %}active{% endif %}">
+                            Transport
+                        </a>
+                        <a href="{% url 'communication:dashboard' %}" class="menu-item py-2 text-sm {% if 'communication' in request.path %}active{% endif %}">
+                            Broadcasts
+                        </a>
+                    </div>
+                </div>
             </div>
-            <a href="{% url 'transport:dashboard' %}" class="menu-item {% if 'transport' in request.path %}active{% endif %}">
-                <i class="fas fa-bus-alt w-5 text-lg"></i>
-                Transport
-            </a>
-            <a href="{% url 'communication:dashboard' %}"
-                class="menu-item {% if 'communication' in request.path %}active{% endif %}">
-                <i class="fas fa-bullhorn w-5 text-lg"></i>
-                Broadcasts
-            </a>
             {% endif %}
 
             <!-- Guardian Portal -->
             {% if user.role == 'Guardian' %}
-            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
-                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Guardian Portal</p>
+            <div class="dropdown-group">
+                <button class="dropdown-toggle menu-item w-full" data-group="guardian">
+                    <i class="fas fa-user-shield w-5 text-lg"></i>
+                    <span>Guardian Portal</span>
+                    <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
+                    <div class="pl-11 py-1 space-y-1">
+                        <a href="{% url 'core:guardian-dashboard' %}" class="menu-item py-2 text-sm {% if 'guardian/dashboard' in request.path %}active{% endif %}">
+                            Guardian Home
+                        </a>
+                        <a href="#" class="menu-item py-2 text-sm">
+                            Fee Statements
+                        </a>
+                    </div>
+                </div>
             </div>
-            <a href="{% url 'core:guardian-dashboard' %}"
-                class="menu-item {% if 'guardian/dashboard' in request.path %}active{% endif %}">
-                <i class="fas fa-home w-5 text-lg"></i>
-                Guardian Home
-            </a>
-            <a href="#" class="menu-item">
-                <i class="fas fa-file-invoice-dollar w-5 text-lg"></i>
-                Fee Statements
-            </a>
             {% endif %}
         </nav>
+
 
         <div class="p-6 border-t border-white/5">
             {% if user.is_authenticated %}
@@ -294,6 +334,39 @@
         </div>
     </main>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggles = document.querySelectorAll('.dropdown-toggle');
+            
+            toggles.forEach(toggle => {
+                const group = toggle.closest('.dropdown-group');
+                const content = group.querySelector('.dropdown-content');
+                const hasActiveChild = content.querySelector('.active');
+                
+                // Auto-open if contains active child
+                if (hasActiveChild) {
+                    content.classList.add('open');
+                    toggle.classList.add('active-group');
+                }
+
+                toggle.addEventListener('click', () => {
+                    const isOpen = content.classList.contains('open');
+                    
+                    // Close others
+                    document.querySelectorAll('.dropdown-content').forEach(c => {
+                        c.classList.remove('open');
+                        c.previousElementSibling.classList.remove('active-group');
+                    });
+
+                    // Toggle current
+                    if (!isOpen) {
+                        content.classList.add('open');
+                        toggle.classList.add('active-group');
+                    }
+                });
+            });
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

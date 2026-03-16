@@ -1505,9 +1505,18 @@ def class_exam_analytics(request, class_id):
     selected_exam = request.GET.get('exam')
     selected_subject = request.GET.get('subject')
 
-    # Sanitize filter parameters to prevent ValueError when 'None' string is passed
-    if selected_exam in ['None', '', None]: selected_exam = None
+    # Sanitize & Default to latest exam if none provided
+    if selected_exam is None:
+        latest_exam = exams.first()
+        selected_exam = str(latest_exam.id) if latest_exam else None
+    elif selected_exam in ['None', '']:
+        selected_exam = None
+    
     if selected_subject in ['None', '', None]: selected_subject = None
+    
+    # Ensure selected_exam is a digit if provided
+    if selected_exam and not str(selected_exam).isdigit():
+        selected_exam = None
     
     # Apply filters
     if selected_exam:
@@ -1871,8 +1880,16 @@ def class_merit_list(request, class_id):
     selected_exam = request.GET.get('exam')
     selected_subject = request.GET.get('subject')
     
-    # Sanitize filter inputs
-    if selected_exam in ['None', '', None]: selected_exam = None
+    # Get available exams for defaulting
+    exams = Exam.objects.all().select_related('year', 'term').order_by('-year__start_date', 'term__name')
+
+    # Sanitize & Default to latest exam if none provided
+    if selected_exam is None:
+        latest_exam = exams.first()
+        selected_exam = str(latest_exam.id) if latest_exam else None
+    elif selected_exam in ['None', '']:
+        selected_exam = None
+    
     if selected_subject in ['None', '', None]: selected_subject = None
     
     # Apply filters with strict digit validation to prevent ValueErrors
