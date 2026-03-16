@@ -1,0 +1,299 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Excel SMS{% endblock %}</title>
+    <!-- Google Fonts: Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        'primary-hover': '#4338ca',
+                        'sidebar-bg': '#111827',
+                        'sidebar-hover': '#1f2937',
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer components {
+            .menu-item {
+                @apply flex items-center gap-4 px-4 py-3 mb-1 rounded-xl text-gray-400 transition-all duration-300 font-medium hover:bg-sidebar-hover hover:text-white;
+            }
+            .menu-item.active {
+                @apply bg-primary text-white shadow-lg shadow-primary/30;
+            }
+            .glass-card {
+                @apply bg-white/80 backdrop-blur-md rounded-2xl border border-white/30 shadow-sm p-6 dark:bg-slate-900/50 dark:border-slate-800;
+            }
+            .btn {
+                @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:-translate-y-px;
+            }
+            .btn-primary {
+                @apply bg-primary text-white hover:bg-primary-hover active:scale-95;
+            }
+            .custom-scrollbar::-webkit-scrollbar {
+                @apply w-1.5;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                @apply bg-transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-50 text-slate-900 dark:bg-[#020617] dark:text-slate-100 min-h-screen flex">
+    <!-- Sidebar -->
+    <aside class="sidebar w-64 bg-sidebar-bg text-gray-400 flex flex-col fixed h-screen z-50 transition-transform lg:translate-x-0 -translate-x-full" id="sidebar">
+        <div class="p-8 flex items-center gap-3 border-b border-white/5">
+            <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg">E</div>
+            <span class="text-white font-bold text-2xl tracking-tight">Excel SMS</span>
+        </div>
+
+        <nav class="flex-grow mt-6 px-4 space-y-1 overflow-y-auto custom-scrollbar shadow-inner">
+            <div class="px-4 py-3 mb-2">
+                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Overview</p>
+            </div>
+            <a href="{% if user.role == 'Teacher' %}{% url 'core:teacher-dashboard' %}{% else %}{% url 'core:dashboard' %}{% endif %}" class="menu-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'teacher-dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-pie w-5 text-lg"></i>
+                Dashboard
+            </a>
+            <a href="{% url 'core:reports' %}" class="menu-item {% if 'reports' in request.path %}active{% endif %}">
+                <i class="fas fa-file-invoice w-5 text-lg"></i>
+                System Reports
+            </a>
+
+            <!-- System Control (Admin Only) -->
+            {% if user.role == 'Admin' or user.is_superuser %}
+            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
+                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">System Control</p>
+            </div>
+        
+            <a href="{% url 'core:configurations' %}" class="menu-item {% if 'configurations' in request.path %}active{% endif %}">
+                <i class="fas fa-cog w-5 text-lg"></i>
+                Configurations
+            </a>
+            <a href="{% url 'core:schools-analytics' %}" class="menu-item {% if 'schools-analytics' in request.path %}active{% endif %}">
+                <i class="fas fa-chart-area w-5 text-lg"></i>
+                Schools Analytics
+            </a>
+            <a href="{% url 'users:create-user' %}" class="menu-item {% if 'create-user' in request.path %}active{% endif %}">
+                <i class="fas fa-user-plus w-5 text-lg"></i>
+                Create User
+            </a>
+            {% endif %}
+
+            <!-- Academic Management (Admin, Teacher, Receptionist) -->
+            {% if user.role != 'Guardian' %}
+            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
+                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Academic</p>
+            </div>
+            <a href="{% url 'core:students-list' %}" class="menu-item {% if request.resolver_match.url_name == 'students-list' %}active{% endif %}">
+                <i class="fas fa-graduation-cap w-5 text-lg"></i>
+                Students
+            </a>
+            <a href="{% url 'core:student-promotion' %}" class="menu-item {% if request.resolver_match.url_name == 'student-promotion' %}active{% endif %}">
+                <i class="fas fa-random w-5 text-lg"></i>
+                Promotion
+            </a>
+            <a href="{% url 'core:classes-list' %}" class="menu-item {% if 'classes' in request.path %}active{% endif %}">
+                <i class="fas fa-chalkboard w-5 text-lg"></i>
+                Classes
+            </a>
+            <a href="{% url 'core:discipline-log' %}" class="menu-item {% if 'discipline' in request.path %}active{% endif %}">
+                <i class="fas fa-shield-alt w-5 text-lg"></i>
+                Discipline
+            </a>
+            
+            {% if user.role == 'Admin' or user.role == 'Teacher' or user.is_superuser %}
+            <a href="{% url 'Exam:exam-list' %}" class="menu-item {% if 'exam-list' in request.path %}active{% endif %}">
+                <i class="fas fa-list w-5 text-lg"></i>
+                Exams List
+            </a>
+            <a href="{% url 'Exam:create-exam' %}" class="menu-item {% if 'create-exam' in request.path %}active{% endif %}">
+                <i class="fas fa-plus-circle w-5 text-lg"></i>
+                Create Exam
+            </a>
+            {% endif %}
+            {% endif %}
+
+            <!-- Financial Management (Admin, Accountant, Receptionist) -->
+            {% if user.role == 'Admin' or user.role == 'Accountant' or user.role == 'Receptionist' or user.is_superuser %}
+            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
+                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Financial</p>
+            </div>
+            <a href="{% url 'core:manage-fee-payments' %}" class="menu-item {% if 'manage-fee-payments' in request.path %}active{% endif %}">
+                <i class="fas fa-money-bill-wave w-5 text-lg"></i>
+                Fee Payments
+            </a>
+            <a href="{% url 'accounts:migrate-fees' %}" class="menu-item {% if 'migrate-fees' in request.path %}active{% endif %}">
+                <i class="fas fa-exchange-alt w-5 text-lg"></i>
+                Migrate Fees
+            </a>
+            {% if user.role == 'Admin' or user.is_superuser %}
+            <a href="{% url 'accounts:fees-analytics' %}" class="menu-item {% if 'analytics' in request.path %}active{% endif %}">
+                <i class="fas fa-chart-line w-5 text-lg"></i>
+                Analytics
+            </a>
+            <a href="{% url 'accounts:payroll-list' %}" class="menu-item {% if 'payroll' in request.path %}active{% endif %}">
+                <i class="fas fa-hand-holding-usd w-5 text-lg"></i>
+                Payroll
+            </a>
+            {% endif %}
+            <a href="{% url 'accounts:payments-list' %}" class="menu-item {% if 'payments-list' in request.path %}active{% endif %}">
+                <i class="fas fa-receipt w-5 text-lg"></i>
+                Payment History
+            </a>
+            {% endif %}
+
+            <!-- Operations Management (Admin, Teacher, Receptionist) -->
+            {% if user.role != 'Guardian' %}
+            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
+                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Operations</p>
+            </div>
+            <a href="{% url 'transport:dashboard' %}" class="menu-item {% if 'transport' in request.path %}active{% endif %}">
+                <i class="fas fa-bus-alt w-5 text-lg"></i>
+                Transport
+            </a>
+            <a href="{% url 'communication:dashboard' %}"
+                class="menu-item {% if 'communication' in request.path %}active{% endif %}">
+                <i class="fas fa-bullhorn w-5 text-lg"></i>
+                Broadcasts
+            </a>
+            {% endif %}
+
+            <!-- Guardian Portal -->
+            {% if user.role == 'Guardian' %}
+            <div class="pt-8 pb-3 px-4 border-t border-white/5 mt-6">
+                <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">Guardian Portal</p>
+            </div>
+            <a href="{% url 'core:guardian-dashboard' %}"
+                class="menu-item {% if 'guardian/dashboard' in request.path %}active{% endif %}">
+                <i class="fas fa-home w-5 text-lg"></i>
+                Guardian Home
+            </a>
+            <a href="#" class="menu-item">
+                <i class="fas fa-file-invoice-dollar w-5 text-lg"></i>
+                Fee Statements
+            </a>
+            {% endif %}
+        </nav>
+
+        <div class="p-6 border-t border-white/5">
+            {% if user.is_authenticated %}
+            <div class="group relative">
+                <div class="flex items-center gap-3 p-3 bg-white/5 rounded-2xl mb-3">
+                    <div class="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center text-white ring-2 ring-white/10 shrink-0">
+                        <i class="fas fa-user text-sm"></i>
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <p class="text-xs font-bold text-white truncate">{{ user.email }}</p>
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{{ user.role }}</p>
+                    </div>
+                </div>
+                <form action="{% url 'users:logout' %}" method="post" class="m-0 p-0 w-full">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full flex items-center justify-start gap-3 px-4 py-3 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all duration-300 font-bold text-sm">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Sign Out
+                    </button>
+                </form>
+            </div>
+            {% else %}
+            <a href="{% url 'users:login' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary-hover transition-all duration-300 font-bold text-sm">
+                <i class="fas fa-sign-in-alt"></i>
+                Sign In
+            </a>
+            {% endif %}
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-grow min-w-0 lg:ml-64 p-5 md:p-8 transition-all">
+        <!-- Top Nav (Sticky & Glassmorphic) -->
+        <header class="sticky top-0 z-40 -mx-8 px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 bg-white/70 dark:bg-[#020617]/70 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-700">
+            <div class="flex items-center gap-4">
+                <button class="lg:hidden p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="page-title">
+                    {% block page_header %}
+                    <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Welcome Back</h1>
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-0.5">Management Overview</p>
+                    {% endblock %}
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3 md:gap-6 self-end md:self-center">
+                <!-- Global Search -->
+                <div class="hidden sm:flex items-center bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 gap-3 w-64 focus-within:w-80 focus-within:border-indigo-500 dark:focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-500/10 transition-all duration-300 shadow-sm">
+                    <i class="fas fa-search text-slate-400 text-sm"></i>
+                    <input type="text" placeholder="Search anything..." class="bg-transparent border-none outline-none text-sm font-semibold w-full placeholder:text-slate-500 text-slate-700 dark:text-slate-200">
+                </div>
+
+                <!-- Action Shell -->
+                <div class="flex items-center gap-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-sm">
+                    <button class="w-10 h-10 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all relative">
+                        <i class="fas fa-bell"></i>
+                        <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+                    </button>
+                    <button class="w-10 h-10 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+
+                <div class="h-10 w-px bg-slate-200 dark:bg-slate-800 hidden md:block"></div>
+
+                <!-- User Profile -->
+                <div class="flex items-center gap-3 pl-2">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs font-black text-slate-900 dark:text-slate-100 leading-none">{{ user.email|truncatechars:18 }}</p>
+                        <p class="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-[0.1em] mt-1.5">{{ user.role }}</p>
+                    </div>
+                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-indigo-500/20 ring-4 ring-white dark:ring-slate-900/50">
+                        {{ user.email|slice:":1"|upper }}
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="space-y-4 mb-10">
+            {% for message in messages %}
+                <div class="glass-card border-l-4 border-indigo-500 py-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
+                    <i class="fas fa-info-circle text-indigo-500 text-xl"></i>
+                    <p class="font-semibold text-slate-700">{{ message }}</p>
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Content Block -->
+        <div class="animate-in fade-in duration-700">
+            {% block content %}
+            {% endblock %}
+        </div>
+    </main>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Access Denied | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center gap-4">
+    <a href="{% url 'core:dashboard' %}" class="btn bg-white border border-slate-200 text-slate-500 hover:text-slate-800 p-2.5 rounded-xl shadow-sm">
+        <i class="fas fa-arrow-left text-sm"></i>
+    </a>
+    <div>
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight">Access Denied</h1>
+        <p class="text-slate-500 mt-1 font-medium">Authorization Error</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <div class="max-w-md w-full text-center space-y-8 animate-in fade-in zoom-in duration-700">
+        <!-- Icon -->
+        <div class="relative w-40 h-40 mx-auto">
+            <div class="absolute inset-0 bg-rose-100 rounded-full animate-pulse opacity-50"></div>
+            <div class="absolute inset-4 bg-rose-50 rounded-full flex items-center justify-center">
+                <i class="fas fa-shield-alt text-6xl text-rose-500"></i>
+            </div>
+            <div class="absolute bottom-4 right-4 w-10 h-10 bg-white shadow-lg rounded-full flex items-center justify-center">
+                <i class="fas fa-lock text-slate-400"></i>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div>
+            <h2 class="text-3xl font-black text-slate-900 tracking-tight mb-4">You Don't Have Permission</h2>
+            <p class="text-slate-500 text-base leading-relaxed mb-8">
+                Sorry, you are not authorized to view this student's profile. If you believe this is an error, please contact the school administration to have this student linked to your account.
+            </p>
+            
+            <a href="{% url 'core:dashboard' %}" class="inline-flex items-center justify-center h-14 px-8 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-slate-900/20 hover:bg-slate-800 hover:scale-105 transition-all group">
+                <i class="fas fa-home mr-3 group-hover:-translate-x-1 transition-transform"></i>
+                Return to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

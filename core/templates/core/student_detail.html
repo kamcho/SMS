@@ -1,0 +1,440 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ student.first_name }}'s Academic Dashboard | Excel SMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background-color: #f4f7f9 !important; font-family: 'Outfit', sans-serif; }
+    .stat-card { background-color: white; padding: 1.5rem; border-radius: 1.25rem; border: 1px solid #edf2f7; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); }
+    .stat-icon { width: 3.5rem; height: 3.5rem; border-radius: 1rem; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; }
+    .chart-container { background-color: white; padding: 2rem; border-radius: 2rem; border: 1px solid #edf2f7; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04); position: relative; }
+    .table-container { background-color: white; border-radius: 2rem; border: 1px solid #edf2f7; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04); overflow: hidden; }
+    .sn-cell { color: #cbd5e1; font-weight: 800; font-size: 14px; }
+    .badge-present { background-color: #f0fdf4; color: #16a34a; padding: 0.3rem 0.6rem; rounded-lg font-size: 10px; font-weight: 800; }
+</style>
+{% endblock %}
+
+{% block header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-4">
+    <div class="flex items-center gap-5">
+        <div class="relative">
+            <div class="w-16 h-16 rounded-[1.5rem] bg-indigo-600 border border-indigo-400 p-1 shadow-indigo-100 shadow-xl flex items-center justify-center overflow-hidden">
+                <span class="text-white font-black text-xl uppercase tracking-tighter">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+            </div>
+            <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-emerald-500 border-2 border-white shadow-sm flex items-center justify-center text-[10px] text-white">
+                <i class="fas fa-check"></i>
+            </div>
+        </div>
+        <div>
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight">{{ student.get_full_name }}</h1>
+            <p class="text-slate-400 font-bold text-sm tracking-tight">{{ profile.class_id.name }} • ADM No: {{ student.adm_no }}
+            </p>
+        </div>
+    </div>
+    <div class="flex items-center gap-4">
+        <div
+            class="flex items-center bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm text-xs font-black text-slate-600">
+            <i class="far fa-calendar-alt mr-3 text-indigo-500 text-sm"></i>
+            {% now "M d, Y" %}
+        </div>
+        <a href="{% url 'core:student-report' student.id selected_exam.id %}" target="_blank"
+            class="h-12 px-6 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-3">
+            <i class="fas fa-file-pdf"></i> View Transcript
+        </a>
+        </div>
+        </div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8 pb-12">
+    <!-- Row 1: Top Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="stat-icon bg-orange-50 text-orange-500">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <button class="text-slate-200"><i class="fas fa-ellipsis-h"></i></button>
+            </div>
+            <div>
+                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">{{ student_average|default:"0" }}%</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Mean Academic Score</p>
+                </div>
+                <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
+                    <span class="text-xs font-black text-emerald-500"><i class="fas fa-arrow-up mr-1"></i>0.2% more</span>
+                    <span class="text-[10px] font-bold text-slate-400 italic">than last exam</span>
+                </div>
+                </div>
+
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="stat-icon bg-red-50 text-red-500">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <button class="text-slate-200"><i class="fas fa-ellipsis-h"></i></button>
+            </div>
+            <div>
+                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">KES {{ profile.fee_balance|default:"0"|floatformat:0 }}
+                </h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Outstanding Balance</p>
+                </div>
+            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
+                <span class="text-xs font-black text-rose-500"><i class="fas fa-exclamation-circle mr-1"></i>Pending</span>
+                <span class="text-[10px] font-bold text-slate-400 italic">Total paid: KES {{ total_paid|floatformat:0 }}</span>
+            </div>
+            </div>
+
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="stat-icon bg-indigo-50 text-indigo-500">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <button class="text-slate-200"><i class="fas fa-ellipsis-h"></i></button>
+            </div>
+            <div>
+                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">{{ attendance_percentage }}%</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attendance Trend</p>
+            </div>
+            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
+                <span class="text-xs font-black text-indigo-500"><i class="fas fa-sync mr-1"></i>Tracked</span>
+                <span class="text-[10px] font-bold text-slate-400 italic">For {{ current_month }}</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="stat-icon bg-blue-50 text-blue-500">
+                    <i class="fas fa-shield-heart"></i>
+                </div>
+                <button class="text-slate-200"><i class="fas fa-ellipsis-h"></i></button>
+                </div>
+            <div>
+                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">{{ profile.discipline }}</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Discipline Points</p>
+            </div>
+            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
+                <span class="text-xs font-black text-emerald-500"><i class="fas fa-check-circle mr-1"></i>Good</span>
+                <span class="text-[10px] font-bold text-slate-400 italic">Without changes</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Student Info Grid -->
+    <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
+        <div class="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+            <h3 class="text-lg font-black text-slate-800 tracking-tight">Student Particulars</h3>
+            <span class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest">Profile Details</span>
+        </div>
+        <div class="p-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-8 gap-x-12">
+                <!-- Name Breakdown -->
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">First Name</p>
+                    <p class="text-sm font-black text-slate-700 capitalize">{{ student.first_name }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Middle Name</p>
+                    <p class="text-sm font-black text-slate-700 capitalize">{{ student.middle_name|default:"-" }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Surname</p>
+                    <p class="text-sm font-black text-slate-700 capitalize">{{ student.last_name }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gender</p>
+                    <p class="text-sm font-black text-slate-700 capitalize">{{ student.gender }}</p>
+                </div>
+                
+                <!-- Row 2 -->
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date of Birth</p>
+                    <p class="text-sm font-black text-slate-700">{{ student.date_of_birth|date:"d M, Y" }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enrollment Date</p>
+                    <p class="text-sm font-black text-slate-700">{{ student.joined_date|date:"d M, Y" }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Residency Status</p>
+                    <p class="text-sm font-black text-slate-700">
+                        {% if student.is_boarder %}
+                        <span class="text-indigo-600">Boarder</span>
+                        {% else %}
+                        <span class="text-emerald-600">Day Scholar</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transport Status</p>
+                    <p class="text-sm font-black text-slate-700">
+                        {% if active_transport %}
+                        <span class="text-indigo-600">{{ active_transport.route.name }}</span>
+                        <span class="text-[10px] text-slate-400"> • {{ active_transport.vehicle.plate_number }} ({{ active_transport.get_trip_type_display }})</span>
+                        {% else %}
+                        <span class="text-slate-400 italic">Private / No Transport</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Guardians</p>
+                    <p class="text-sm font-black text-slate-700">
+                        {% for g in guardians %}
+                            {{ g.get_full_name|default:g.email }}{% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            Not Set
+                        {% endfor %}
+                    </p>
+                </div>
+                
+                <!-- Row 3 -->
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Home Location</p>
+                    <p class="text-sm font-black text-slate-700">{{ student.location|default:"Not Specified" }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Primary School</p>
+                    <p class="text-sm font-black text-slate-700">{{ profile.school.name }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Class</p>
+                    <p class="text-sm font-black text-slate-700">{{ profile.class_id.name }}</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student ADM</p>
+                    <p class="text-sm font-black text-slate-700">{{ student.adm_no }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Performance Donut/Radar -->
+        <div class="lg:col-span-4 chart-container h-[450px]">
+            <div class="flex items-center justify-between mb-10">
+                <h3 class="text-xl font-black text-slate-800">Performance Index</h3>
+                <button class="text-slate-300"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+            <div class="relative w-full h-52 mb-10 flex items-center justify-center">
+                <canvas id="performanceRadarChart"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-6">
+                    <h4 class="text-4xl font-black text-slate-800">{{ student_average }}</h4>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Agg. Score</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-6 pt-8 border-t border-slate-50">
+                <div class="text-center group">
+                    <h5 class="text-2xl font-black text-indigo-500">{{ exam_scores.count }}</h5>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Subjects</p>
+                </div>
+                <div class="text-center group">
+                    <h5 class="text-2xl font-black text-orange-500">{{ discipline_records.count }}</h5>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Incidents</p>
+                </div>
+                <div class="text-center group">
+                    <h5 class="text-2xl font-black text-purple-600">A</h5>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Grade</p>
+                </div>
+                </div>
+                </div>
+
+        <!-- Subject Scores Bar Chart -->
+        <div class="lg:col-span-12 xl:col-span-8 chart-container h-[450px]">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
+                <h3 class="text-xl font-black text-slate-800">Subject performance summary</h3>
+                <form method="GET" class="relative">
+                    <select name="exam_id" onchange="this.form.submit()"
+                        class="bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 shadow-sm text-xs font-black text-slate-600 outline-none appearance-none pr-10 cursor-pointer w-full sm:w-auto">
+                        {% for exam in all_exams %}
+                            <option value="{{ exam.id }}" {% if exam.id == selected_exam.id %}selected{% endif %}>{{ exam.name }} - {{ exam.period }}</option>
+                        {% endfor %}
+                    </select>
+                    <i
+                        class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 pointer-events-none"></i>
+                </form>
+            </div>
+            <div class="h-64">
+                <canvas id="subjectBarChart"></canvas>
+            </div>
+            </div>
+            </div>
+<!-- Row 3: Tables & Calendar -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Transactions Table -->
+    <div class="table-container">
+        <div class="p-8 border-b border-slate-50 flex items-center justify-between">
+            <h3 class="text-xl font-black text-slate-800 tracking-tight">Recent financial log</h3>
+            <button class="text-slate-300"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+            <div class="p-4">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50/50">
+                        <tr>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">S/N</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Description</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Before</th>
+                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">After</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {% for entry in financial_log %}
+                        <tr class="hover:bg-slate-50 transition-all">
+                            <td class="px-6 py-6 sn-cell">{{ forloop.counter }}</td>
+                            <td class="px-6 py-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs
+                                        {% if entry.type == 'payment' %}bg-emerald-50 text-emerald-600{% else %}bg-amber-50 text-amber-600{% endif %}">
+                                        <i class="fas {% if entry.type == 'payment' %}fa-check-circle{% else %}fa-file-invoice-dollar{% endif %}"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-black text-slate-700 leading-tight">{{ entry.description }}</p>
+                                        <div class="flex items-center gap-2 mt-0.5">
+                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-tight">{{ entry.date|date:"d M Y" }}</span>
+                                            {% if entry.method %}
+                                            <span class="w-0.5 h-0.5 rounded-full bg-slate-200"></span>
+                                            <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{{ entry.method }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-6 text-right font-black {% if entry.type == 'payment' %}text-emerald-600{% else %}text-slate-800{% endif %}">
+                                {% if entry.type == 'payment' %}-{% endif %}KES {{ entry.amount|floatformat:2 }}
+                            </td>
+                            <td class="px-6 py-6 text-right font-bold text-slate-400 text-xs">
+                                {{ entry.balance_before|floatformat:0|default:"-" }}
+                            </td>
+                            <td class="px-6 py-6 text-right font-black text-slate-700 text-xs">
+                                {{ entry.balance_after|floatformat:0|default:"-" }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-4 py-16 text-center text-slate-300 italic font-black text-xs uppercase tracking-widest">No
+                                financial activities recorded</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    </table>
+            </div>
+        </div>
+
+        <!-- Attendance Calendar -->
+        <div class="chart-container" id="attendance-hub">
+            <div class="flex items-center justify-between mb-8">
+                <h3 class="text-xl font-black text-slate-800">Attendance summary</h3>
+                <div class="flex items-center gap-2">
+                    <a href="{{ prev_month_params }}#attendance-hub"
+                        class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-all"><i
+                            class="fas fa-chevron-left text-[10px]"></i></a>
+                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] text-center">{{ current_month }}</span>
+                    {% if next_month_params %}
+                    <a href="{{ next_month_params }}#attendance-hub"
+                        class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-all"><i
+                            class="fas fa-chevron-right text-[10px]"></i></a>
+                    {% endif %}
+                    </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-7 gap-2 mb-8">
+                        {% for day in "SMTWTFS" %}
+                    <div class="text-center text-[10px] font-black text-slate-300 uppercase pb-2">{{ day }}</div>
+                    {% endfor %}
+                    {% for day_data in calendar_data %}
+                    <div
+                        class="aspect-square rounded-xl flex items-center justify-center text-[11px] font-black transition-all cursor-default relative group
+                                                                                                        {% if day_data.status == 'Present' %}bg-indigo-600 text-white shadow-lg shadow-indigo-200
+                                                                                                        {% elif day_data.status == 'Late' %}bg-amber-400 text-white
+                                                                                                        {% elif day_data.status == 'Absent' %}bg-rose-500 text-white
+                                                                                                        {% else %}bg-slate-50 text-slate-300 hover:bg-slate-100{% endif %}">
+                        {{ day_data.day }}
+                    </div>
+                    {% endfor %}
+                    </div>
+
+            <div class="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-lg shadow-lg shadow-indigo-200">
+                        <i class="fas fa-check-double"></i>
+                    </div>
+                    <div>
+                        <p class="text-lg font-black text-indigo-700 leading-none">{{ attendance_percentage }}%</p>
+                        <p class="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-1">Presence aggregate</p>
+                        </div>
+                        </div>
+                <span
+                    class="px-3 py-1 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-[10px] font-black">EXCELLENT</span>
+                </div>
+                </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // PERFORMANCE RADAR
+    const radarCtx = document.getElementById('performanceRadarChart').getContext('2d');
+    new Chart(radarCtx, {
+        type: 'radar',
+        data: {
+            labels: JSON.parse('{{ subject_names_json|safe }}'),
+            datasets: [{
+                data: JSON.parse('{{ subject_values_json|safe }}'),
+                backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                borderColor: '#6366f1',
+                borderWidth: 3,
+                pointBackgroundColor: '#6366f1',
+                pointRadius: 3
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    angleLines: { color: '#f1f5f9' },
+                    grid: { color: '#f1f5f9' },
+                    suggestedMin: 0,
+                    suggestedMax: 100,
+                    ticks: { display: false },
+                    pointLabels: {
+                        font: { size: 9, family: "'Outfit', sans-serif", weight: '900' },
+                        color: '#94a3b8'
+                    }
+                }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // SUBJECT BAR CHART
+    const barCtx = document.getElementById('subjectBarChart').getContext('2d');
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: JSON.parse('{{ subject_names_json|safe }}'),
+            datasets: [{
+                label: 'Score',
+                data: JSON.parse('{{ subject_values_json|safe }}'),
+                backgroundColor: '#f97316',
+                borderRadius: 8,
+                barThickness: 25
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    grid: { color: '#f8fafc' },
+                    ticks: { font: { weight: '800', size: 10 }, color: '#94a3b8' }
+                },
+                x: { grid: { display: false }, ticks: { font: { weight: '800', size: 10 }, color: '#94a3b8' } }
+            }
+        }
+    });
+
+    document.documentElement.classList.remove('dark');
+</script>
+{% endblock %}

@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Promotion | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-4">
+    <div class="space-y-2">
+        <h1 class="text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
+            <div class="w-3 h-12 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200"></div>
+            Student Promotion
+        </h1>
+        <p class="text-slate-500 font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+            Academic Year Transition
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Selection Bar -->
+    <div class="bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white shadow-2xl shadow-indigo-950/5 animate-in slide-in-from-top-8 duration-700">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <!-- Academic Year -->
+            <div class="space-y-2">
+                <label for="academic_year" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Academic Year</label>
+                <div class="relative group">
+                    <select name="academic_year" id="academic_year" onchange="this.form.submit()" class="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer shadow-sm">
+                        {% for year in academic_years %}
+                            <option value="{{ year.id }}" {% if year.id|stringformat:"s" == selected_year %}selected{% endif %}>
+                                {{ year }} {% if year.is_active %}(Active){% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-calendar absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
+                </div>
+            </div>
+            <!-- School -->
+            <div class="space-y-2">
+                <label for="school" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">School</label>
+                <div class="relative group">
+                    <select name="school" id="school" onchange="this.form.submit()" class="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer shadow-sm">
+                        <option value="">Select School</option>
+                        {% for school in schools %}
+                            <option value="{{ school.id }}" {% if school.id|stringformat:"s" == selected_school %}selected{% endif %}>
+                                {{ school.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
+                </div>
+            </div>
+
+            <!-- Source Class -->
+            <div class="space-y-2">
+                <label for="class" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Source Class (From)</label>
+                <div class="relative group">
+                    <select name="class" id="class" onchange="this.form.submit()" class="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer shadow-sm" {% if not selected_school %}disabled{% endif %}>
+                        <option value="">Select Class</option>
+                        {% for c in classes %}
+                            <option value="{{ c.id }}" {% if c.id|stringformat:"s" == selected_class %}selected{% endif %}>
+                                {{ c.name }} ({{ c.grade.name }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
+                </div>
+            </div>
+
+            <div>
+                <a href="{% url 'core:student-promotion' %}" class="btn bg-slate-900 text-white w-full rounded-2xl py-3 text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all text-center flex items-center justify-center gap-2">
+                    <i class="fas fa-undo-alt"></i> Reset
+                </a>
+            </div>
+        </form>
+    </div>
+
+    {% if selected_class and students %}
+    <form method="post">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Student Selection -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="p-6 border-b border-slate-50 flex items-center justify-between">
+                        <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider">Select Students</h3>
+                        <label class="flex items-center gap-2 cursor-pointer group">
+                            <input type="checkbox" id="select-all" class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-600 transition-colors">Select All</span>
+                        </label>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50/50">
+                                <tr>
+                                    <th class="py-4 px-6 w-12 text-[10px] font-black text-slate-400 uppercase tracking-widest">Select</th>
+                                    <th class="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Adm No</th>
+                                    <th class="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Name</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                {% for item in students %}
+                                <tr class="hover:bg-slate-50/50 transition-colors">
+                                    <td class="py-4 px-6">
+                                        {% if item.already_promoted or item.just_promoted %}
+                                            <div class="w-4 h-4 rounded border border-slate-200 bg-slate-50 flex items-center justify-center">
+                                                <i class="fas fa-lock text-[8px] text-slate-300"></i>
+                                            </div>
+                                        {% else %}
+                                            <input type="checkbox" name="student_ids" value="{{ item.student_id }}" class="student-checkbox w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-4 px-6">
+                                        <span class="text-xs font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">{{ item.student.adm_no }}</span>
+                                    </td>
+                                    <td class="py-4 px-6">
+                                        <div class="flex flex-col gap-1">
+                                            <p class="text-xs font-bold text-slate-900">{{ item.student.get_full_name }}</p>
+                                            {% if item.already_promoted %}
+                                                <span class="text-[8px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg uppercase tracking-widest w-fit">
+                                                    <i class="fas fa-check-double mr-1"></i> Already Promoted This Year
+                                                </span>
+                                            {% elif item.just_promoted %}
+                                                <span class="text-[8px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg uppercase tracking-widest w-fit">
+                                                    <i class="fas fa-arrow-right mr-1"></i> New Entry: Promoted In
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Promotion Actions -->
+            <div class="space-y-6">
+                <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 sticky top-8">
+                    <div class="space-y-6">
+                        <div class="pb-6 border-b border-slate-100">
+                            <h3 class="text-lg font-black text-slate-900">Promotion Logic</h3>
+                            {% if next_grade_name %}
+                                <p class="text-xs text-slate-500 font-medium mt-1">Current Grade: <span class="font-black text-indigo-600">{{ next_grade_name|add:" Prev" }}</span></p>
+                                <div class="mt-4 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                                    <p class="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Target Grade</p>
+                                    <p class="text-lg font-black text-slate-900">{{ next_grade_name }}</p>
+                                </div>
+                            {% elif is_final_grade %}
+                                <div class="mt-4 p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                                    <p class="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1">Graduation Level</p>
+                                    <p class="text-lg font-black text-slate-900">Final Primary Grade</p>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Action: Promote -->
+                        {% if not is_final_grade %}
+                        <div class="space-y-4">
+                            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Promotion Action</h4>
+                            <div class="space-y-2">
+                                <label for="target_class" class="block text-xs font-bold text-slate-700">Target Stream</label>
+                                <select name="target_class" id="target_class" class="w-full px-5 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-bold focus:border-indigo-500 outline-none transition-all">
+                                    <option value="">Select Target Stream</option>
+                                    {% if suggested_classes %}
+                                        <optgroup label="Suggested (Next Grade)">
+                                            {% for c in suggested_classes %}
+                                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endif %}
+                                    <optgroup label="All Classes">
+                                        {% for c in target_classes %}
+                                            <option value="{{ c.id }}">{{ c.name }} ({{ c.grade.name }})</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <button type="submit" name="action" value="promote" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:-translate-y-1 transition-all active:scale-95">
+                                Promote Selected Students
+                            </button>
+                        </div>
+                        {% endif %}
+
+                        <!-- Action: Graduate -->
+                        <div class="pt-6 mt-6 border-t border-slate-100 space-y-4">
+                            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Final Action</h4>
+                            <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                                <p class="text-[10px] text-amber-700 leading-relaxed font-medium">
+                                    <strong>Graduation</strong> will mark students as inactive, clear their current class, but preserve all exam and fee history.
+                                </p>
+                            </div>
+                            <button type="submit" name="action" value="graduate" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-slate-800 hover:-translate-y-1 transition-all active:scale-95" onclick="return confirm('Are you sure you want to graduate these students?')">
+                                Mark as Graduated
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+    {% elif selected_class %}
+    <div class="py-32 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-sm">
+        <div class="inline-flex w-24 h-24 bg-slate-50 rounded-[2rem] items-center justify-center text-slate-200 text-4xl mb-6">
+            <i class="fas fa-user-check"></i>
+        </div>
+        <h3 class="text-lg font-black text-slate-700 mb-1">No Active Students Found</h3>
+        <p class="text-sm text-slate-400 font-medium">This class is currently empty or students are already promoted.</p>
+    </div>
+    {% else %}
+    <div class="py-32 text-center bg-slate-50/50 rounded-[2.5rem] border-4 border-dashed border-slate-100">
+        <h3 class="text-lg font-black text-slate-400">Select a School and Class to begin promotion</h3>
+    </div>
+    {% endif %}
+
+    <!-- Promotion Summary Table -->
+    {% if selected_school and promotion_summary %}
+    <div class="mt-12 space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+        <div class="flex items-center justify-between px-4">
+            <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <i class="fas fa-chart-line text-indigo-600"></i>
+                Promotion Progress Summary
+            </h3>
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Year: {{ active_year }}</span>
+        </div>
+
+        <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-slate-50/50">
+                            <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Stream Name</th>
+                            <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Promoted</th>
+                            <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Remaining</th>
+                            <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Progress</th>
+                            <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for item in promotion_summary %}
+                        <tr class="hover:bg-slate-50/50 transition-colors group">
+                            <td class="py-5 px-8">
+                                <p class="text-sm font-bold text-slate-900">{{ item.class_name }}</p>
+                            </td>
+                            <td class="py-5 px-8 text-center">
+                                <span class="text-xs font-black text-emerald-600">{{ item.promoted }}</span>
+                            </td>
+                            <td class="py-5 px-8 text-center">
+                                <span class="text-xs font-black text-slate-400">{{ item.remaining }}</span>
+                            </td>
+                            <td class="py-5 px-8">
+                                <div class="flex items-center gap-3 justify-center">
+                                    <div class="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full bg-indigo-600 rounded-full transition-all duration-1000" style="width: {{ item.percentage }}%"></div>
+                                    </div>
+                                    <span class="text-[10px] font-black text-slate-500">{{ item.percentage }}%</span>
+                                </div>
+                            </td>
+                            <td class="py-5 px-8 text-right">
+                                {% if item.is_complete %}
+                                    <span class="inline-flex items-center gap-1.5 text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg uppercase tracking-wider">
+                                        <i class="fas fa-check-circle"></i> Complete
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1.5 text-[9px] font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-lg uppercase tracking-wider">
+                                        <i class="fas fa-clock"></i> In Progress
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        });
+    }
+</script>
+{% endblock %}

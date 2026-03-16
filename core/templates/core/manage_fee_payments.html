@@ -1,0 +1,355 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Fee Payments | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight">Manage Fee Payments</h1>
+        <p class="text-slate-500 mt-1 font-medium">Record and track student fee payments</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <span class="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-black text-sm border border-indigo-100 shadow-sm">
+            {{ students.count }} Students
+        </span>
+        <button class="h-12 px-6 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+            <i class="fas fa-file-export text-slate-300"></i>
+            Export Report
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Search Section -->
+<div class="glass-card mb-8">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div class="md:col-span-2">
+            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Search Student</label>
+            <div class="relative group">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors"></i>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Name or Adm No..." 
+                       class="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
+            </div>
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Paid From</label>
+            <input type="date" name="date_from" value="{{ date_from }}"
+                   class="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
+        </div>
+        <div class="flex gap-2">
+            <div class="flex-grow">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Paid To</label>
+                <input type="date" name="date_to" value="{{ date_to }}"
+                       class="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
+            </div>
+            <button type="submit" class="self-end h-[46px] w-[46px] flex items-center justify-center bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
+                <i class="fas fa-filter"></i>
+            </button>
+            {% if search_query or date_from or date_to %}
+            <a href="{% url 'core:manage-fee-payments' %}" class="self-end h-[46px] w-[46px] flex items-center justify-center bg-slate-100 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all" title="Clear Filters">
+                <i class="fas fa-times"></i>
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Students Table -->
+<div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+    <div class="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+        <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <div class="w-2 h-8 bg-indigo-600 rounded-full"></div>
+            Students Fee Status
+        </h3>
+        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            {% if search_query %}Filtered Results{% else %}All Students{% endif %}
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full divide-y divide-slate-100">
+            <thead class="bg-slate-50/50">
+                <tr>
+                    <th class="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
+                    <th class="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Admission No</th>
+                    <th class="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Class</th>
+                    <th class="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">School</th>
+                    <th class="px-8 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Fee Balance</th>
+                    <th class="px-8 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50">
+                {% for student_profile in students %}
+                    <tr class="hover:bg-slate-50/80 transition-colors group cursor-pointer" onclick="openPaymentModal({{ student_profile.student.id }})">
+                        <td class="px-8 py-5 whitespace-nowrap">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xs ring-4 ring-white shadow-sm group-hover:scale-110 transition-transform">
+                                    {{ student_profile.student.first_name|first }}{{ student_profile.student.last_name|first }}
+                                </div>
+                                <div>
+                                    <span class="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                                        {{ student_profile.student.first_name }} 
+                                        {% if student_profile.student.middle_name %}{{ student_profile.student.middle_name }}{% endif %} 
+                                        {{ student_profile.student.last_name }}
+                                    </span>
+                                    <div class="text-[10px] text-slate-400 font-medium">
+                                        {% if student_profile.student.gender == 'male' %}Male{% else %}Female{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-8 py-5 whitespace-nowrap">
+                            <span class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-700">
+                                {{ student_profile.student.adm_no }}
+                            </span>
+                        </td>
+                        <td class="px-8 py-5 whitespace-nowrap">
+                            {% if student_profile.class_id %}
+                                <span class="text-sm font-bold text-slate-800">{{ student_profile.class_id.name }}</span>
+                            {% else %}
+                                <span class="text-sm text-slate-400">Not assigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-8 py-5 whitespace-nowrap">
+                            <span class="text-sm font-bold text-slate-800">{{ student_profile.school.name }}</span>
+                        </td>
+                        <td class="px-8 py-5 whitespace-nowrap text-center">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-black
+                                {% if student_profile.fee_balance > 0 %}
+                                    bg-rose-50 text-rose-700 border border-rose-200
+                                {% elif student_profile.fee_balance == 0 %}
+                                    bg-emerald-50 text-emerald-700 border border-emerald-200
+                                {% else %}
+                                    bg-emerald-50 text-emerald-700 border border-emerald-200
+                                {% endif %}">
+                                {% if student_profile.fee_balance > 0 %}
+                                    Owes {{ student_profile.fee_balance }}
+                                {% elif student_profile.fee_balance == 0 %}
+                                    Paid
+                                {% else %}
+                                    Credit {{ student_profile.fee_balance }}
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="px-8 py-5 whitespace-nowrap text-center">
+                            <a href="{% url 'core:student-detail' student_profile.student.pk %}#payments" 
+                               class="inline-flex items-center justify-center w-10 h-10 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-100 transition-all">
+                                <i class="fas fa-history text-xs"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-8 py-20 text-center">
+                            <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-200 text-4xl">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <p class="text-lg font-bold text-slate-400 italic">
+                                {% if search_query %}No students found matching "{{ search_query }}"{% else %}No students found{% endif %}
+                            </p>
+                            <p class="text-sm text-slate-400 mt-2">Try adjusting your search criteria or check if students have been enrolled.</p>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-8 border-b border-slate-100">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xl font-black text-slate-900">Record Payment</h3>
+                <button onclick="closePaymentModal()" class="w-10 h-10 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div id="modalContent" class="p-8">
+            <!-- Content will be loaded via AJAX -->
+            <div class="flex items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.modal-backdrop {
+    backdrop-filter: blur(4px);
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+let currentStudentId = null;
+
+function openPaymentModal(studentId) {
+    currentStudentId = studentId;
+    const modal = document.getElementById('paymentModal');
+    const modalContent = document.getElementById('modalContent');
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    
+    // Load payment form via AJAX
+    fetch(`/payments/process/${studentId}/`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        modalContent.innerHTML = html;
+    })
+    .catch(error => {
+        modalContent.innerHTML = '<div class="text-center text-red-500 py-8">Error loading payment form. Please try again.</div>';
+    });
+}
+
+function closePaymentModal() {
+    const modal = document.getElementById('paymentModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    currentStudentId = null;
+}
+
+// Close modal on backdrop click
+document.getElementById('paymentModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePaymentModal();
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && currentStudentId) {
+        closePaymentModal();
+    }
+});
+
+// Handle form submission using event delegation for dynamically loaded forms
+document.addEventListener('submit', function(e) {
+    // Check if the submitted form is the payment form
+    const form = e.target.closest('#paymentForm') || e.target;
+    if (form && form.id === 'paymentForm') {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        
+        fetch(`/payments/process/${currentStudentId}/`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showNotification(data.message, 'success');
+                
+                // Update the student's balance in the table
+                updateStudentBalance(currentStudentId, data.new_balance);
+                
+                // Close modal
+                closePaymentModal();
+                
+                // Reload page after a short delay to show updated data
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                // Show error message
+                showNotification(data.error || 'Error processing payment', 'error');
+                
+                // If there are form errors, display them
+                if (data.errors) {
+                    displayFormErrors(data.errors);
+                }
+            }
+        })
+        .catch(error => {
+            showNotification('Network error. Please try again.', 'error');
+        });
+    }
+});
+
+function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-6 py-4 rounded-xl shadow-lg z-50 flex items-center gap-3 ${
+        type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+    }`;
+    notification.innerHTML = `
+        <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+        <span class="font-medium">${message}</span>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+function updateStudentBalance(studentId, newBalance) {
+    // Find and update the student's balance in the table
+    const rows = document.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const button = row.querySelector('button[onclick*="' + studentId + '"]');
+        if (button) {
+            const balanceCell = row.querySelector('td:nth-child(5) span');
+            if (balanceCell) {
+                if (newBalance > 0) {
+                    balanceCell.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200';
+                    balanceCell.textContent = `Owes ${newBalance}`;
+                } else if (newBalance == 0) {
+                    balanceCell.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200';
+                    balanceCell.textContent = 'Paid';
+                } else {
+                    balanceCell.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200';
+                    balanceCell.textContent = `Credit ${Math.abs(newBalance)}`;
+                }
+            }
+        }
+    });
+}
+
+function displayFormErrors(errors) {
+    // Clear previous errors
+    document.querySelectorAll('.error-message').forEach(el => el.remove());
+    
+    // Display new errors
+    Object.keys(errors).forEach(field => {
+        const fieldElement = document.querySelector(`[name="${field}"]`);
+        if (fieldElement) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message text-rose-500 text-xs mt-2';
+            errorDiv.textContent = errors[field][0];
+            fieldElement.parentNode.appendChild(errorDiv);
+            fieldElement.classList.add('border-rose-500');
+        }
+    });
+}
+</script>
+{% endblock %}

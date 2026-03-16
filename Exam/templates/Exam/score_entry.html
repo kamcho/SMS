@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load exam_filters %}
+
+{% block title %}Enter Scores | {{ class_obj.name }} | {{ subject.name }} | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+        <a href="{% url 'core:class-detail' class_obj.id %}" class="btn bg-white border border-slate-200 text-slate-500 hover:text-slate-800 p-2.5 rounded-xl shadow-sm">
+            <i class="fas fa-arrow-left text-sm"></i>
+        </a>
+        <div>
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight">Enter Scores</h1>
+            <p class="text-slate-500 mt-1 font-medium">{{ class_obj.name }} • {{ subject.name }} • {{ exam.name }} ({{ exam.period }})</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    {% if subject_config and papers %}
+    <div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <div class="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+            <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-8 bg-indigo-600 rounded-full"></div>
+                Student Roster
+            </h3>
+            <span class="text-[10px] font-black text-indigo-500 bg-indigo-50 px-3 py-1 rounded-lg uppercase tracking-widest">
+                {{ student_data|length }} Students • {{ papers|length }} Papers
+            </span>
+        </div>
+        
+        <form method="POST">
+            {% csrf_token %}
+            <div class="overflow-x-auto">
+                <table class="w-full divide-y divide-slate-100">
+                    <thead class="bg-slate-50/50">
+                        <tr>
+                            <th class="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Adm No</th>
+                            <th class="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Name</th>
+                            {% for paper in papers %}
+                            <th class="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                {{ paper.name }}<br>
+                                <span class="text-xs text-indigo-500 font-normal">({{ paper.out_of }} marks)</span>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {% for data in student_data %}
+                        <tr class="hover:bg-slate-50/80 transition-colors group">
+                            <td class="px-8 py-4 whitespace-nowrap">
+                                <span class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-700">{{ data.student.adm_no }}</span>
+                            </td>
+                            <td class="px-8 py-4 whitespace-nowrap">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xs ring-2 ring-white shadow-sm">
+                                        {{ data.student.first_name|first }}{{ data.student.last_name|first }}
+                                    </div>
+                                    <span class="text-sm font-bold text-slate-800">{{ data.student.first_name }} {{ data.student.last_name }}</span>
+                                </div>
+                            </td>
+                            {% for paper in papers %}
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <input type="number" 
+                                       name="score_{{ data.student.id }}_{{ paper.id }}" 
+                                       value="{{ data.scores|lookup:paper.id }}" 
+                                       min="0" 
+                                       max="{{ paper.out_of }}" 
+                                       class="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-center" 
+                                       placeholder="--">
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="p-8 bg-slate-50/50 border-t border-slate-100 flex justify-end">
+                <button type="submit" class="h-12 px-8 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:scale-105 transition-all flex items-center gap-2">
+                    <i class="fas fa-save"></i>
+                    Save Scores
+                </button>
+            </div>
+        </form>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 p-12 text-center">
+        <div class="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-200 text-4xl">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h3 class="text-xl font-black text-amber-400 italic mb-2">No Subject Configuration Found</h3>
+        <p class="text-sm text-amber-500 font-medium mb-6">This subject hasn't been configured for the exam yet. Please configure the subject and add papers before entering scores.</p>
+        <a href="{% url 'Exam:subject-configurations-with-exam' class_obj.grade.name exam.id %}" class="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 text-white rounded-xl font-black text-sm hover:bg-amber-700 transition-all">
+            <i class="fas fa-cog"></i>
+            Configure Subject
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

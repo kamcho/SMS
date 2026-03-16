@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Payment Notifications — Linakuu{% endblock %}
+
+{% block header %}
+<div class="flex items-center gap-4">
+    <a href="{% url 'communication:dashboard' %}" class="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors shadow-sm border border-slate-100">
+        <i class="fas fa-chevron-left"></i>
+    </a>
+    <div>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Payment Receipts</h1>
+        <p class="text-slate-500 mt-1 font-medium">History of automated fee payment confirmations</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card p-0 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-50/50 border-b border-slate-100">
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Student</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Amount</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Message Snippet</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Sent Date</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for notification in payment_notifications %}
+                <tr class="hover:bg-slate-50/30 transition-colors group">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                                {{ notification.student.first_name|first }}
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-800 text-sm leading-tight">{{ notification.student.first_name }} {{ notification.student.last_name }}</p>
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">ADM: {{ notification.student.adm_no }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 font-black text-slate-900 text-sm">KES {{ notification.payment.amount }}</td>
+                    <td class="px-6 py-4 max-w-xs">
+                        <p class="text-xs text-slate-500 line-clamp-1 italic">"{{ notification.message }}"</p>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="text-xs font-bold text-slate-400">{{ notification.sent_at|date:"M d, Y H:i" }}</span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic font-medium">No payment notifications sent yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

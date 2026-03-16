@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Create New Exam | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight">Create New Exam</h1>
+        <p class="text-slate-500 mt-1 font-medium">Set up a new examination for students</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{% url 'core:dashboard' %}" class="btn bg-white border border-slate-200 text-slate-500 hover:text-slate-800 p-2.5 rounded-xl shadow-sm">
+            <i class="fas fa-times text-sm"></i>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <!-- Form Card -->
+    <div class="glass-card">
+        <form method="post" id="examForm" class="space-y-6">
+            {% csrf_token %}
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Exam Name -->
+                <div>
+                    <label for="{{ form.name.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
+                        Exam Name <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                        <div class="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+                            <p class="text-xs font-bold text-red-600">{{ form.name.errors.0 }}</p>
+                        </div>
+                    {% endif %}
+                    <p class="mt-2 text-xs text-slate-400 font-medium">e.g., Mid-Term Exams, Final Exams, Mock Exams</p>
+                </div>
+
+                <!-- Exam Period -->
+                <div>
+                    <label for="{{ form.period.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
+                        Period <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative group">
+                        {{ form.period }}
+                        <i class="fas fa-clock absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 group-hover:text-indigo-500 pointer-events-none transition-colors"></i>
+                    </div>
+                    {% if form.period.errors %}
+                        <div class="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+                            <p class="text-xs font-bold text-red-600">{{ form.period.errors.0 }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Academic Year -->
+                <div>
+                    <label for="{{ form.year.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
+                        Academic Year <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative group">
+                        {{ form.year }}
+                        <i class="fas fa-calendar absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 group-hover:text-indigo-500 pointer-events-none transition-colors"></i>
+                    </div>
+                    {% if form.year.errors %}
+                        <div class="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+                            <p class="text-xs font-bold text-red-600">{{ form.year.errors.0 }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Term -->
+                <div>
+                    <label for="{{ form.term.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
+                        Term <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative group">
+                        {{ form.term }}
+                        <i class="fas fa-layer-group absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 group-hover:text-indigo-500 pointer-events-none transition-colors"></i>
+                    </div>
+                    {% if form.term.errors %}
+                        <div class="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+                            <p class="text-xs font-bold text-red-600">{{ form.term.errors.0 }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex gap-3 pt-4">
+                <button type="submit" class="flex-grow h-12 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
+                    <i class="fas fa-plus text-[10px]"></i>
+                    Create Exam
+                </button>
+                <a href="{% url 'core:dashboard' %}" class="h-12 px-6 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                    <i class="fas fa-times text-[10px]"></i>
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Info Card -->
+    <div class="glass-card mt-6 bg-blue-50 border-blue-100">
+        <div class="flex items-start gap-4">
+            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-600 text-sm"></i>
+            </div>
+            <div>
+                <h4 class="text-sm font-black text-blue-900 mb-2">Exam Information</h4>
+                <ul class="text-xs text-blue-700 font-medium space-y-1">
+                    <li>• Each exam must be associated with a specific academic year and term</li>
+                    <li>• The grade field specifies which grade level this exam applies to</li>
+                    <li>• Once created, you can configure subjects and maximum scores for this exam</li>
+                    <li>• Teachers can then enter scores for their assigned classes and subjects</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-focus on exam name field
+    document.getElementById('{{ form.name.id_for_label }}').focus();
+    
+    // Form validation feedback
+    const form = document.getElementById('examForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    form.addEventListener('submit', function(e) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin text-[10px]"></i> Creating...';
+        
+        // Re-enable after 3 seconds in case of error
+        setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-plus text-[10px]"></i> Create Exam';
+        }, 3000);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,520 @@
+{% extends 'base.html' %}
+
+{% block title %}Classes Directory | Excel SMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-input {
+        @apply w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer;
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+    <div>
+        <h1 class="text-[22px] font-bold text-slate-800">Classes Directory</h1>
+        <p class="text-[13px] text-slate-500 font-medium">Manage and view all registered classes across campuses</p>
+    </div>
+    
+    <div class="flex items-center gap-3">
+        <div class="px-4 py-2 border border-slate-200 bg-white rounded-lg flex items-center gap-2 text-[13px] font-semibold text-slate-600 cursor-pointer shadow-sm">
+            <i class="far fa-calendar-alt text-slate-400"></i>
+            <span>Sep 11 — Oct 10</span>
+        </div>
+        <div class="px-3 py-2 border border-slate-200 bg-white rounded-lg flex items-center gap-2 text-[13px] font-semibold text-slate-600 cursor-pointer shadow-sm">
+            <span>Monthly</span>
+            <i class="fas fa-chevron-down text-[10px] text-slate-400"></i>
+        </div>
+        <button class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fas fa-sliders-h text-slate-400"></i> Filter
+        </button>
+        <button class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fas fa-file-export text-slate-400"></i> Export
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Top Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <!-- Card 1 -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center">
+                <i class="fas fa-users text-orange-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ total_classes }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Total active classes</p>
+        <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-arrow-up text-[10px]"></i>
+            <span>12 more than last quarter</span>
+        </div>
+    </div>
+    
+    <!-- Card 2 -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
+                <i class="fas fa-user-graduate text-red-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">1,240</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Total enrollments</p>
+        <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-arrow-up text-[10px]"></i>
+            <span>0.2% more than last quarter</span>
+        </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
+                <i class="fas fa-chalkboard-teacher text-purple-600 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">45</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Total teachers</p>
+        <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-arrow-up text-[10px]"></i>
+            <span>4% more than last quarter</span>
+        </div>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                <i class="fas fa-city text-blue-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ schools|length|default:"3" }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Total campuses</p>
+        <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-check text-[10px]"></i>
+            <span>Without changes</span>
+        </div>
+    </div>
+</div>
+
+<!-- Middle Section: Charts/Graphs (3 Columns) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Donut Chart -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-[15px] font-bold text-slate-800">Class capacity status</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="h-48 relative flex items-center justify-center">
+            <canvas id="capacityChart"></canvas>
+            <!-- Center Text for Donut -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+                <span class="text-[24px] font-bold text-slate-800">{{ total_classes }}</span>
+                <span class="text-[10px] text-slate-500 font-medium tracking-wide">Total classes</span>
+            </div>
+        </div>
+        <div class="flex justify-between items-end mt-4">
+            <div>
+                <div class="text-[22px] font-bold text-indigo-500">20</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <div class="w-2.5 h-2.5 bg-indigo-500 rounded-sm"></div>
+                    <span class="text-[12px] font-medium text-slate-800">Optimal</span>
+                </div>
+            </div>
+            <div>
+                <div class="text-[22px] font-bold text-red-500">12</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <div class="w-2.5 h-2.5 bg-red-500 rounded-sm"></div>
+                    <span class="text-[12px] font-medium text-slate-800">Over</span>
+                </div>
+            </div>
+            <div>
+                <div class="text-[22px] font-bold text-yellow-500">8</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <div class="w-2.5 h-2.5 bg-yellow-500 rounded-sm"></div>
+                    <span class="text-[12px] font-medium text-slate-800">Under</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bar Chart -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-[15px] font-bold text-slate-800">Monthly attendance summary</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="h-56 relative w-full">
+            <canvas id="attendanceChart"></canvas>
+        </div>
+        <div class="flex items-center gap-4 mt-4">
+            <div class="flex items-center gap-1.5">
+                <div class="w-2.5 h-2.5 bg-indigo-500 rounded-sm"></div>
+                <span class="text-[11px] font-medium text-slate-500">Present</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <div class="w-2.5 h-2.5 bg-yellow-500 rounded-sm"></div>
+                <span class="text-[11px] font-medium text-slate-500">Absent</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <div class="w-2.5 h-2.5 bg-red-500 rounded-sm"></div>
+                <span class="text-[11px] font-medium text-slate-500">Late</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Area Chart -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[15px] font-bold text-slate-800">Total fees collected</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="mb-4">
+            <div class="text-[24px] font-extrabold text-slate-800 tracking-tight">$11,800,000.00</div>
+            <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1 mt-1">
+                <i class="fas fa-arrow-up text-[10px]"></i>
+                <span>21% vs last month</span>
+            </div>
+        </div>
+        <div class="h-44 relative flex-grow w-full">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Bottom Section: Detailed Lists (2 Columns) -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- List 1: Class Catalog -->
+    <div id="class-catalog-card" class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col h-[420px] transition-all duration-300">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-[15px] font-bold text-slate-800">Class catalog</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="overflow-y-auto flex-grow pr-2 custom-scrollbar">
+            <table class="w-full text-left">
+                <thead class="sticky top-0 bg-white z-10">
+                    <tr>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter w-12 border-b border-slate-100">S/N</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Subject / Class</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Grade</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for class_obj in classes %}
+                    <tr class="group cursor-pointer hover:bg-slate-50/50 {% if forloop.counter > 6 %}hidden extra-class-row{% endif %}" onclick="window.location.href='{% url 'core:class-detail' class_obj.pk %}'">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800">{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td class="py-3 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ class_obj.name }}</td>
+                        <td class="py-3 text-[12px] font-semibold text-slate-500">{{ class_obj.grade.name }}</td>
+                        <td class="py-3 text-right">
+                            <button onclick="event.stopPropagation(); openAssignModal('{{ class_obj.id }}', '{{ class_obj.name|escapejs }}', '{% if class_obj.invigilator %}{{ class_obj.invigilator.id }}{% endif %}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-colors {% if class_obj.invigilator %}text-orange-600 hover:text-orange-800 bg-orange-50 border-orange-100 hover:bg-orange-100{% else %}text-indigo-600 hover:text-indigo-800 bg-indigo-50 border-indigo-100 hover:bg-indigo-100{% endif %}">
+                                Manage
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-8 text-center text-slate-400 text-sm">No classes found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if classes|length > 6 %}
+        <div class="pt-4 mt-auto border-t border-slate-100 flex justify-center">
+            <button id="view-more-btn" onclick="toggleMoreClasses()" class="text-[12px] font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-lg px-4 py-2 hover:bg-slate-50 transition-colors">
+                View more
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- List 2: Recent Enrollments / Schedule History -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col h-[420px]">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-[15px] font-bold text-slate-800">Recent assignments</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="overflow-y-auto flex-grow pr-2 custom-scrollbar">
+            <table class="w-full text-left">
+                <thead class="sticky top-0 bg-white z-10">
+                    <tr>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter w-12 border-b border-slate-100">S/N</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Teacher ID</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Class Assigned</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    <!-- Placeholder rows matching the 'Budget history' visual -->
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800">01</td>
+                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-00211</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-600">Form 4 Alpha</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">25/10/2025</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800">02</td>
+                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-30211</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-600">Grade 8 East</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">22/10/2025</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800">03</td>
+                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-00514</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-600">Grade 1 Blue</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">20/10/2025</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800">04</td>
+                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-00214</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-600">PP2 North</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">20/10/2025</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800">05</td>
+                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-01255</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-600">Form 1 Science</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">18/10/2025</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="pt-4 mt-auto border-t border-slate-100 flex justify-center">
+            <button class="text-[12px] font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-lg px-4 py-2 hover:bg-slate-50 transition-colors">
+                View history
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Invigilator Modal -->
+<div id="assignInvigilatorModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm overflow-y-auto w-full h-full flex items-center justify-center p-4">
+    <div class="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 animate-fade-in-up border border-slate-100">
+        <button onclick="closeAssignModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors">
+            <i class="fas fa-times"></i>
+        </button>
+        
+        <div class="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500 text-2xl mb-6 ring-4 ring-white shadow-sm">
+            <i class="fas fa-user-shield"></i>
+        </div>
+        
+        <h3 class="text-2xl font-black text-slate-800 mb-2 tracking-tight">Assign Invigilator</h3>
+        <p class="text-[13px] text-slate-500 mb-6 font-medium">Select a teacher to assign as invigilator for <span id="modalClassName" class="font-bold text-slate-700"></span>.</p>
+        
+        <form method="post" action="{% url 'core:classes-list' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign_invigilator">
+            <input type="hidden" name="class_id" id="modalClassId">
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Teacher</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-chalkboard-teacher text-slate-400 text-sm"></i>
+                        </div>
+                        <select name="teacher_id" id="modalTeacherId" required class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                            <option value="">Select a teacher...</option>
+                            {% for teacher in teachers %}
+                            <option value="{{ teacher.id }}">{{ teacher.first_name }} {{ teacher.last_name }} ({{ teacher.email }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <i class="fas fa-chevron-down text-slate-400 text-[10px]"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 flex gap-3">
+                <button type="button" onclick="closeAssignModal()" class="flex-1 py-3 px-4 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors border border-slate-200">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                    <i class="fas fa-check"></i> Assign
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Wait for DOM to load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set default font to match tailwind
+        Chart.defaults.font.family = "'Inter', 'Outfit', sans-serif";
+        Chart.defaults.color = '#94a3b8';
+
+        // 1. Capacity Donut Chart
+        const ctxCap = document.getElementById('capacityChart').getContext('2d');
+        new Chart(ctxCap, {
+            type: 'doughnut',
+            data: {
+                labels: ['Optimal', 'Over', 'Under'],
+                datasets: [{
+                    data: [60, 25, 15],
+                    backgroundColor: ['#6366f1', '#ef4444', '#f59e0b'],
+                    borderWidth: 6,
+                    borderColor: '#fff',
+                    hoverOffset: 4,
+                    cutout: '80%'
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // 2. Attendance Bar Chart
+        const ctxAtt = document.getElementById('attendanceChart').getContext('2d');
+        new Chart(ctxAtt, {
+            type: 'bar',
+            data: {
+                labels: ['00 Sep', '10 Oct', '20 Oct', '30 Oct', '10 Nov'],
+                datasets: [
+                    {
+                        label: 'Present',
+                        data: [400, 380, 420, 350, 450],
+                        backgroundColor: '#6366f1',
+                        barThickness: 6,
+                        borderRadius: {topLeft: 4, topRight: 4}
+                    },
+                    {
+                        label: 'Absent',
+                        data: [80, 60, 90, 120, 50],
+                        backgroundColor: '#f59e0b',
+                        barThickness: 6,
+                    },
+                    {
+                        label: 'Late',
+                        data: [30, 40, 20, 50, 10],
+                        backgroundColor: '#ef4444',
+                        barThickness: 6,
+                    }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { 
+                        stacked: true, 
+                        grid: { color: '#f1f5f9', drawBorder: false }, 
+                        ticks: { 
+                            font: { size: 10 },
+                            callback: function(value) { return value + 'k'; }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. Revenue Area Chart
+        const ctxRev = document.getElementById('revenueChart').getContext('2d');
+        const gradient = ctxRev.createLinearGradient(0, 0, 0, 150);
+        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.4)'); // Purple
+        gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+
+        new Chart(ctxRev, {
+            type: 'line',
+            data: {
+                labels: ['30 Sep', '10 Oct', '20 Oct', '30 Oct', '10 Nov'],
+                datasets: [{
+                    label: 'Income',
+                    data: [1, 3, 5, 8, 14],
+                    backgroundColor: gradient,
+                    borderColor: '#8b5cf6',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#ef4444', // Red point
+                    pointBorderWidth: 2,
+                    pointRadius: function(ctx) { return ctx.dataIndex === 2 ? 5 : 0; }, // Show point only in middle
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { 
+                        grid: { color: '#f1f5f9', drawBorder: false }, 
+                        ticks: { 
+                            font: { size: 10 },
+                            callback: function(value) { return value + 'm'; }
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+    function toggleMoreClasses() {
+        const extraRows = document.querySelectorAll('.extra-class-row');
+        const card = document.getElementById('class-catalog-card');
+        const btn = document.getElementById('view-more-btn');
+        const isHidden = extraRows[0].classList.contains('hidden');
+
+        extraRows.forEach(row => {
+            if (isHidden) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+
+        if (isHidden) {
+            card.classList.remove('h-[420px]');
+            card.classList.add('h-auto');
+            btn.innerText = 'View less';
+        } else {
+            card.classList.add('h-[420px]');
+            card.classList.remove('h-auto');
+            btn.innerText = 'View more';
+            // Scroll back up if we're collapsing
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    function openAssignModal(classId, className, teacherId) {
+        document.getElementById('modalClassId').value = classId;
+        document.getElementById('modalClassName').textContent = className;
+        
+        const teacherSelect = document.getElementById('modalTeacherId');
+        if (teacherId) {
+            teacherSelect.value = teacherId;
+        } else {
+            teacherSelect.value = '';
+        }
+        
+        document.getElementById('assignInvigilatorModal').classList.remove('hidden');
+    }
+
+    function closeAssignModal() {
+        document.getElementById('assignInvigilatorModal').classList.add('hidden');
+    }
+</script>
+<style>
+    /* Custom thin scrollbar for lists */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #e2e8f0;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}

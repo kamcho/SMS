@@ -1,0 +1,782 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ class_obj.name }} Exam Analytics | Excel SMS{% endblock %}
+
+{% load exam_filters %}
+
+{% block extra_css %}
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #e2e8f0;
+        border-radius: 10px;
+    }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+    <div class="flex items-center gap-4">
+        <a href="{% url 'core:class-detail' class_obj.id %}" class="bg-white border border-slate-200 text-slate-500 hover:text-slate-800 w-10 h-10 rounded-xl shadow-sm flex items-center justify-center transition-colors">
+            <i class="fas fa-arrow-left text-sm"></i>
+        </a>
+        <div>
+            <h1 class="text-[22px] font-bold text-slate-800">{{ class_obj.name }} Exam Analytics</h1>
+            <p class="text-[13px] text-slate-500 font-medium">{{ class_obj.grade.name }} • {{ class_obj.grade.school.name }}</p>
+        </div>
+    </div>
+    
+    <div class="flex items-center gap-3 mt-4 md:mt-0">
+        <span class="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-[13px] font-semibold border border-indigo-100 shadow-sm flex items-center gap-2">
+            <i class="fas fa-users text-indigo-400"></i>
+            {{ total_students }} Students
+        </span>
+        <button class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fas fa-file-export text-slate-400"></i> Export Report
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Filters Section -->
+<div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+        <div>
+            <label for="exam" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter mb-2">Exam</label>
+            <div class="relative">
+                <select name="exam" id="exam" class="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[13px] font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                    <option value="">All Exams</option>
+                    {% for exam in exams %}
+                        <option value="{{ exam.id }}" {% if exam.id|stringformat:"s" == selected_exam %}selected{% endif %}>
+                            {{ exam.name }} - {{ exam.period }} ({{ exam.year.start_date|date:"Y" }} - {{ exam.term.name }})
+                        </option>
+                    {% endfor %}
+                </select>
+                <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            </div>
+        </div>
+
+        <div>
+            <label for="subject" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter mb-2">Subject</label>
+            <div class="relative">
+                <select name="subject" id="subject" class="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[13px] font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                    <option value="">All Subjects</option>
+                    {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if subject.id|stringformat:"s" == selected_subject %}selected{% endif %}>
+                            {{ subject.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            </div>
+        </div>
+        
+        <div class="flex gap-3">
+            <button type="submit" class="flex-grow py-2.5 bg-indigo-600 text-white rounded-lg text-[13px] font-semibold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-100">
+                <i class="fas fa-filter text-indigo-200"></i>
+                Apply Filters
+            </button>
+            <a href="{% url 'core:class-exam-analytics' class_obj.id %}" class="w-[42px] flex items-center justify-center bg-white border border-slate-200 text-slate-400 rounded-lg hover:text-indigo-600 transition-colors shadow-sm" title="Reset Filters">
+                <i class="fas fa-undo pb-0.5"></i>
+            </a>
+            {% if report_exam_id %}
+            <a href="{% url 'core:bulk-class-reports' class_obj.id report_exam_id %}" 
+               class="px-5 flex items-center justify-center bg-white border border-indigo-200 text-indigo-600 rounded-lg text-[13px] font-semibold hover:bg-indigo-50 transition-colors gap-2 shadow-sm"
+               title="Print all report cards for this class">
+                <i class="fas fa-print"></i>
+                <span class="hidden xl:inline">Bulk Print</span>
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Summary Stats -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
+    <!-- Total Students -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                <i class="fas fa-users text-slate-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ total_students }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-2">Total Students</p>
+    </div>
+
+    <!-- EE -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                <span class="text-emerald-500 font-bold text-xs">EE</span>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ grade_counts.EE }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-2">Exceeding</p>
+    </div>
+
+    <!-- ME -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                <span class="text-blue-500 font-bold text-xs">ME</span>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ grade_counts.ME }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-2">Meeting</p>
+    </div>
+
+    <!-- AE -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
+                <span class="text-amber-500 font-bold text-xs">AE</span>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ grade_counts.AE }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-2">Approaching</p>
+    </div>
+
+    <!-- BE -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center">
+                <span class="text-rose-500 font-bold text-xs">BE</span>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ grade_counts.BE }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-2">Below</p>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Performance Trend Line Chart -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800">Class Performance Trend</h3>
+                <p class="text-[12px] text-slate-500 font-medium">Average score across exam sessions</p>
+            </div>
+        </div>
+        <div class="h-64 relative flex-grow">
+            <canvas id="classPerformanceTrendChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Bar Chart: Grade Distribution -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800">Grade Distribution</h3>
+                <p class="text-[12px] text-slate-500 font-medium">Number of Students per Grade</p>
+            </div>
+        </div>
+        <div class="h-64 relative flex-grow">
+            <canvas id="gradeDistributionChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Gender Performance Section -->
+<div class="grid grid-cols-1 gap-6 mb-6">
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800">Gender Performance by Grade</h3>
+                <p class="text-[12px] text-slate-500 font-medium">Male vs Female counts per grade category</p>
+            </div>
+        </div>
+        <div class="h-[300px] relative flex-grow">
+            <canvas id="genderGradeChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Subject Footprint Radar Chart -->
+<div class="grid grid-cols-1 gap-6 mb-6">
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800">Subject Performance Footprint</h3>
+                <p class="text-[12px] text-slate-500 font-medium">Multi-dimensional subject performance across all historical exams</p>
+            </div>
+        </div>
+        <div class="h-[400px] relative flex-grow">
+            <canvas id="subjectRadarChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Performance Insights Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <!-- Best Subject -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                <i class="fas fa-arrow-up text-emerald-500 text-sm"></i>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500">Best Performing Subject</p>
+        </div>
+        
+        {% if best_subject %}
+            <h3 class="text-[20px] font-bold text-slate-800 leading-tight mb-2">{{ best_subject.name }}</h3>
+            <div class="flex items-center gap-3">
+                <span class="text-[28px] font-extrabold text-emerald-500 leading-none">{{ best_subject.avg }}%</span>
+                <span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[11px] font-bold uppercase tracking-tighter">Top Rated</span>
+            </div>
+        {% else %}
+            <h3 class="text-[20px] font-bold text-slate-400 leading-tight">No Data</h3>
+        {% endif %}
+    </div>
+
+    <!-- Subject Needing Attention -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center">
+                <i class="fas fa-exclamation-triangle text-rose-500 text-sm"></i>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500">Requires Attention</p>
+        </div>
+        
+        {% if worst_subject %}
+            <h3 class="text-[20px] font-bold text-slate-800 leading-tight mb-2">{{ worst_subject.name }}</h3>
+            <div class="flex items-center gap-3">
+                <span class="text-[28px] font-extrabold text-rose-500 leading-none">{{ worst_subject.avg }}%</span>
+                <span class="px-2 py-0.5 bg-rose-50 text-rose-600 rounded text-[11px] font-bold uppercase tracking-tighter">Support Needed</span>
+            </div>
+        {% else %}
+            <h3 class="text-[20px] font-bold text-slate-400 leading-tight">No Data</h3>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Performance Table -->
+<div id="performance-ranking-card" class="bg-white rounded-[14px] border border-slate-200 shadow-sm mb-6 flex flex-col h-[600px] transition-all duration-300">
+    <div class="p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+        <h3 class="text-[15px] font-bold text-slate-800">Student Performance Rankings</h3>
+        <div class="flex items-center gap-4">
+            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-tighter hidden sm:block">
+                {% if selected_exam and selected_subject %}
+                    Filtered by Exam & Subject
+                {% elif selected_exam %}
+                    Filtered by Exam
+                {% elif selected_subject %}
+                    Filtered by Subject
+                {% else %}
+                    Overall Performance
+                {% endif %}
+            </div>
+            
+            {% if report_exam_id %}
+            <a href="{% url 'core:bulk-class-reports' class_obj.id report_exam_id %}" 
+               class="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-[12px] font-bold hover:bg-indigo-100 transition-colors">
+                <i class="fas fa-print"></i>
+                Bulk Print Reports
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto overflow-y-auto flex-grow custom-scrollbar">
+        <table class="w-full text-left">
+            <thead class="sticky top-0 bg-white z-10 border-b border-slate-100 shadow-sm shadow-white">
+                <tr>
+                    <th class="px-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-tighter whitespace-nowrap bg-white">Rank & Student Details</th>
+                    {% for subject in table_subjects %}
+                        <th class="px-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-tighter break-words max-w-[100px] bg-white">
+                            {{ subject.name }}
+                            <span class="text-indigo-400 font-medium block">(/{{ subject.max_score }})</span>
+                        </th>
+                    {% endfor %}
+                    <th class="px-6 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-tighter text-center whitespace-nowrap bg-white border-l border-slate-50">Performance</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50">
+                {% for student_data in ranked_students %}
+                    <tr class="group hover:bg-slate-50/50 transition-colors cursor-pointer {% if forloop.counter > 8 %}hidden extra-ranking-row{% endif %}" 
+                        onclick="window.location.href='{% if report_exam_id %}{% url 'core:student-report' student_data.student.id report_exam_id %}{% else %}{% url 'core:student-detail' student_data.student.id %}{% endif %}'"
+                        title="{% if report_exam_id %}Click to view report card{% else %}Click to view student profile{% endif %}">
+                        <td class="px-6 py-4 whitespace-nowrap min-w-[250px]">
+                            <div class="flex items-center gap-4">
+                                <!-- Rank Badge -->
+                                <div class="flex-shrink-0">
+                                    {% if student_data.rank == 1 %}
+                                        <span class="w-6 h-6 bg-yellow-100 text-yellow-600 rounded flex items-center justify-center font-bold text-[11px]">
+                                            #{{ student_data.rank }}
+                                        </span>
+                                    {% elif student_data.rank == 2 %}
+                                        <span class="w-6 h-6 bg-slate-200 text-slate-600 rounded flex items-center justify-center font-bold text-[11px]">
+                                            #{{ student_data.rank }}
+                                        </span>
+                                    {% elif student_data.rank == 3 %}
+                                        <span class="w-6 h-6 bg-amber-100 text-amber-700 rounded flex items-center justify-center font-bold text-[11px]">
+                                            #{{ student_data.rank }}
+                                        </span>
+                                    {% else %}
+                                        <span class="w-6 h-6 bg-slate-100 text-slate-500 rounded flex items-center justify-center font-bold text-[11px]">
+                                            #{{ student_data.rank }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Student Info -->
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+                                        {{ student_data.student.first_name|first }}{{ student_data.student.last_name|first }}
+                                    </div>
+                                    <div>
+                                        <span class="text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors block">
+                                            {{ student_data.student.first_name }} {{ student_data.student.last_name }}
+                                        </span>
+                                        <div class="flex items-center gap-1.5 mt-0.5">
+                                            <span class="text-[11px] text-slate-400 font-medium capitalize">
+                                                {{ student_data.student.gender }}
+                                            </span>
+                                            <span class="w-1 h-1 bg-slate-200 rounded-full"></span>
+                                            <span class="text-[11px] font-semibold text-slate-500">
+                                                Adm: {{ student_data.student.adm_no }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        
+                        {% for subject_score in student_data.display_scores %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if subject_score %}
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-[13px] font-bold text-slate-800">{{ subject_score.score }}</span>
+                                        <span class="px-1.5 py-0.5 text-[10px] rounded inline-block max-w-max font-bold
+                                            {% if subject_score.grade == 'EE' %}bg-emerald-50 text-emerald-600
+                                            {% elif subject_score.grade == 'ME' %}bg-blue-50 text-blue-600
+                                            {% elif subject_score.grade == 'AE' %}bg-amber-50 text-amber-600
+                                            {% else %}bg-rose-50 text-rose-600{% endif %}">
+                                            {{ subject_score.grade }}
+                                        </span>
+                                    </div>
+                                {% else %}
+                                    <span class="text-slate-300 text-[13px] font-bold">-</span>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        
+                        <td class="px-6 py-4 whitespace-nowrap text-center border-l border-slate-50 bg-slate-50/20 group-hover:bg-transparent">
+                            <div class="flex flex-col items-center">
+                                <span class="text-[15px] font-extrabold text-slate-800 leading-none">{{ student_data.total_score }}</span>
+                                <span class="text-[11px] font-semibold text-slate-500 mt-1">{{ student_data.avg_score }}% Avg</span>
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{{ table_subjects|length|add:2 }}" class="px-6 py-12 text-center">
+                            <i class="fas fa-chart-bar text-slate-300 text-3xl mb-3"></i>
+                            <p class="text-[14px] font-bold text-slate-500">No exam data available for this class.</p>
+                            <p class="text-[12px] text-slate-400 mt-1">Students need to have exam scores recorded to view analytics.</p>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="bg-slate-50 border-t border-slate-200 sticky bottom-0 z-10">
+                <tr>
+                    <td class="px-6 py-4 text-slate-500 uppercase tracking-tighter text-[11px] font-bold">Subject Averages</td>
+                    {% for subject in table_subjects %}
+                        {% with stats=subject_footer_stats|lookup:subject.name %}
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-[13px] font-bold text-indigo-600">{{ stats.avg|default:"-" }}%</span>
+                                {% if stats %}
+                                <span class="px-1.5 py-0.5 text-[10px] rounded max-w-max font-bold bg-white text-indigo-500 border border-indigo-100">
+                                    {{ stats.grade }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% endwith %}
+                    {% endfor %}
+                    <td class="px-6 py-4 text-center border-l border-white">
+                        <div class="flex flex-col items-center">
+                            <span class="text-[15px] font-extrabold text-indigo-600">{{ class_average }}%</span>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Class Avg</span>
+                        </div>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% if ranked_students|length > 8 %}
+    <div class="pt-4 pb-6 mt-auto border-t border-slate-100 flex justify-center">
+        <button id="view-more-rankings-btn" onclick="toggleMoreRankings()" class="text-[12px] font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-lg px-6 py-2 hover:bg-slate-50 transition-colors">
+            View All
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Grade Legend -->
+<div class="mb-8 bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+    <h3 class="text-[15px] font-bold text-slate-800 mb-4">Grade Legend</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 font-bold text-sm">
+                    EE
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold text-slate-600 uppercase tracking-tighter leading-none mb-1">Excellent</p>
+                    <p class="text-[11px] text-slate-400 font-medium">70 - 100%</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-[16px] font-extrabold text-slate-800 block leading-none">{{ grade_counts.EE }}</span>
+                <span class="text-[10px] font-medium text-slate-400">Students</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-sm">
+                    ME
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold text-slate-600 uppercase tracking-tighter leading-none mb-1">Very Good</p>
+                    <p class="text-[11px] text-slate-400 font-medium">60 - 69%</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-[16px] font-extrabold text-slate-800 block leading-none">{{ grade_counts.ME }}</span>
+                <span class="text-[10px] font-medium text-slate-400">Students</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-600 font-bold text-sm">
+                    AE
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold text-slate-600 uppercase tracking-tighter leading-none mb-1">Good</p>
+                    <p class="text-[11px] text-slate-400 font-medium">50 - 59%</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-[16px] font-extrabold text-slate-800 block leading-none">{{ grade_counts.AE }}</span>
+                <span class="text-[10px] font-medium text-slate-400">Students</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-rose-50 rounded-lg flex items-center justify-center text-rose-600 font-bold text-sm">
+                    BE
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold text-slate-600 uppercase tracking-tighter leading-none mb-1">Below Avg</p>
+                    <p class="text-[11px] text-slate-400 font-medium">0 - 49%</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-[16px] font-extrabold text-slate-800 block leading-none">{{ grade_counts.BE }}</span>
+                <span class="text-[10px] font-medium text-slate-400">Students</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    Chart.defaults.font.family = "'Inter', 'Outfit', sans-serif";
+    Chart.defaults.color = '#94a3b8';
+
+    // Parse data safely
+    const parseJSON = (str, fallback = []) => {
+        try {
+            return JSON.parse(str || JSON.stringify(fallback));
+        } catch(e) {
+            return fallback;
+        }
+    };
+
+    const histLabels = parseJSON('{{ historical_labels_js|escapejs }}');
+    const histAvgs = parseJSON('{{ historical_averages_js|escapejs }}');
+    
+    // Class Performance Trends Chart
+    const classCtx = document.getElementById('classPerformanceTrendChart')?.getContext('2d');
+    if (classCtx && histLabels.length > 0) {
+        // Gradient for line
+        const gradient = classCtx.createLinearGradient(0, 0, 0, 200);
+        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+        gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+        new Chart(classCtx, {
+            type: 'line',
+            data: {
+                labels: histLabels,
+                datasets: [{
+                    label: 'Class Average',
+                    data: histAvgs,
+                    borderColor: '#6366f1',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#6366f1',
+                    pointBorderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `Avg: ${context.parsed.y}%`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { color: '#f1f5f9', drawBorder: false },
+                        ticks: { 
+                            font: { size: 10 }, 
+                            callback: function(value) { return value + '%'; }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Gender Performance Grouped Bar Chart
+    const genderLabels = parseJSON('{{ gender_labels_js|escapejs }}');
+    const genderMaleData = parseJSON('{{ gender_male_data_js|escapejs }}');
+    const genderFemaleData = parseJSON('{{ gender_female_data_js|escapejs }}');
+
+    const genderGradeCtx = document.getElementById('genderGradeChart')?.getContext('2d');
+    if(genderGradeCtx) {
+        new Chart(genderGradeCtx, {
+            type: 'bar',
+            data: {
+                labels: genderLabels,
+                datasets: [
+                    {
+                        label: 'Male',
+                        data: genderMaleData,
+                        backgroundColor: '#0ea5e9',
+                        borderRadius: 4,
+                        barThickness: 16,
+                    },
+                    {
+                        label: 'Female',
+                        data: genderFemaleData,
+                        backgroundColor: '#f43f5e',
+                        borderRadius: 4,
+                        barThickness: 16,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'end',
+                        labels: { boxWidth: 8, font: { size: 10 } }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 10 } },
+                        grid: { color: '#f1f5f9', drawBorder: false }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Radar Chart: Subject Performance across Exams
+    const radarLabels = parseJSON('{{ radar_labels_js|escapejs }}');
+    const radarDatasets = parseJSON('{{ radar_datasets_js|escapejs }}');
+
+    const radarCtx = document.getElementById('subjectRadarChart')?.getContext('2d');
+    if(radarCtx && radarLabels.length > 0) {
+        // override colors for radar to match new theme
+        radarDatasets.forEach((ds, i) => {
+            if(i % 3 === 0) {
+                ds.borderColor = '#6366f1'; 
+                ds.backgroundColor = 'rgba(99, 102, 241, 0.1)';
+            } else if (i % 3 === 1) {
+                ds.borderColor = '#10b981';
+                ds.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+            } else {
+                ds.borderColor = '#f59e0b';
+                ds.backgroundColor = 'rgba(245, 158, 11, 0.1)';
+            }
+            ds.pointBackgroundColor = '#fff';
+            ds.pointBorderColor = ds.borderColor;
+        });
+
+        new Chart(radarCtx, {
+            type: 'radar',
+            data: {
+                labels: radarLabels,
+                datasets: radarDatasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                elements: {
+                    line: { borderWidth: 2 }
+                },
+                scales: {
+                    r: {
+                        angleLines: { color: '#f1f5f9' },
+                        grid: { color: '#f1f5f9' },
+                        pointLabels: {
+                            color: '#64748b',
+                            font: { size: 10, weight: 'bold' }
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { size: 9 },
+                            z: 10,
+                            stepSize: 20,
+                            callback: function(value) { return value + '%'; }
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 100
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            color: '#64748b',
+                            font: { size: 10 },
+                            usePointStyle: true,
+                            boxWidth: 6
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) { return `${context.dataset.label}: ${context.raw}%`; }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Grade Distribution Chart
+    const gradeLabels = parseJSON('{{ grade_labels_js|escapejs }}');
+    const gradeData = parseJSON('{{ grade_data_js|escapejs }}');
+
+    const gradeCtx = document.getElementById('gradeDistributionChart')?.getContext('2d');
+    if (gradeCtx && gradeLabels.length > 0) {
+        new Chart(gradeCtx, {
+            type: 'bar',
+            data: {
+                labels: gradeLabels,
+                datasets: [{
+                    label: 'Student Count',
+                    data: gradeData,
+                    backgroundColor: [
+                        '#10b981', // EE
+                        '#3b82f6', // ME
+                        '#f59e0b', // AE
+                        '#f43f5e'  // BE
+                    ],
+                    borderRadius: 4,
+                    borderWidth: 0,
+                    maxBarThickness: 32
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 10 } },
+                        grid: { color: '#f1f5f9', drawBorder: false }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Auto-submit form on change
+    document.querySelectorAll('#exam, #subject').forEach(el => {
+        el.addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+
+});
+
+function toggleMoreRankings() {
+    const extraRows = document.querySelectorAll('.extra-ranking-row');
+    const card = document.getElementById('performance-ranking-card');
+    const btn = document.getElementById('view-more-rankings-btn');
+    const isHidden = extraRows[0].classList.contains('hidden');
+
+    extraRows.forEach(row => {
+        if (isHidden) {
+            row.classList.remove('hidden');
+        } else {
+            row.classList.add('hidden');
+        }
+    });
+
+    if (isHidden) {
+        card.classList.remove('h-[600px]');
+        card.classList.add('h-auto');
+        btn.innerText = 'View Less';
+    } else {
+        card.classList.add('h-[600px]');
+        card.classList.remove('h-auto');
+        btn.innerText = 'View All';
+        // Scroll back up if we're collapsing
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+</script>
+{% endblock %}

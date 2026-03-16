@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+{% load fee_tags %}
+
+{% block title %}Migrate Fees (Grade 7) | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+    <div class="flex items-center gap-4">
+        <a href="{% url 'accounts:fees-analytics' %}" class="bg-white border border-slate-200 text-slate-500 hover:text-slate-800 w-10 h-10 rounded-xl shadow-sm flex items-center justify-center transition-colors">
+            <i class="fas fa-arrow-left text-sm"></i>
+        </a>
+        <div>
+            <h1 class="text-[22px] font-bold text-slate-800">Migrate Fees</h1>
+            <p class="text-[13px] text-slate-500 font-medium">Bulk Invoicing for {{ selected_grade.name|default:"selected grade" }} students</p>
+        </div>
+    </div>
+    
+    <div class="flex items-center gap-3 mt-4 md:mt-0">
+        <button type="button" id="start-migration-btn" 
+                class="px-4 py-2 bg-indigo-600 border border-indigo-600 text-white rounded-lg text-[13px] font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm shadow-indigo-100">
+            <i class="fas fa-file-invoice-dollar text-indigo-200"></i> Migrate All ({{ selected_grade.name }})
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% if not user.school %}
+<div class="mb-6 p-4 bg-amber-50 border-l-4 border-amber-400 rounded-lg flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-4">
+    <div class="p-2 bg-amber-100 rounded-lg text-amber-600">
+        <i class="fas fa-exclamation-circle text-lg"></i>
+    </div>
+    <div>
+        <h4 class="text-sm font-bold text-amber-800">Unlinked User Account</h4>
+        <p class="text-[12px] text-amber-700 mt-0.5 font-medium">Your account is not linked to any specific school. You are currently viewing and migrating students across <strong>all registered schools</strong>. To manage a specific school, please update your profile configuration.</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Grade Selection Tabs -->
+<div class="mb-8">
+    <div class="flex flex-wrap gap-2">
+        {% for grade in grades %}
+        <a href="?grade={{ grade.id }}" class="px-5 py-2.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-2 
+            {% if selected_grade.id == grade.id %}
+            bg-indigo-600 text-white shadow-lg shadow-indigo-200
+            {% else %}
+            bg-white text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600
+            {% endif %}">
+            <i class="fas fa-layer-group text-[11px] {% if selected_grade.id == grade.id %}text-indigo-200{% else %}text-slate-300{% endif %}"></i>
+            {{ grade.name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="grid grid-cols-1 gap-6">
+    <!-- Summary Card -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-[15px] font-bold text-slate-800">{{ selected_grade.name }} Students</h3>
+            <span class="text-[11px] font-black text-indigo-500 bg-indigo-50 px-3 py-1 rounded-lg uppercase tracking-widest">
+                {{ student_profiles|length }} Students Found
+            </span>
+        </div>
+        
+        <div class="flex flex-wrap gap-4 mb-8">
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 flex-1 min-w-[200px]">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Active Academic Year</p>
+                <p class="text-[15px] font-bold text-slate-700">{{ active_year|default:"Not Set" }}</p>
+            </div>
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 flex-1 min-w-[200px]">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Active Term</p>
+                <p class="text-[15px] font-bold text-slate-700">{{ active_term|default:"Not Set" }}</p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto -mx-6 px-6 scrollbar-thin">
+            <table class="w-full text-left min-w-[1000px]">
+                <thead>
+                    <tr class="border-b border-slate-100">
+                        <th class="py-4 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Adm No</th>
+                        <th class="py-4 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Student Name</th>
+                        <th class="py-4 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter text-center">Type</th>
+                        <th class="py-4 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter">School</th>
+                        <th class="py-4 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter text-center">Invoiced</th>
+                        <th class="py-4 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter text-right text-indigo-600">Expected Fee</th>
+                        <th class="py-4 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter text-right">Balance</th>
+                        <th class="py-4 px-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for profile in student_profiles %}
+                    {% get_invoice profile.student active_term active_year as invoice %}
+                    {% get_student_fee_structure profile active_term active_year as fee_structure %}
+                    <tr class="group hover:bg-slate-50/50 transition-colors">
+                        <td class="py-4 px-2">
+                            <span class="text-[12px] font-semibold text-slate-800 bg-slate-100 px-2 py-1 rounded">{{ profile.student.adm_no }}</span>
+                        </td>
+                        <td class="py-4 px-2">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-[10px]">
+                                    {{ profile.student.first_name|first }}{{ profile.student.last_name|first }}
+                                </div>
+                                <span class="text-[13px] font-bold text-slate-800">{{ profile.student.get_full_name }}</span>
+                            </div>
+                        </td>
+                        <td class="py-4 px-2 text-center">
+                            {% if profile.student.is_boarder %}
+                            <span class="px-2 py-0.5 bg-purple-50 text-purple-600 text-[10px] font-bold rounded border border-purple-100">Boarder</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 bg-slate-50 text-slate-500 text-[10px] font-bold rounded border border-slate-100">Day Scholar</span>
+{% endif %}
+                        </td>
+                        <td class="py-4 px-2 text-[13px] font-medium text-slate-600">
+                            {{ profile.school.name }}
+                        </td>
+                        <td class="py-4 px-2 text-center">
+                            {% if invoice %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[11px] font-bold">
+                                <i class="fas fa-check-circle"></i> Yes
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-600 rounded-full text-[11px] font-bold">
+                                <i class="fas fa-times-circle"></i> No
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-4 px-2 text-right">
+                            {% if fee_structure %}
+                            <span class="text-[13px] font-bold text-indigo-600">KSh {{ fee_structure.amount }}</span>
+                            {% else %}
+                            <span class="text-[10px] font-bold text-rose-400 uppercase italic">Not Configured</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-4 px-2 text-right">
+                            <span class="text-[13px] font-bold {% if profile.fee_balance > 0 %}text-rose-600{% else %}text-emerald-600{% endif %}">
+                                KSh {{ profile.fee_balance }}
+                            </span>
+                        </td>
+                        <td class="py-4 px-2 text-center">
+                            {% if not invoice %}
+                                {% if fee_structure %}
+                                <form method="post" class="inline migration-form" data-student-id="{{ profile.student.id }}" data-student-name="{{ profile.student.get_full_name }}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="invoice_single">
+                                    <input type="hidden" name="student_id" value="{{ profile.student.id }}">
+                                    <input type="hidden" name="grade_id" value="{{ selected_grade.id }}">
+                                    <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg text-[11px] font-bold transition-all border border-indigo-100">
+                                        <i class="fas fa-file-invoice"></i> Migrate
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Blocked</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Invoiced</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-12 text-center">
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                                    <i class="fas fa-users-slash text-slate-300 text-xl"></i>
+                                </div>
+                                <p class="text-slate-500 font-medium">No {{ selected_grade.name }} students found.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- Progress Modal -->
+<div id="progress-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+        <div class="p-8 text-center">
+            <div class="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 relative">
+                <i class="fas fa-file-invoice-dollar text-3xl animate-pulse"></i>
+                <div class="absolute inset-0 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+            </div>
+            
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Migrating Fees...</h3>
+            <p id="progress-status" class="text-slate-500 text-sm font-medium mb-8">Preparing migration for {{ selected_grade.name }}</p>
+            
+            <div class="relative pt-1">
+                <div class="flex mb-2 items-center justify-between">
+                    <div>
+                        <span id="progress-percentage-label" class="text-xs font-black inline-block py-1 px-2 uppercase rounded-full text-indigo-600 bg-indigo-50">
+                            0%
+                        </span>
+                    </div>
+                    <div class="text-right">
+                        <span id="progress-count" class="text-xs font-bold inline-block text-slate-400">
+                            0 / 0 Students
+                        </span>
+                    </div>
+                </div>
+                <div class="overflow-hidden h-3 mb-4 text-xs flex rounded-full bg-slate-100 shadow-inner">
+                    <div id="progress-bar" style="width:0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-600 transition-all duration-300 ease-out rounded-full overflow-hidden">
+                        <div class="w-full h-full bg-[linear-gradient(45deg,rgba(255,255,255,.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,.15)_50%,rgba(255,255,255,.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-[progress-bar-stripes_1s_linear_infinite]"></div>
+                    </div>
+                </div>
+                <p id="current-student" class="text-[11px] font-bold text-slate-400 italic truncate h-4"></p>
+            </div>
+        </div>
+        
+        <div class="bg-slate-50 p-6 flex justify-center border-t border-slate-100">
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Please do not close this window</p>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes progress-bar-stripes {
+    from { background-position: 1rem 0; }
+    to { background-position: 0 0; }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const startBtn = document.getElementById('start-migration-btn');
+    const modal = document.getElementById('progress-modal');
+    const progressBar = document.getElementById('progress-bar');
+    const progressStatus = document.getElementById('progress-status');
+    const progressCountLabel = document.getElementById('progress-count');
+    const progressPctLabel = document.getElementById('progress-percentage-label');
+    const currentStudentLabel = document.getElementById('current-student');
+    
+    if (startBtn) {
+        startBtn.addEventListener('click', async function() {
+            const forms = Array.from(document.querySelectorAll('.migration-form'));
+            if (forms.length === 0) {
+                alert('No students available for migration in this grade.');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to migration fees for ${forms.length} students in {{ selected_grade.name }}?`)) {
+                return;
+            }
+            
+            // Initial UI state
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            progressStatus.textContent = 'Processing students...';
+            
+            let completed = 0;
+            const total = forms.length;
+            
+            for (const form of forms) {
+                const studentName = form.getAttribute('data-student-name');
+                currentStudentLabel.textContent = `Processing: ${studentName}`;
+                
+                const formData = new FormData(form);
+                
+                try {
+                    const response = await fetch(window.location.href, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.status === 'error') {
+                        console.error('Error migrating student:', studentName, result.message);
+                    }
+                } catch (error) {
+                    console.error('Network error migrating student:', studentName, error);
+                }
+                
+                completed++;
+                const percentage = Math.round((completed / total) * 100);
+                progressBar.style.width = percentage + '%';
+                progressCountLabel.textContent = `${completed} / ${total} Students`;
+                progressPctLabel.textContent = percentage + '%';
+            }
+            
+            progressStatus.textContent = 'Migration complete! Reloading...';
+            currentStudentLabel.textContent = 'Finishing up...';
+            
+            // Wait a moment for UX
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        });
+    }
+});
+</script>
+{% endblock %}

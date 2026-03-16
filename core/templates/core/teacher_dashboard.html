@@ -1,0 +1,486 @@
+{% extends 'base.html' %}
+
+{% block title %}Teacher Dashboard | Excel SMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-input {
+        @apply w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer;
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+    <div>
+        <h1 class="text-[22px] font-bold text-slate-800">Teacher Dashboard</h1>
+        <p class="text-[13px] text-slate-500 font-medium">Welcome back, {{ request.user.first_name|default:request.user.email }}{% if school_name %} — {{ school_name }}{% endif %}</p>
+    </div>
+    
+    <div class="flex items-center gap-3 mt-4 md:mt-0">
+        <div class="px-4 py-2 border border-slate-200 bg-white rounded-lg flex items-center gap-2 text-[13px] font-semibold text-slate-600 shadow-sm">
+            <i class="far fa-calendar-alt text-slate-400"></i>
+            <span>{% now "M d, Y" %}</span>
+        </div>
+        {% if active_exam %}
+        <div class="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-[13px] font-semibold flex items-center gap-2 shadow-sm">
+            <i class="fas fa-circle text-[8px] text-emerald-500 animate-pulse"></i>
+            {{ active_exam.name }}
+        </div>
+        {% else %}
+        <div class="px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-[13px] font-semibold flex items-center gap-2 shadow-sm">
+            <i class="fas fa-exclamation-triangle text-[10px] text-amber-500"></i>
+            No Active Exam
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Top Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <!-- Card 1: Total Classes -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center">
+                <i class="fas fa-chalkboard text-indigo-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ total_classes }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Classes assigned</p>
+        <div class="text-[12px] text-indigo-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-layer-group text-[10px]"></i>
+            <span>Across all grades</span>
+        </div>
+    </div>
+    
+    <!-- Card 2: Total Students -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center">
+                <i class="fas fa-user-graduate text-orange-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ total_students }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Total students</p>
+        <div class="text-[12px] text-orange-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-users text-[10px]"></i>
+            <span>{{ male_count }} male · {{ female_count }} female</span>
+        </div>
+    </div>
+
+    <!-- Card 3: Subjects Taught -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
+                <i class="fas fa-book-open text-purple-600 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ total_subjects }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Subjects taught</p>
+        <div class="text-[12px] text-purple-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-bookmark text-[10px]"></i>
+            <span>{{ assignments.count }} total assignments</span>
+        </div>
+    </div>
+
+    <!-- Card 4: Active Exam -->
+    <div {% if active_exam %}onclick="openInvigilatorModal()"{% endif %} class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm {% if active_exam %}cursor-pointer hover:shadow-md hover:border-indigo-300{% else %}opacity-90{% endif %} transition-all">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                <i class="fas fa-file-alt text-emerald-500 text-sm"></i>
+            </div>
+            <div class="text-[20px] font-extrabold text-slate-800 leading-tight">
+                {% if active_exam %}{{ active_exam.name|truncatechars:16 }}{% else %}None{% endif %}
+            </div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Current exam</p>
+        <div class="text-[12px] font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100 {% if active_exam %}text-emerald-500{% else %}text-amber-500{% endif %}">
+            {% if active_exam %}
+            <i class="fas fa-check-circle text-[10px]"></i>
+            <span>Score entry open</span>
+            {% else %}
+            <i class="fas fa-clock text-[10px]"></i>
+            <span>Awaiting activation</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Middle Section: Charts (3 Columns) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Donut Chart: Gender Distribution -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-[15px] font-bold text-slate-800">Student gender split</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="h-48 relative flex items-center justify-center">
+            <canvas id="genderChart"></canvas>
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+                <span class="text-[24px] font-bold text-slate-800">{{ total_students }}</span>
+                <span class="text-[10px] text-slate-500 font-medium tracking-wide">Students</span>
+            </div>
+        </div>
+        <div class="flex justify-around items-end mt-4">
+            <div>
+                <div class="text-[22px] font-bold text-indigo-500">{{ male_count }}</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <div class="w-2.5 h-2.5 bg-indigo-500 rounded-sm"></div>
+                    <span class="text-[12px] font-medium text-slate-800">Male</span>
+                </div>
+            </div>
+            <div>
+                <div class="text-[22px] font-bold text-rose-500">{{ female_count }}</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <div class="w-2.5 h-2.5 bg-rose-500 rounded-sm"></div>
+                    <span class="text-[12px] font-medium text-slate-800">Female</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bar Chart: Students per Class -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-[15px] font-bold text-slate-800">Students per class</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="h-56 relative w-full">
+            <canvas id="classChart"></canvas>
+        </div>
+        <div class="flex items-center gap-4 mt-4">
+            <div class="flex items-center gap-1.5">
+                <div class="w-2.5 h-2.5 bg-indigo-500 rounded-sm"></div>
+                <span class="text-[11px] font-medium text-slate-500">Students</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exam Status Panel -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[15px] font-bold text-slate-800">Quick actions</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        
+        <div class="flex-grow flex flex-col justify-center space-y-3">
+            {% for assignment in assignments|slice:":5" %}
+            <button onclick="openScorePopup({{ assignment.class_id.id }}, {{ assignment.subject.id }})"
+                class="w-full flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 transition-all group">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                        <i class="fas fa-pen text-xs"></i>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-[12px] font-bold text-slate-800">{{ assignment.class_id.name }}</p>
+                        <p class="text-[10px] font-medium text-slate-400">{{ assignment.subject.name }}</p>
+                    </div>
+                </div>
+                <i class="fas fa-chevron-right text-[10px] text-slate-300 group-hover:text-indigo-500 transition-colors"></i>
+            </button>
+            {% empty %}
+            <div class="text-center py-8">
+                <i class="fas fa-inbox text-3xl text-slate-200 mb-3"></i>
+                <p class="text-sm text-slate-400 font-medium">No assignments yet</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% if assignments.count > 5 %}
+        <div class="pt-3 mt-auto border-t border-slate-100 text-center">
+            <span class="text-[11px] font-bold text-slate-400">+{{ assignments.count|add:"-5" }} more assignments</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bottom Section: Tables (2 Columns) -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- List 1: Class Assignments Catalog -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col h-[420px]">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-[15px] font-bold text-slate-800">My assignments</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="overflow-y-auto flex-grow pr-2 custom-scrollbar">
+            <table class="w-full text-left">
+                <thead class="sticky top-0 bg-white z-10">
+                    <tr>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter w-12 border-b border-slate-100">S/N</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Class</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Subject</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Grade</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for item in all_assignments %}
+                    <tr class="group cursor-pointer hover:bg-slate-50/50" onclick="window.location.href='{% url 'core:class-detail' item.class_obj.pk %}'">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800">{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td class="py-3 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ item.class_obj.name }}</td>
+                        <td class="py-3 text-[12px] font-semibold text-slate-500">{{ item.role }}</td>
+                        <td class="py-3 text-right">
+                            <span class="text-[11px] font-bold text-slate-400 px-2 py-1 bg-slate-50 rounded-md">{{ item.class_obj.grade.name }}</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-8 text-center text-slate-400 text-sm">No assignments found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- List 2: Recent Attendance -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col h-[420px]">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-[15px] font-bold text-slate-800">Recent attendance</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="overflow-y-auto flex-grow pr-2 custom-scrollbar">
+            <table class="w-full text-left">
+                <thead class="sticky top-0 bg-white z-10">
+                    <tr>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Class</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Date</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-center">Present</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Rate</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for record in recent_attendance %}
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="py-3 text-[13px] font-bold text-slate-800">{{ record.class_name }}</td>
+                        <td class="py-3 text-[12px] font-medium text-slate-500">{{ record.date|date:"d/m/Y" }}</td>
+                        <td class="py-3 text-[12px] font-semibold text-slate-600 text-center">{{ record.present }}/{{ record.total }}</td>
+                        <td class="py-3 text-right">
+                            {% if record.rate >= 90 %}
+                            <span class="text-[12px] font-bold text-emerald-500">{{ record.rate }}%</span>
+                            {% elif record.rate >= 70 %}
+                            <span class="text-[12px] font-bold text-amber-500">{{ record.rate }}%</span>
+                            {% else %}
+                            <span class="text-[12px] font-bold text-red-500">{{ record.rate }}%</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-8 text-center text-slate-400 text-sm">No attendance records yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal logic for score entry (Exam Selection) -->
+<div id="scoreModal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeScorePopup()"></div>
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-[2rem] p-10 max-w-md w-full shadow-2xl relative animate-in zoom-in duration-300">
+            <button onclick="closeScorePopup()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+            
+            <div class="text-center mb-8">
+                <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-5 text-xl">
+                    <i class="{% if active_exam %}fas fa-file-invoice{% else %}fas fa-exclamation-triangle text-rose-500{% endif %}"></i>
+                </div>
+                {% if active_exam %}
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight">Confirm Exam</h3>
+                    <p class="text-slate-500 font-medium text-sm mt-1">You are about to record marks for:<br><strong class="text-indigo-600">{{ active_exam.name }} ({{ active_exam.period }})</strong></p>
+                {% else %}
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight">Entry Disabled</h3>
+                    <p class="text-slate-500 font-medium text-sm mt-1">Exam score entry is currently disabled. Please contact administration.</p>
+                {% endif %}
+            </div>
+
+            <div class="space-y-4">
+                <input type="hidden" id="modalClassId">
+                <input type="hidden" id="modalSubjectId">
+                
+                {% if active_exam %}
+                    <input type="hidden" id="modalExamSelect" value="{{ active_exam.id }}">
+                    <button onclick="goToScoreEntry()" class="w-full h-12 bg-indigo-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                        Proceed to Recording
+                    </button>
+                {% else %}
+                    <button onclick="closeScorePopup()" class="w-full h-12 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-slate-100 hover:bg-slate-800 transition-all">
+                        Close
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invigilator/Class Teacher Modal -->
+<div id="invigilatorModal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeInvigilatorModal()"></div>
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-[2rem] p-8 max-w-2xl w-full shadow-2xl relative animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+            <button onclick="closeInvigilatorModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+            
+            <div class="mb-6 flex items-center gap-4">
+                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl shadow-sm border border-indigo-100">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight">Invigilator Classes</h3>
+                    <p class="text-slate-500 font-medium text-[13px] mt-0.5">Select a subject to enter marks for {{ active_exam.name }}</p>
+                </div>
+            </div>
+
+            <div class="overflow-y-auto pr-2 custom-scrollbar space-y-6 flex-grow">
+                {% for icls in invigilated_data %}
+                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                    <h4 class="font-bold text-slate-800 text-[15px] mb-3 flex items-center justify-between">
+                        <span>{{ icls.class_obj.name }}</span>
+                        <span class="text-[11px] font-bold text-indigo-500 bg-indigo-100/50 px-2 py-1 rounded-lg">{{ icls.class_obj.grade.name }}</span>
+                    </h4>
+                    
+                    {% if icls.subjects %}
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {% for subj in icls.subjects %}
+                        <a href="{% url 'Exam:score-entry' icls.class_obj.id subj.id active_exam.id %}" class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:bg-indigo-600 hover:border-indigo-600 hover:text-white group transition-all shadow-sm">
+                            <span class="text-[12px] font-bold text-slate-700 group-hover:text-white transition-colors">{{ subj.name }}</span>
+                            <i class="fas fa-arrow-right text-[10px] text-slate-300 group-hover:text-white/70 transition-colors"></i>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-[13px] text-slate-500 font-medium flex items-center gap-2">
+                        <i class="fas fa-info-circle text-slate-400"></i> No subjects found for this class
+                    </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="text-center py-12">
+                    <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300 text-2xl">
+                        <i class="fas fa-folder-open"></i>
+                    </div>
+                    <h4 class="text-slate-800 font-bold mb-1">No classes found</h4>
+                    <p class="text-[13px] text-slate-500 font-medium">You are not assigned as an invigilator for any class.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Modal Functions
+    function openInvigilatorModal() {
+        document.getElementById('invigilatorModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeInvigilatorModal() {
+        document.getElementById('invigilatorModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    function openScorePopup(classId, subjectId) {
+        document.getElementById('modalClassId').value = classId;
+        document.getElementById('modalSubjectId').value = subjectId;
+        document.getElementById('scoreModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeScorePopup() {
+        document.getElementById('scoreModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    function goToScoreEntry() {
+        const classId = document.getElementById('modalClassId').value;
+        const subjectId = document.getElementById('modalSubjectId').value;
+        const examId = document.getElementById('modalExamSelect').value;
+        
+        if (!examId) {
+            alert("Please select an exam first.");
+            return;
+        }
+
+        const baseUrl = "{% url 'Exam:score-entry' 0 0 0 %}";
+        const targetUrl = baseUrl.replace('0/0/0', `${classId}/${subjectId}/${examId}`);
+        window.location.href = targetUrl;
+    }
+
+    // Charts
+    document.addEventListener('DOMContentLoaded', function() {
+        Chart.defaults.font.family = "'Inter', 'Outfit', sans-serif";
+        Chart.defaults.color = '#94a3b8';
+
+        // 1. Gender Donut Chart
+        const ctxGender = document.getElementById('genderChart').getContext('2d');
+        new Chart(ctxGender, {
+            type: 'doughnut',
+            data: {
+                labels: ['Male', 'Female'],
+                datasets: [{
+                    data: [{{ male_count }}, {{ female_count }}],
+                    backgroundColor: ['#6366f1', '#f43f5e'],
+                    borderWidth: 6,
+                    borderColor: '#fff',
+                    hoverOffset: 4,
+                    cutout: '80%'
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // 2. Students per Class Bar Chart
+        const ctxClass = document.getElementById('classChart').getContext('2d');
+        new Chart(ctxClass, {
+            type: 'bar',
+            data: {
+                labels: {{ class_names_json|safe }},
+                datasets: [{
+                    label: 'Students',
+                    data: {{ class_counts_json|safe }},
+                    backgroundColor: '#6366f1',
+                    barThickness: 18,
+                    borderRadius: {topLeft: 6, topRight: 6}
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { 
+                        grid: { color: '#f1f5f9', drawBorder: false }, 
+                        ticks: { font: { size: 10 }, stepSize: 5 },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+</script>
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #e2e8f0;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
