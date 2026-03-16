@@ -63,6 +63,20 @@ class ExamSubjectConfiguration(models.Model):
         """Get all score rankings for this configuration"""
         return self.scoreranking_set.all().order_by('min_score')
 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        # Automatically create a paper if paper_count is 1 and no papers exist
+        if self.paper_count == 1:
+            if not ExamSubjectPaper.objects.filter(exam_subject=self).exists():
+                ExamSubjectPaper.objects.create(
+                    exam_subject=self,
+                    name='Paper 1',
+                    paper_number=1,
+                    out_of=self.max_score
+                )
+
 class ScoreRanking(models.Model):
     choices = (
         ('EE','EE'),

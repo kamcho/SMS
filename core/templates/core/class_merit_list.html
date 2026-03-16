@@ -1,0 +1,134 @@
+{% load exam_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Merit List - {{ class_obj.name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @media print {
+            .no-print { display: none; }
+            @page { margin: 1cm; }
+            body { padding: 0; }
+            .print-table { border: 1px solid #e2e8f0; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 p-8">
+    <div class="max-w-5xl mx-auto bg-white p-10 shadow-sm border border-slate-200">
+        <!-- Header -->
+        <div class="flex justify-between items-start mb-8 border-b-2 border-slate-800 pb-6">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-900 uppercase leading-tight">{{ class_obj.grade.school.name|default:"SCHOOL MANAGEMENT SYSTEM" }}</h1>
+                <h2 class="text-xl font-bold text-slate-700 mt-1 uppercase tracking-wider">CLASS MERIT LIST / STREAM PERFORMANCE</h2>
+                <div class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold text-slate-500">
+                    <span>CLASS: <strong class="text-slate-800">{{ class_obj.name }}</strong></span>
+                    <span>GRADE: <strong class="text-slate-800">{{ class_obj.grade.name }}</strong></span>
+                    {% if exam_obj %}
+                        <span>EXAM: <strong class="text-slate-800">{{ exam_obj.name }}</strong></span>
+                        <span>PERIOD: <strong class="text-slate-800">{{ exam_obj.period }}</strong></span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="text-xs font-bold text-slate-400 uppercase">Generated On</p>
+                <p class="text-[13px] font-bold text-slate-700">{{ today|date:"d M, Y" }}</p>
+                <p class="text-[13px] font-bold text-slate-700">{{ today|date:"H:i" }}</p>
+                
+                <button onclick="window.print()" class="no-print mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-sm hover:bg-indigo-700 transition-colors flex items-center gap-2 ml-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Print List
+                </button>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-left print-table">
+                <thead>
+                    <tr class="bg-slate-100 border-y border-slate-300">
+                        <th class="px-3 py-2 text-[10px] font-bold text-slate-600 uppercase tracking-tighter">Rank</th>
+                        <th class="px-3 py-2 text-[10px] font-bold text-slate-600 uppercase tracking-tighter">Admission</th>
+                        <th class="px-3 py-2 text-[10px] font-bold text-slate-600 uppercase tracking-tighter">Student Name</th>
+                        {% for subject in table_subjects %}
+                            <th class="px-3 py-2 text-[10px] font-bold text-slate-600 uppercase tracking-tighter text-center border-l border-slate-200">
+                                {{ subject.name|truncatechars:10 }}
+                                <span class="block text-[8px] text-slate-400">(/{{ subject.max_score }})</span>
+                            </th>
+                        {% endfor %}
+                        <th class="px-3 py-2 text-[10px] font-bold text-slate-600 uppercase tracking-tighter text-center border-l border-slate-300 bg-slate-200/50">Total</th>
+                        <th class="px-3 py-2 text-[10px] font-bold text-slate-600 uppercase tracking-tighter text-center bg-slate-200/50">Avg %</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 italic-scores">
+                    {% for student_data in ranked_students %}
+                        <tr class="border-b border-slate-100">
+                            <td class="px-3 py-2 text-[12px] font-bold text-slate-800">#{{ student_data.rank }}</td>
+                            <td class="px-3 py-2 text-[11px] font-semibold text-slate-500">{{ student_data.student.adm_no }}</td>
+                            <td class="px-3 py-2 text-[12px] font-bold text-slate-800 uppercase">
+                                {{ student_data.student.first_name }} {{ student_data.student.last_name }}
+                            </td>
+                            {% for subject_score in student_data.display_scores %}
+                                <td class="px-3 py-2 text-center border-l border-slate-100">
+                                    {% if subject_score %}
+                                        <div class="flex flex-col leading-none">
+                                            <span class="text-[12px] font-bold text-slate-800">{{ subject_score.score }}</span>
+                                            <span class="text-[9px] font-extrabold text-indigo-500 mt-1">{{ subject_score.grade }}</span>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-slate-300 font-bold">-</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                            <td class="px-3 py-2 text-center border-l border-slate-200 bg-slate-50 font-extrabold text-[13px] text-slate-900">{{ student_data.total_score }}</td>
+                            <td class="px-3 py-2 text-center bg-slate-50 font-extrabold text-[13px] text-indigo-600">{{ student_data.avg_score }}%</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="bg-slate-800 text-white font-bold">
+                        <td colspan="3" class="px-3 py-3 text-[10px] uppercase tracking-widest text-slate-300">Class Performance Summary</td>
+                        {% for subject in table_subjects %}
+                            {% with stats=subject_footer_stats|lookup:subject.name %}
+                            <td class="px-3 py-3 text-center border-l border-slate-700">
+                                <span class="text-[12px]">{{ stats.avg|default:"-" }}%</span>
+                                <span class="block text-[9px] text-indigo-300 uppercase">{{ stats.grade }}</span>
+                            </td>
+                            {% endwith %}
+                        {% endfor %}
+                        <td colspan="2" class="px-3 py-3 text-center border-l border-slate-700 bg-indigo-900/50">
+                             <span class="text-[14px]">{{ class_average }}%</span>
+                             <span class="block text-[8px] text-indigo-200 uppercase tracking-tighter">Combined Class Avg</span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Footer / Signatures -->
+        <div class="mt-16 grid grid-cols-3 gap-8">
+            <div class="border-t border-slate-300 pt-4">
+                <p class="text-[10px] font-bold text-slate-400 uppercase mb-8">Class Teacher's Signature</p>
+                <div class="w-full border-b border-slate-400 border-dashed"></div>
+            </div>
+            <div class="border-t border-slate-300 pt-4">
+                <p class="text-[10px] font-bold text-slate-400 uppercase mb-8">Head of Department</p>
+                <div class="w-full border-b border-slate-400 border-dashed"></div>
+            </div>
+            <div class="border-t border-slate-300 pt-4">
+                <p class="text-[10px] font-bold text-slate-400 uppercase mb-8">Principal's / Seal</p>
+                <div class="w-full border-b border-slate-400 border-dashed"></div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center no-print">
+            <p class="text-[11px] text-slate-400 font-medium italic">Professional stream performance analysis report generated by Excel School Management System.</p>
+        </div>
+    </div>
+</body>
+</html>

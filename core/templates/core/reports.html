@@ -69,7 +69,7 @@
 
     <!-- Filters Section -->
     <div class="bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white shadow-2xl shadow-indigo-950/5">
-        <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
             <input type="hidden" name="type" value="{{ report_type }}">
             
             <div class="space-y-2">
@@ -82,6 +82,19 @@
                         {% endfor %}
                     </select>
                     <i class="fas fa-university absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label for="grade" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Filter Grade</label>
+                <div class="relative group">
+                    <select name="grade" id="grade" onchange="this.form.submit()" class="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer">
+                        <option value="">All Grades</option>
+                        {% for g in grades %}
+                            <option value="{{ g.id }}" {% if g.id|stringformat:"s" == selected_grade %}selected{% endif %}>{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-graduation-cap absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
                 </div>
             </div>
 
@@ -119,7 +132,7 @@
             </div>
             {% endif %}
 
-            <div class="flex gap-4">
+            <div class="flex gap-4 {% if report_type != 'fees' %}lg:col-start-4{% endif %}">
                 <button type="submit" class="flex-1 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
                     Apply Filter
                 </button>

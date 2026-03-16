@@ -215,8 +215,8 @@ class ManageExamView(LoginRequiredMixin, View):
                 subjects_by_grade[subject.grade] = []
             subjects_by_grade[subject.grade].append(subject)
         
-        # If no configurations exist, show all available grades
-        if not sorted_grades and subjects_by_grade:
+        # Show all grades that have subjects
+        if subjects_by_grade:
             sorted_grades = sorted(subjects_by_grade.keys())
         
         context = {
@@ -307,6 +307,19 @@ class ManageExamView(LoginRequiredMixin, View):
                 config = form.save(commit=False)
                 config.exam = exam
                 config.save()
+                
+                # Auto-create paper if paper_count is 1
+                if config.paper_count == 1:
+                    from .models import ExamSubjectPaper
+                    ExamSubjectPaper.objects.get_or_create(
+                        exam_subject=config,
+                        name='P1',
+                        defaults={
+                            'paper_number': 1,
+                            'out_of': config.max_score
+                        }
+                    )
+                
                 messages.success(request, f'Subject configuration added successfully!')
             except Exception as e:
                 messages.error(request, f'Error adding subject configuration: {str(e)}')
@@ -503,6 +516,19 @@ class SubjectConfigurationView(LoginRequiredMixin, View):
                 config.exam = exam
                 config.subject = subject
                 config.save()
+                
+                # Auto-create paper if paper_count is 1
+                if config.paper_count == 1:
+                    from .models import ExamSubjectPaper
+                    ExamSubjectPaper.objects.get_or_create(
+                        exam_subject=config,
+                        name='P1',
+                        defaults={
+                            'paper_number': 1,
+                            'out_of': config.max_score
+                        }
+                    )
+                
                 messages.success(request, f'Subject configuration added successfully!')
             except Exception as e:
                 messages.error(request, f'Error adding subject configuration: {str(e)}')

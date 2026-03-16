@@ -265,6 +265,10 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
             Q(class_teacher=self.request.user) | Q(invigilator=self.request.user)
         ).select_related('grade', 'school')
 
+        invigilator_classes = Class.objects.filter(
+            invigilator=self.request.user
+        ).select_related('grade', 'school')
+
         unified_assignments = []
         for a in assignments:
             unified_assignments.append({
@@ -308,15 +312,18 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
 
         invigilated_data = []
         if active_exam:
-            for c in role_classes:
-                tcps = TeacherClassProfile.objects.filter(class_id=c).select_related('subject')
-                subj_list = []
-                seen_subs = set()
-                for tcp in tcps:
-                    if tcp.subject and tcp.subject.id not in seen_subs:
-                        seen_subs.add(tcp.subject.id)
-                        subj_list.append(tcp.subject)
+            from Exam.models import ExamSubjectConfiguration
+            # Use invigilator_classes strictly for score entry modal
+            for c in invigilator_classes:
+                # Use active exam configurations to find relevant subjects for this grade
+                configs = ExamSubjectConfiguration.objects.filter(
+                    exam=active_exam,
+                    subject__grade=c.grade.name
+                ).select_related('subject')
+                
+                subj_list = [conf.subject for conf in configs]
                 subj_list.sort(key=lambda s: s.name)
+                
                 if subj_list:
                     invigilated_data.append({
                         'class_obj': c,
@@ -1497,6 +1504,10 @@ def class_exam_analytics(request, class_id):
     # Get filter parameters
     selected_exam = request.GET.get('exam')
     selected_subject = request.GET.get('subject')
+
+    # Sanitize filter parameters to prevent ValueError when 'None' string is passed
+    if selected_exam in ['None', '', None]: selected_exam = None
+    if selected_subject in ['None', '', None]: selected_subject = None
     
     # Apply filters
     if selected_exam:
@@ -1842,6 +1853,211 @@ def class_exam_analytics(request, class_id):
     context['gender_female_data_js'] = json.dumps([gender_grade_data['female'][g] for g in ['EE', 'ME', 'AE', 'BE']])
     
     return render(request, 'core/class_exam_analytics.html', context)
+
+
+@login_required
+def class_merit_list(request, class_id):
+    class_obj = get_object_or_404(Class, id=class_id)
+    
+    # Get all students in this class
+    students = StudentProfile.objects.filter(class_id=class_id).select_related('student')
+    
+    # Get all exam scores for students in this class
+    exam_scores = ExamSUbjectScore.objects.filter(
+        student__in=[sp.student for sp in students]
+    ).select_related('student', 'paper__exam_subject__subject', 'paper__exam_subject__exam').order_by('paper__exam_subject__exam', 'paper__exam_subject__subject')
+    
+    # Get filter parameters
+    selected_exam = request.GET.get('exam')
+    selected_subject = request.GET.get('subject')
+    
+    # Sanitize filter inputs
+    if selected_exam in ['None', '', None]: selected_exam = None
+    if selected_subject in ['None', '', None]: selected_subject = None
+    
+    # Apply filters with strict digit validation to prevent ValueErrors
+    if selected_exam:
+        if str(selected_exam).isdigit():
+            exam_scores = exam_scores.filter(paper__exam_subject__exam_id=selected_exam)
+        else:
+            selected_exam = None
+            
+    if selected_subject:
+        if str(selected_subject).isdigit():
+            exam_scores = exam_scores.filter(paper__exam_subject__subject_id=selected_subject)
+        else:
+            selected_subject = None
+
+    exam_obj = None
+    if selected_exam:
+        from Exam.models import Exam
+        exam_obj = Exam.objects.filter(id=selected_exam).first()
+        
+    # NEW: Fetch rankings
+    from Exam.models import ExamSubjectConfiguration, ScoreRanking
+    
+    # Organize data for display
+    analytics_data = {}
+    
+    # Get all subject configurations for this grade and exam context
+    subject_configs = ExamSubjectConfiguration.objects.filter(
+        subject__grade=class_obj.grade.name
+    ).select_related('subject', 'exam')
+    
+    config_data_map = {}
+    for config in subject_configs:
+        config_data_map[(config.exam_id, config.subject_id)] = {
+            'rankings': list(config.get_score_rankings()),
+            'max_score': config.max_score or 100
+        }
+
+    def get_score_grade(score, student_grade_name, rankings=None):
+        if rankings:
+            for r in rankings:
+                if r.min_score <= score <= r.max_score:
+                    return r.grade
+        if score >= 70: return 'EE'
+        if score >= 60: return 'ME'
+        if score >= 50: return 'AE'
+        return 'BE'
+
+    for student_profile in students:
+        student = student_profile.student
+        student_scores = exam_scores.filter(student=student)
+        
+        subject_scores = {}
+        for score in student_scores:
+            subject_obj = score.subject
+            subject_name = subject_obj.name
+            exam_obj_inner = score.exam
+            
+            if subject_name not in subject_scores:
+                subject_scores[subject_name] = {
+                    'score': 0,
+                    'grade': '',
+                    'percentage': 0,
+                    'exam': exam_obj_inner.name,
+                    'subject_id': subject_obj.id,
+                    'exam_id': exam_obj_inner.id
+                }
+            subject_scores[subject_name]['score'] += score.score
+            
+        student_subject_percentages = []
+        for s_name, s_data in subject_scores.items():
+            s_total_score = s_data['score']
+            conf = config_data_map.get((s_data['exam_id'], s_data['subject_id']), {})
+            s_rankings = conf.get('rankings', [])
+            s_max = conf.get('max_score', 100)
+            
+            perc = (s_total_score / s_max) * 100 if s_max > 0 else 0
+            s_data['percentage'] = round(perc, 1)
+            student_subject_percentages.append(perc)
+            
+            best_grade = 'BE'
+            if s_rankings:
+                for r in s_rankings:
+                    if r.min_score <= s_total_score <= r.max_score:
+                        best_grade = r.grade
+                        break
+            else:
+                if perc >= 70: best_grade = 'EE'
+                elif perc >= 60: best_grade = 'ME'
+                elif perc >= 50: best_grade = 'AE'
+            s_data['grade'] = best_grade
+
+        total_score_sum = sum(s['score'] for s in subject_scores.values())
+        avg_percentage = sum(student_subject_percentages) / len(student_subject_percentages) if student_subject_percentages else 0
+        
+        analytics_data[student.id] = {
+            'student': student,
+            'profile': student_profile,
+            'total_score': total_score_sum,
+            'avg_score': round(avg_percentage, 1),
+            'subject_scores': subject_scores,
+        }
+    
+    # Calculate rankings
+    if selected_subject:
+        subj_name_obj = Subject.objects.filter(id=selected_subject).first()
+        subj_name = subj_name_obj.name if subj_name_obj else ""
+        ranked_students = sorted(
+            analytics_data.values(),
+            key=lambda x: x['subject_scores'].get(subj_name, {}).get('score', 0),
+            reverse=True
+        )
+    else:
+        ranked_students = sorted(
+            analytics_data.values(),
+            key=lambda x: x['avg_score'],
+            reverse=True
+        )
+    
+    for rank, student_data in enumerate(ranked_students, 1):
+        student_data['rank'] = rank
+    
+    # Subjects for table
+    if selected_subject:
+        table_subjects = [get_object_or_404(Subject, id=selected_subject)]
+    else:
+        grade_name = class_obj.grade.name
+        table_subjects = list(Subject.objects.filter(grade=grade_name).order_by('name'))
+        if not table_subjects:
+            table_subjects = list(set(score.subject for score in exam_scores))
+            table_subjects.sort(key=lambda x: x.name)
+
+    for subject in table_subjects:
+        if selected_exam:
+            conf = ExamSubjectConfiguration.objects.filter(exam_id=selected_exam, subject=subject).first()
+            subject.max_score = conf.max_score if conf else 100
+        else:
+            conf = ExamSubjectConfiguration.objects.filter(subject=subject).order_by('-exam_id').first()
+            subject.max_score = conf.max_score if conf else 100
+    
+    for student_data in ranked_students:
+        display_scores = []
+        for subject in table_subjects:
+            score_obj = student_data['subject_scores'].get(subject.name)
+            display_scores.append(score_obj)
+        student_data['display_scores'] = display_scores
+
+    # Subject Averages
+    subject_performance = []
+    for subject in table_subjects:
+        relevant_configs = [c for k, c in config_data_map.items() if k[1] == subject.id]
+        ref_max = relevant_configs[0]['max_score'] if relevant_configs else 100
+        
+        subject_student_percentages = []
+        for s_data in ranked_students:
+            score_item = s_data['subject_scores'].get(subject.name)
+            if score_item:
+                student_s_max = config_data_map.get((score_item['exam_id'], subject.id), {}).get('max_score', ref_max)
+                student_perc = (score_item['score'] / student_s_max) * 100 if student_s_max > 0 else 0
+                subject_student_percentages.append(student_perc)
+        
+        s_avg_perc = sum(subject_student_percentages) / len(subject_student_percentages) if subject_student_percentages else 0
+        subject_performance.append({
+            'name': subject.name,
+            'avg': round(s_avg_perc, 1),
+            'grade': get_score_grade(s_avg_perc, class_obj.grade.name)
+        })
+
+    subject_footer_stats = {s['name']: s for s in subject_performance}
+    total_avg = sum(s['avg_score'] for s in ranked_students)
+    class_average = round(total_avg / len(ranked_students), 1) if ranked_students else 0
+
+    context = {
+        'class_obj': class_obj,
+        'exam_obj': exam_obj,
+        'ranked_students': ranked_students,
+        'table_subjects': table_subjects,
+        'class_average': class_average,
+        'subject_footer_stats': subject_footer_stats,
+        'selected_exam': selected_exam,
+        'selected_subject': selected_subject,
+        'today': timezone.now(),
+    }
+    
+    return render(request, 'core/class_merit_list.html', context)
 
 
 def manage_fee_payments(request):
@@ -2780,20 +2996,30 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         context = super().get_context_data(**kwargs)
         report_type = self.request.GET.get('type', 'students')
         school_id = self.request.GET.get('school')
+        grade_id = self.request.GET.get('grade')
         class_id = self.request.GET.get('class')
         
         context['report_type'] = report_type
         context['schools'] = School.objects.all()
+        context['grades'] = Grade.objects.all()
         context['selected_school'] = school_id
+        context['selected_grade'] = grade_id
         context['selected_class'] = class_id
 
+        # Build classes queryset with cascading filters
+        classes_qs = Class.objects.all().select_related('grade')
         if school_id:
-            context['classes'] = Class.objects.filter(school_id=school_id).select_related('grade')
+            classes_qs = classes_qs.filter(school_id=school_id)
+        if grade_id:
+            classes_qs = classes_qs.filter(grade_id=grade_id)
+        context['classes'] = classes_qs
 
         if report_type == 'students':
             queryset = StudentProfile.objects.all().select_related('student', 'class_id', 'school')
             if school_id:
                 queryset = queryset.filter(school_id=school_id)
+            if grade_id:
+                queryset = queryset.filter(class_id__grade_id=grade_id)
             if class_id:
                 queryset = queryset.filter(class_id_id=class_id)
             
@@ -2818,6 +3044,8 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             all_profiles = StudentProfile.objects.all().select_related('student', 'school', 'class_id')
             if school_id:
                 all_profiles = all_profiles.filter(school_id=school_id)
+            if grade_id:
+                all_profiles = all_profiles.filter(class_id__grade_id=grade_id)
             if class_id:
                 all_profiles = all_profiles.filter(class_id_id=class_id)
             
@@ -2825,6 +3053,8 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             queryset = Payment.objects.all().select_related('student', 'student__studentprofile__school', 'student__studentprofile__class_id')
             if school_id:
                 queryset = queryset.filter(student__studentprofile__school_id=school_id)
+            if grade_id:
+                queryset = queryset.filter(student__studentprofile__class_id__grade_id=grade_id)
             if class_id:
                 queryset = queryset.filter(student__studentprofile__class_id_id=class_id)
             
