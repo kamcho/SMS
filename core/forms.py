@@ -19,11 +19,12 @@ class BaseStyledForm(forms.ModelForm):
 class StudentForm(BaseStyledForm):
     class Meta:
         model = Student
-        fields = ['first_name', 'middle_name', 'last_name', 'adm_no', 'date_of_birth', 'joined_date', 'gender', 'location']
+        fields = ['first_name', 'middle_name', 'last_name', 'adm_no', 'date_of_birth', 'joined_date', 'gender', 'location', 'is_boarder']
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'joined_date': forms.DateInput(attrs={'type': 'date'}),
             'gender': forms.Select(choices=Student.GENDERS),
+            'is_boarder': forms.CheckboxInput(),
         }
 
 class StudentProfileForm(BaseStyledForm):

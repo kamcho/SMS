@@ -120,30 +120,32 @@
                 </span>
                 {% endif %}
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center flex-wrap gap-2">
                 {% if exam_is_active %}
-                <form method="post" onsubmit="return confirm('Are you sure you want to deactivate this exam? This will prevent teachers from uploading marks for this exam.');">
+                <form method="post" onsubmit="return confirm('Are you sure you want to deactivate this exam? This will prevent teachers from uploading marks for this exam.');" class="mr-2">
                     {% csrf_token %}
-                    <button type="submit" name="deactivate_exam" class="btn bg-orange-600 text-white hover:bg-orange-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2">
+                    <button type="submit" name="deactivate_exam" class="btn bg-orange-600 text-white hover:bg-orange-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap">
                         <i class="fas fa-lock"></i>
                         Deactivate
                     </button>
                 </form>
                 {% else %}
-                <form method="post" onsubmit="return confirm('Are you sure you want to activate this exam? This will allow teachers to upload marks for this exam.');">
+                <form method="post" onsubmit="return confirm('Are you sure you want to activate this exam? This will allow teachers to upload marks for this exam.');" class="mr-2">
                     {% csrf_token %}
-                    <button type="submit" name="activate_exam" class="btn bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2">
+                    <button type="submit" name="activate_exam" class="btn bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap">
                         <i class="fas fa-unlock"></i>
                         Activate for Teachers
                     </button>
                 </form>
                 {% endif %}
-                {% for grade in sorted_grades %}
-                <a href="{% url 'Exam:subject-configurations-with-exam' grade exam.id %}" class="btn bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-xl text-xs font-black">
-                    <i class="fas fa-cog"></i>
-                    Grade {{ grade }}
-                </a>
-                {% endfor %}
+                <div class="flex items-center flex-wrap gap-2">
+                    {% for grade in sorted_grades %}
+                    <a href="{% url 'Exam:subject-configurations-with-exam' grade exam.id %}" class="btn bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-2 rounded-xl text-xs font-black whitespace-nowrap">
+                        <i class="fas fa-cog text-[10px]"></i>
+                        {{ grade }}
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
         </div>
 

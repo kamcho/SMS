@@ -147,14 +147,27 @@ class ExamSUbjectScore(models.Model):
                 return
 
         # Fallback logic for Grade 7/8/9 OR if no ranking found for others
-        if self.score >= 70:
-            self.grade = 'EE'
-        elif self.score >= 60:
-            self.grade = 'ME'
-        elif self.score >= 50:
-            self.grade = 'AE'
+        is_junior_secondary = self.student.studentprofile.class_id.grade.name in ['Grade 7', 'Grade 8', 'Grade 9'] if self.student.studentprofile.class_id and self.student.studentprofile.class_id.grade else False
+        
+        if is_junior_secondary:
+            # New 1/2 rubric for Junior Secondary (8-point scale)
+            if self.score >= 90: self.grade = 'EE1'
+            elif self.score >= 80: self.grade = 'EE2'
+            elif self.score >= 70: self.grade = 'ME1'
+            elif self.score >= 60: self.grade = 'ME2'
+            elif self.score >= 50: self.grade = 'AE1'
+            elif self.score >= 40: self.grade = 'AE2'
+            elif self.score >= 20: self.grade = 'BE1'
+            else: self.grade = 'BE2'
         else:
-            self.grade = 'BE'
+            if self.score >= 70:
+                self.grade = 'EE'
+            elif self.score >= 60:
+                self.grade = 'ME'
+            elif self.score >= 50:
+                self.grade = 'AE'
+            else:
+                self.grade = 'BE'
 
         super().save(*args, **kwargs)
     def __str__(self):

@@ -54,33 +54,33 @@
         <div class="bg-emerald-50 rounded-[2rem] p-6 shadow-xl shadow-emerald-100/50 border border-emerald-100">
             <div class="flex items-center gap-2 mb-2">
                 <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Exceeding (EE)</p>
+                <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Exceeding {% if is_junior_secondary %}(EE1-2){% else %}(EE){% endif %}</p>
             </div>
-            <h3 class="text-3xl font-black text-emerald-900">{{ grades_data.EE }}</h3>
+            <h3 class="text-3xl font-black text-emerald-900">{{ level_counts.EE }}</h3>
         </div>
 
         <div class="bg-blue-50 rounded-[2rem] p-6 shadow-xl shadow-blue-100/50 border border-blue-100">
             <div class="flex items-center gap-2 mb-2">
                 <div class="w-2 h-2 rounded-full bg-blue-500"></div>
-                <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Meeting (ME)</p>
+                <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Meeting {% if is_junior_secondary %}(ME1-2){% else %}(ME){% endif %}</p>
             </div>
-            <h3 class="text-3xl font-black text-blue-900">{{ grades_data.ME }}</h3>
+            <h3 class="text-3xl font-black text-blue-900">{{ level_counts.ME }}</h3>
         </div>
 
         <div class="bg-amber-50 rounded-[2rem] p-6 shadow-xl shadow-amber-100/50 border border-amber-100">
             <div class="flex items-center gap-2 mb-2">
                 <div class="w-2 h-2 rounded-full bg-amber-500"></div>
-                <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest">Approaching (AE)</p>
+                <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest">Approaching {% if is_junior_secondary %}(AE1-2){% else %}(AE){% endif %}</p>
             </div>
-            <h3 class="text-3xl font-black text-amber-900">{{ grades_data.AE }}</h3>
+            <h3 class="text-3xl font-black text-amber-900">{{ level_counts.AE }}</h3>
         </div>
 
         <div class="bg-rose-50 rounded-[2rem] p-6 shadow-xl shadow-rose-100/50 border border-rose-100">
             <div class="flex items-center gap-2 mb-2">
                 <div class="w-2 h-2 rounded-full bg-rose-500"></div>
-                <p class="text-[10px] font-black text-rose-600 uppercase tracking-widest">Below (BE)</p>
+                <p class="text-[10px] font-black text-rose-600 uppercase tracking-widest">Below {% if is_junior_secondary %}(BE1-2){% else %}(BE){% endif %}</p>
             </div>
-            <h3 class="text-3xl font-black text-rose-900">{{ grades_data.BE }}</h3>
+            <h3 class="text-3xl font-black text-rose-900">{{ level_counts.BE }}</h3>
         </div>
     </div>
 
@@ -224,9 +224,9 @@
                         </td>
                         <td class="px-8 py-5">
                             <span class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest
-                                {% if score.grade == 'EE' %}bg-emerald-50 text-emerald-600
-                                {% elif score.grade == 'ME' %}bg-blue-50 text-blue-600
-                                {% elif score.grade == 'AE' %}bg-amber-50 text-amber-600
+                                {% if 'EE' in score.grade %}bg-emerald-50 text-emerald-600
+                                {% elif 'ME' in score.grade %}bg-blue-50 text-blue-600
+                                {% elif 'AE' in score.grade %}bg-amber-50 text-amber-600
                                 {% else %}bg-rose-50 text-rose-600{% endif %}">
                                 {{ score.grade }}
                             </span>
@@ -423,12 +423,12 @@
             datasets: [{
                 label: 'Student Count',
                 data: {{ grade_data_js|safe }},
-                backgroundColor: [
-                    'rgba(16, 185, 129, 0.8)', // EE
-                    'rgba(59, 130, 246, 0.8)', // ME
-                    'rgba(245, 158, 11, 0.8)', // AE
-                    'rgba(244, 63, 94, 0.8)'   // BE
-                ],
+                backgroundColor: ({{ grade_labels_js|safe }}).map(label => {
+                    if (label.includes('EE')) return 'rgba(16, 185, 129, 0.8)';
+                    if (label.includes('ME')) return 'rgba(59, 130, 246, 0.8)';
+                    if (label.includes('AE')) return 'rgba(245, 158, 11, 0.8)';
+                    return 'rgba(244, 63, 94, 0.8)';
+                }),
                 borderRadius: 12,
                 borderWidth: 0,
                 maxBarThickness: 45

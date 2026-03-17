@@ -124,9 +124,9 @@
             <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
                 <span class="text-emerald-500 font-bold text-xs">EE</span>
             </div>
-            <div class="text-[28px] font-extrabold text-slate-800">{{ grade_counts.EE }}</div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ level_counts.EE }}</div>
         </div>
-        <p class="text-[13px] font-medium text-slate-500 mb-2">Exceeding</p>
+        <p class="text-[13px] font-medium text-slate-500 mb-2">{% if is_junior_secondary %}Exceeding (EE1-2){% else %}Exceeding{% endif %}</p>
     </div>
 
     <!-- ME -->
@@ -135,9 +135,9 @@
             <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
                 <span class="text-blue-500 font-bold text-xs">ME</span>
             </div>
-            <div class="text-[28px] font-extrabold text-slate-800">{{ grade_counts.ME }}</div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ level_counts.ME }}</div>
         </div>
-        <p class="text-[13px] font-medium text-slate-500 mb-2">Meeting</p>
+        <p class="text-[13px] font-medium text-slate-500 mb-2">{% if is_junior_secondary %}Meeting (ME1-2){% else %}Meeting{% endif %}</p>
     </div>
 
     <!-- AE -->
@@ -146,9 +146,9 @@
             <div class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center">
                 <span class="text-amber-500 font-bold text-xs">AE</span>
             </div>
-            <div class="text-[28px] font-extrabold text-slate-800">{{ grade_counts.AE }}</div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ level_counts.AE }}</div>
         </div>
-        <p class="text-[13px] font-medium text-slate-500 mb-2">Approaching</p>
+        <p class="text-[13px] font-medium text-slate-500 mb-2">{% if is_junior_secondary %}Approaching (AE1-2){% else %}Approaching{% endif %}</p>
     </div>
 
     <!-- BE -->
@@ -157,9 +157,9 @@
             <div class="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center">
                 <span class="text-rose-500 font-bold text-xs">BE</span>
             </div>
-            <div class="text-[28px] font-extrabold text-slate-800">{{ grade_counts.BE }}</div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ level_counts.BE }}</div>
         </div>
-        <p class="text-[13px] font-medium text-slate-500 mb-2">Below</p>
+        <p class="text-[13px] font-medium text-slate-500 mb-2">{% if is_junior_secondary %}Below (BE1-2){% else %}Below{% endif %}</p>
     </div>
 </div>
 
@@ -363,9 +363,9 @@
                                     <div class="flex flex-col gap-1">
                                         <span class="text-[13px] font-bold text-slate-800">{{ subject_score.score }}</span>
                                         <span class="px-1.5 py-0.5 text-[10px] rounded inline-block max-w-max font-bold
-                                            {% if subject_score.grade == 'EE' %}bg-emerald-50 text-emerald-600
-                                            {% elif subject_score.grade == 'ME' %}bg-blue-50 text-blue-600
-                                            {% elif subject_score.grade == 'AE' %}bg-amber-50 text-amber-600
+                                            {% if 'EE' in subject_score.grade %}bg-emerald-50 text-emerald-600
+                                            {% elif 'ME' in subject_score.grade %}bg-blue-50 text-blue-600
+                                            {% elif 'AE' in subject_score.grade %}bg-amber-50 text-amber-600
                                             {% else %}bg-rose-50 text-rose-600{% endif %}">
                                             {{ subject_score.grade }}
                                         </span>
@@ -402,7 +402,11 @@
                             <div class="flex flex-col gap-1">
                                 <span class="text-[13px] font-bold text-indigo-600">{{ stats.avg|default:"-" }}%</span>
                                 {% if stats %}
-                                <span class="px-1.5 py-0.5 text-[10px] rounded max-w-max font-bold bg-white text-indigo-500 border border-indigo-100">
+                                <span class="px-1.5 py-0.5 text-[10px] rounded max-w-max font-bold bg-white
+                                    {% if 'EE' in stats.grade %}text-emerald-500 border-emerald-100
+                                    {% elif 'ME' in stats.grade %}text-blue-500 border-blue-100
+                                    {% elif 'AE' in stats.grade %}text-amber-500 border-amber-100
+                                    {% else %}text-rose-500 border-rose-100{% endif %} border">
                                     {{ stats.grade }}
                                 </span>
                                 {% endif %}
@@ -432,6 +436,78 @@
 <!-- Grade Legend -->
 <div class="mb-8 bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
     <h3 class="text-[15px] font-bold text-slate-800 mb-4">Grade Legend</h3>
+    {% if is_junior_secondary %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- EE1 & EE2 -->
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 bg-emerald-50 rounded flex items-center justify-center text-emerald-600 font-bold text-xs">EE</div>
+                <p class="text-[11px] font-bold text-slate-600 uppercase tracking-tighter">Exceeding Expectations</p>
+            </div>
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700">EE1 (8 pts)</span>
+                    <span class="text-slate-400">90-100% ({{ grade_counts.EE1 }} Stds)</span>
+                </div>
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700">EE2 (7 pts)</span>
+                    <span class="text-slate-400">80-89% ({{ grade_counts.EE2 }} Stds)</span>
+                </div>
+            </div>
+        </div>
+        <!-- ME1 & ME2 -->
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 bg-blue-50 rounded flex items-center justify-center text-blue-600 font-bold text-xs">ME</div>
+                <p class="text-[11px] font-bold text-slate-600 uppercase tracking-tighter">Meeting Expectations</p>
+            </div>
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700">ME1 (6 pts)</span>
+                    <span class="text-slate-400">70-79% ({{ grade_counts.ME1 }} Stds)</span>
+                </div>
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700">ME2 (5 pts)</span>
+                    <span class="text-slate-400">60-69% ({{ grade_counts.ME2 }} Stds)</span>
+                </div>
+            </div>
+        </div>
+        <!-- AE1 & AE2 -->
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 bg-amber-50 rounded flex items-center justify-center text-amber-600 font-bold text-xs">AE</div>
+                <p class="text-[11px] font-bold text-slate-600 uppercase tracking-tighter">Approaching Expectations</p>
+            </div>
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700">AE1 (4 pts)</span>
+                    <span class="text-slate-400">50-59% ({{ grade_counts.AE1 }} Stds)</span>
+                </div>
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700">AE2 (40 pts)</span>
+                    <span class="text-slate-400">40-49% ({{ grade_counts.AE2 }} Stds)</span>
+                </div>
+            </div>
+        </div>
+        <!-- BE1 & BE2 -->
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 bg-rose-50 rounded flex items-center justify-center text-rose-600 font-bold text-xs">BE</div>
+                <p class="text-[11px] font-bold text-slate-600 uppercase tracking-tighter">Below Expectations</p>
+            </div>
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700">BE1 (2 pts)</span>
+                    <span class="text-slate-400">20-39% ({{ grade_counts.BE1 }} Stds)</span>
+                </div>
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="font-bold text-slate-700">BE2 (1 pt)</span>
+                    <span class="text-slate-400">0-19% ({{ grade_counts.BE2 }} Stds)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
             <div class="flex items-center gap-3">
@@ -497,6 +573,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 {% endblock %}

@@ -134,22 +134,38 @@
         </div>
 
         <!-- Performance Legend -->
+        {% if report.is_junior_secondary %}
+        <div class="mb-8">
+            <h4 class="text-[10px] font-bold uppercase mb-1">Performance Legend (Junior Secondary 1-8 Scale)</h4>
+            <table class="formal-table text-[10px]">
+                <tr class="font-bold bg-gray-50 uppercase">
+                    <td>Level</td>
+                    <td>EE1</td><td>EE2</td><td>ME1</td><td>ME2</td><td>AE1</td><td>AE2</td><td>BE1</td><td>BE2</td>
+                </tr>
+                <tr class="font-bold">
+                    <td>Points</td>
+                    <td>8</td><td>7</td><td>6</td><td>5</td><td>4</td><td>3</td><td>2</td><td>1</td>
+                </tr>
+            </table>
+        </div>
+        {% else %}
         <table class="formal-table mb-8 text-xs">
-            <tr>
-                <td class="font-bold">Performance level</td>
-                <td class="font-bold">EE</td>
-                <td class="font-bold">ME</td>
-                <td class="font-bold">AE</td>
-                <td class="font-bold">BE</td>
+            <tr class="font-bold bg-gray-50">
+                <td>Performance level</td>
+                <td>EE</td>
+                <td>ME</td>
+                <td>AE</td>
+                <td>BE</td>
             </tr>
-            <tr class="uppercase">
-                <td></td>
+            <tr class="uppercase text-[10px]">
+                <td>Rubric Key</td>
                 <td>Exceeding Expectation</td>
                 <td>Meeting Expectation</td>
                 <td>Approaching Expectation</td>
                 <td>Below Expectation</td>
             </tr>
         </table>
+        {% endif %}
 
         <!-- Results Table -->
         <table class="formal-table mb-12">
@@ -168,7 +184,7 @@
                     <td class="font-bold">{{ result.display_score }}</td>
                     <td class="font-bold">{{ result.points }}</td>
                     <td class="font-bold">
-                        <span class="{% if result.grade == 'EE' %}text-emerald-600{% elif result.grade == 'ME' %}text-blue-600{% elif result.grade == 'AE' %}text-amber-600{% else %}text-rose-600{% endif %}">
+                        <span class="{% if 'EE' in result.grade %}text-emerald-600{% elif 'ME' in result.grade %}text-blue-600{% elif 'AE' in result.grade %}text-amber-600{% else %}text-rose-600{% endif %}">
                             {{ result.grade }}
                         </span>
                     </td>

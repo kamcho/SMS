@@ -192,6 +192,7 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'core/teacher_dashboard.html'
     
     def get_context_data(self, **kwargs):
+        from Exam.models import Exam
         context = super().get_context_data(**kwargs)
         
         # Get all class & subject assignments for this teacher
@@ -707,11 +708,26 @@ def create_student(request):
         if student_form.is_valid() and profile_form.is_valid():
             student = student_form.save()
             profile = profile_form.save(commit=False)
+            
+            # Use the balance from the form as the initial invoice amount
+            # But set the profile balance to 0 first to avoid doubling it 
+            # when the Invoice.save() updates the profile.
+            initial_balance = profile.fee_balance
+            profile.fee_balance = 0
             profile.student = student
             profile.save()
+
+            if initial_balance > 0:
+                from accounts.models import Invoice
+                Invoice.objects.create(
+                    student=student,
+                    amount=initial_balance,
+                    description="Opening Balance (Registration)",
+                    is_billed=False # Flag to track this was an initial balance
+                )
             
-            messages.success(request, f'Student {student.first_name} {student.last_name} has been created successfully!')
-            return redirect('create_student')
+            messages.success(request, f'Student {student.first_name} {student.last_name} has been enrolled successfully!')
+            return redirect('core:student-detail', pk=student.pk)
     else:
         student_form = StudentForm()
         profile_form = StudentProfileForm()
@@ -722,6 +738,32 @@ def create_student(request):
     }
     return render(request, 'core/create_student.html', context)
 
+
+@login_required
+def get_school_classes(request):
+    school_id = request.GET.get('school_id')
+    if not school_id:
+        return JsonResponse({'classes': []})
+    
+    classes = Class.objects.filter(school_id=school_id).select_related('grade')
+    data = [
+        {'id': c.id, 'name': f"{c.name} ({c.grade.name})"} 
+        for c in classes
+    ]
+    return JsonResponse({'classes': data})
+
+@login_required
+def get_school_classes(request):
+    school_id = request.GET.get('school_id')
+    if not school_id:
+        return JsonResponse({'classes': []})
+    
+    classes = Class.objects.filter(school_id=school_id).select_related('grade')
+    data = [
+        {'id': c.id, 'name': f"{c.name} ({c.grade.name})"} 
+        for c in classes
+    ]
+    return JsonResponse({'classes': data})
 
 class StudentDetailView(DetailView):
     model = Student
@@ -820,13 +862,37 @@ class StudentDetailView(DetailView):
                                 grade = r.grade
                                 break
                     else:
+                        # Fallback logic for Junior Secondary
+                        is_jss = self.object.studentprofile.class_id.grade.name in ['Grade 7', 'Grade 8', 'Grade 9'] if hasattr(self.object, 'studentprofile') and self.object.studentprofile and self.object.studentprofile.class_id.grade else False
+                        if is_jss:
+                            if perc >= 90: grade = 'EE1'
+                            elif perc >= 80: grade = 'EE2'
+                            elif perc >= 70: grade = 'ME1'
+                            elif perc >= 60: grade = 'ME2'
+                            elif perc >= 50: grade = 'AE1'
+                            elif perc >= 40: grade = 'AE2'
+                            elif perc >= 20: grade = 'BE1'
+                            else: grade = 'BE2'
+                        else:
+                            if perc >= 70: grade = 'EE'
+                            elif perc >= 60: grade = 'ME'
+                            elif perc >= 50: grade = 'AE'
+                else:
+                    # Fallback logic for Junior Secondary
+                    is_jss = self.object.studentprofile.class_id.grade.name in ['Grade 7', 'Grade 8', 'Grade 9'] if hasattr(self.object, 'studentprofile') and self.object.studentprofile and self.object.studentprofile.class_id.grade else False
+                    if is_jss:
+                        if perc >= 90: grade = 'EE1'
+                        elif perc >= 80: grade = 'EE2'
+                        elif perc >= 70: grade = 'ME1'
+                        elif perc >= 60: grade = 'ME2'
+                        elif perc >= 50: grade = 'AE1'
+                        elif perc >= 40: grade = 'AE2'
+                        elif perc >= 20: grade = 'BE1'
+                        else: grade = 'BE2'
+                    else:
                         if perc >= 70: grade = 'EE'
                         elif perc >= 60: grade = 'ME'
                         elif perc >= 50: grade = 'AE'
-                else:
-                    if perc >= 70: grade = 'EE'
-                    elif perc >= 60: grade = 'ME'
-                    elif perc >= 50: grade = 'AE'
                 
                 # Calculate diff compared to previous exam (using percentages)
                 score_diff = None
@@ -1563,7 +1629,18 @@ def class_exam_analytics(request, class_id):
                 if r.min_score <= score <= r.max_score:
                     return r.grade
         
-        # Fallback logic or for Grade 7/8/9
+        # Fallback logic for Grade 7/8/9
+        is_junior_secondary = student_grade_name in ['Grade 7', 'Grade 8', 'Grade 9']
+        if is_junior_secondary:
+            if score >= 90: return 'EE1'
+            if score >= 80: return 'EE2'
+            if score >= 70: return 'ME1'
+            if score >= 60: return 'ME2'
+            if score >= 50: return 'AE1'
+            if score >= 40: return 'AE2'
+            if score >= 20: return 'BE1'
+            return 'BE2'
+            
         if score >= 70: return 'EE'
         if score >= 60: return 'ME'
         if score >= 50: return 'AE'
@@ -1630,9 +1707,20 @@ def class_exam_analytics(request, class_id):
                         break
             else:
                 # Fallback matching the model logic (based on percentage for fallback)
-                if perc >= 70: best_grade = 'EE'
-                elif perc >= 60: best_grade = 'ME'
-                elif perc >= 50: best_grade = 'AE'
+                is_junior_secondary = class_obj.grade.name in ['Grade 7', 'Grade 8', 'Grade 9']
+                if is_junior_secondary:
+                    if perc >= 90: best_grade = 'EE1'
+                    elif perc >= 80: best_grade = 'EE2'
+                    elif perc >= 70: best_grade = 'ME1'
+                    elif perc >= 60: best_grade = 'ME2'
+                    elif perc >= 50: best_grade = 'AE1'
+                    elif perc >= 40: best_grade = 'AE2'
+                    elif perc >= 20: best_grade = 'BE1'
+                    else: best_grade = 'BE2'
+                else:
+                    if perc >= 70: best_grade = 'EE'
+                    elif perc >= 60: best_grade = 'ME'
+                    elif perc >= 50: best_grade = 'AE'
             
             s_data['grade'] = best_grade
 
@@ -1709,12 +1797,26 @@ def class_exam_analytics(request, class_id):
             display_scores.append(score_obj)
         student_data['display_scores'] = display_scores
 
-    grade_counts = {'EE': 0, 'ME': 0, 'AE': 0, 'BE': 0}
+    # Dynamically determine the grade list for charts and tallies
+    is_junior_secondary = class_obj.grade.name in ['Grade 7', 'Grade 8', 'Grade 9'] if class_obj.grade else False
+    if is_junior_secondary:
+        current_grade_list = ['EE1', 'EE2', 'ME1', 'ME2', 'AE1', 'AE2', 'BE1', 'BE2']
+    else:
+        current_grade_list = ['EE', 'ME', 'AE', 'BE']
+
+    grade_counts = {g: 0 for g in current_grade_list}
     for s in ranked_students:
         avg = s['avg_score']
         g = get_score_grade(avg, class_obj.grade.name)
         if g in grade_counts:
             grade_counts[g] += 1
+    # Calculate aggregated counts for summary cards
+    level_counts = {
+        'EE': grade_counts.get('EE', 0) + grade_counts.get('EE1', 0) + grade_counts.get('EE2', 0),
+        'ME': grade_counts.get('ME', 0) + grade_counts.get('ME1', 0) + grade_counts.get('ME2', 0),
+        'AE': grade_counts.get('AE', 0) + grade_counts.get('AE1', 0) + grade_counts.get('AE2', 0),
+        'BE': grade_counts.get('BE', 0) + grade_counts.get('BE1', 0) + grade_counts.get('BE2', 0),
+    }
 
     # Calculate class average (average of student averages)
     total_avg = sum(s['avg_score'] for s in ranked_students)
@@ -1775,6 +1877,7 @@ def class_exam_analytics(request, class_id):
         'report_exam_id': selected_exam or (ExamSUbjectScore.objects.filter(student__studentprofile__class_id=class_obj).order_by('-paper__exam_subject__exam__year__start_date').values_list('paper__exam_subject__exam_id', flat=True).first()),
         'selected_subject': selected_subject,
         'total_students': len(students),
+        'is_junior_secondary': is_junior_secondary,
     }
     
     # Calculate historical class performance trend
@@ -1866,14 +1969,13 @@ def class_exam_analytics(request, class_id):
     context['subject_averages'] = historical_averages # For backward compat if needed
     context['historical_averages_js'] = historical_averages_js
     
-    context['grade_labels_js'] = json.dumps(['EE', 'ME', 'AE', 'BE'])
-    context['grade_data_js'] = json.dumps([grade_counts.get(g, 0) for g in ['EE', 'ME', 'AE', 'BE']])
+    context['grade_labels_js'] = json.dumps(current_grade_list)
+    context['grade_data_js'] = json.dumps([grade_counts.get(g, 0) for g in current_grade_list])
     
     # Gender Distribution by Grade for Grouped Bar Chart
-    # Use ranked_students (pre-calculated with averages) to determine grades
     gender_grade_data = {
-        'male': {'EE': 0, 'ME': 0, 'AE': 0, 'BE': 0},
-        'female': {'EE': 0, 'ME': 0, 'AE': 0, 'BE': 0}
+        'male': {g: 0 for g in current_grade_list},
+        'female': {g: 0 for g in current_grade_list}
     }
     for s in ranked_students:
         gen = s['student'].gender
@@ -1882,9 +1984,9 @@ def class_exam_analytics(request, class_id):
         if gen in gender_grade_data:
             gender_grade_data[gen][g] += 1
             
-    context['gender_labels_js'] = json.dumps(['EE', 'ME', 'AE', 'BE'])
-    context['gender_male_data_js'] = json.dumps([gender_grade_data['male'][g] for g in ['EE', 'ME', 'AE', 'BE']])
-    context['gender_female_data_js'] = json.dumps([gender_grade_data['female'][g] for g in ['EE', 'ME', 'AE', 'BE']])
+    context['gender_labels_js'] = json.dumps(current_grade_list)
+    context['gender_male_data_js'] = json.dumps([gender_grade_data.get('male', {}).get(g, 0) for g in current_grade_list])
+    context['gender_female_data_js'] = json.dumps([gender_grade_data.get('female', {}).get(g, 0) for g in current_grade_list])
     
     return render(request, 'core/class_exam_analytics.html', context)
 
@@ -1955,6 +2057,19 @@ def class_merit_list(request, class_id):
             for r in rankings:
                 if r.min_score <= score <= r.max_score:
                     return r.grade
+        
+        # Fallback logic for Grade 7/8/9
+        is_junior_secondary = student_grade_name in ['Grade 7', 'Grade 8', 'Grade 9']
+        if is_junior_secondary:
+            if score >= 90: return 'EE1'
+            if score >= 80: return 'EE2'
+            if score >= 70: return 'ME1'
+            if score >= 60: return 'ME2'
+            if score >= 50: return 'AE1'
+            if score >= 40: return 'AE2'
+            if score >= 20: return 'BE1'
+            return 'BE2'
+            
         if score >= 70: return 'EE'
         if score >= 60: return 'ME'
         if score >= 50: return 'AE'
@@ -1992,17 +2107,7 @@ def class_merit_list(request, class_id):
             s_data['percentage'] = round(perc, 1)
             student_subject_percentages.append(perc)
             
-            best_grade = 'BE'
-            if s_rankings:
-                for r in s_rankings:
-                    if r.min_score <= s_total_score <= r.max_score:
-                        best_grade = r.grade
-                        break
-            else:
-                if perc >= 70: best_grade = 'EE'
-                elif perc >= 60: best_grade = 'ME'
-                elif perc >= 50: best_grade = 'AE'
-            s_data['grade'] = best_grade
+            s_data['grade'] = get_score_grade(perc, class_obj.grade.name, s_rankings)
 
         total_score_sum = sum(s['score'] for s in subject_scores.values())
         avg_percentage = sum(student_subject_percentages) / len(student_subject_percentages) if student_subject_percentages else 0
@@ -2093,6 +2198,7 @@ def class_merit_list(request, class_id):
         'subject_footer_stats': subject_footer_stats,
         'selected_exam': selected_exam,
         'selected_subject': selected_subject,
+        'is_junior_secondary': class_obj.grade.name in ['Grade 7', 'Grade 8', 'Grade 9'] if class_obj.grade else False,
         'today': timezone.now(),
     }
     
@@ -2284,13 +2390,31 @@ def subject_exam_analytics(request, class_id, subject_id, exam_id):
         student_id__in=student_ids
     ).select_related('student')
     
+    # Dynamically determine the grade list for charts and tallies
+    is_junior_secondary = class_obj.grade.name in ['Grade 7', 'Grade 8', 'Grade 9'] if class_obj.grade else False
+    if is_junior_secondary:
+        current_grade_list = ['EE1', 'EE2', 'ME1', 'ME2', 'AE1', 'AE2', 'BE1', 'BE2']
+    else:
+        current_grade_list = ['EE', 'ME', 'AE', 'BE']
+
     # Calculate Grade distribution
     grade_counts = current_scores.values('grade').annotate(total=Count('id'))
-    grades_data = {
-        'EE': 0, 'ME': 0, 'AE': 0, 'BE': 0
-    }
+    grades_data = {g: 0 for g in current_grade_list}
+    
     for item in grade_counts:
-        grades_data[item['grade']] = item['total']
+        g = item['grade']
+        if g in grades_data:
+            grades_data[g] = item['total']
+            if g not in current_grade_list:
+                current_grade_list.append(g)
+        
+    # Calculate aggregated counts for summary cards
+    level_counts = {
+        'EE': grades_data.get('EE', 0) + grades_data.get('EE1', 0) + grades_data.get('EE2', 0),
+        'ME': grades_data.get('ME', 0) + grades_data.get('ME1', 0) + grades_data.get('ME2', 0),
+        'AE': grades_data.get('AE', 0) + grades_data.get('AE1', 0) + grades_data.get('AE2', 0),
+        'BE': grades_data.get('BE', 0) + grades_data.get('BE1', 0) + grades_data.get('BE2', 0),
+    }
         
     # Calculate Gender distribution
     gender_stats = current_scores.values('student__gender').annotate(
@@ -2399,6 +2523,8 @@ def subject_exam_analytics(request, class_id, subject_id, exam_id):
         'avg_score': round(avg_score, 1),
         'student_count': current_scores.count(),
         'gender_stats': gender_stats,
+        'is_junior_secondary': is_junior_secondary,
+        'level_counts': level_counts,
         'previous_exam': previous_exam,
         'available_exams': subject_exams,
         # JSON for charts
@@ -2406,15 +2532,15 @@ def subject_exam_analytics(request, class_id, subject_id, exam_id):
         'historical_averages_js': json.dumps(historical_averages),
         'comparative_datasets_js': json.dumps(get_comparative_trend_data(subject, class_obj, subject_exams)),
         # Grade Distribution Data
-        'grade_labels_js': json.dumps(['EE', 'ME', 'AE', 'BE']),
-        'grade_data_js': json.dumps([grades_data.get(g, 0) for g in ['EE', 'ME', 'AE', 'BE']]),
+        'grade_labels_js': json.dumps(current_grade_list),
+        'grade_data_js': json.dumps([grades_data.get(g, 0) for g in current_grade_list]),
         # Student Comparison Data (Current vs Prev)
         'chart_labels_js': json.dumps(chart_labels),
         'current_data_js': json.dumps(current_student_data),
         'prev_data_js': json.dumps(prev_student_data),
-        'gender_labels_js': json.dumps(['EE', 'ME', 'AE', 'BE']),
-        'gender_male_data_js': json.dumps([current_scores.filter(grade=g, student__gender='male').count() for g in ['EE', 'ME', 'AE', 'BE']]),
-        'gender_female_data_js': json.dumps([current_scores.filter(grade=g, student__gender='female').count() for g in ['EE', 'ME', 'AE', 'BE']]),
+        'gender_labels_js': json.dumps(current_grade_list),
+        'gender_male_data_js': json.dumps([current_scores.filter(grade=g, student__gender='male').count() for g in current_grade_list]),
+        'gender_female_data_js': json.dumps([current_scores.filter(grade=g, student__gender='female').count() for g in current_grade_list]),
         'radar_labels_js': json.dumps(radar_labels),
         'radar_datasets_js': json.dumps(radar_datasets),
     }
@@ -2470,19 +2596,45 @@ def student_report(request, student_id, exam_id):
             if ranking:
                 data['grade'] = ranking.grade
             else:
-                # Fallback
+                # Fallback matching Junior Secondary 1/2 levels
+                if is_junior_secondary:
+                    if perc >= 90: data['grade'] = 'EE1'
+                    elif perc >= 80: data['grade'] = 'EE2'
+                    elif perc >= 70: data['grade'] = 'ME1'
+                    elif perc >= 60: data['grade'] = 'ME2'
+                    elif perc >= 50: data['grade'] = 'AE1'
+                    elif perc >= 40: data['grade'] = 'AE2'
+                    elif perc >= 20: data['grade'] = 'BE1'
+                    else: data['grade'] = 'BE2'
+                else:
+                    if perc >= 80: data['grade'] = 'EE'
+                    elif perc >= 60: data['grade'] = 'ME'
+                    elif perc >= 40: data['grade'] = 'AE'
+                    else: data['grade'] = 'BE'
+        else:
+            if is_junior_secondary:
+                if perc >= 90: data['grade'] = 'EE1'
+                elif perc >= 80: data['grade'] = 'EE2'
+                elif perc >= 70: data['grade'] = 'ME1'
+                elif perc >= 60: data['grade'] = 'ME2'
+                elif perc >= 50: data['grade'] = 'AE1'
+                elif perc >= 40: data['grade'] = 'AE2'
+                elif perc >= 20: data['grade'] = 'BE1'
+                else: data['grade'] = 'BE2'
+            else:
                 if perc >= 80: data['grade'] = 'EE'
                 elif perc >= 60: data['grade'] = 'ME'
                 elif perc >= 40: data['grade'] = 'AE'
                 else: data['grade'] = 'BE'
-        else:
-            if perc >= 80: data['grade'] = 'EE'
-            elif perc >= 60: data['grade'] = 'ME'
-            elif perc >= 40: data['grade'] = 'AE'
-            else: data['grade'] = 'BE'
         
-        # Calculate Points
-        point_map = {'EE': 4, 'ME': 3, 'AE': 2, 'BE': 1}
+        # Calculate Points (8-point scale for JSS, 4-point for others)
+        point_map = {
+            'EE1': 8, 'EE2': 7, 
+            'ME1': 6, 'ME2': 5, 
+            'AE1': 4, 'AE2': 3, 
+            'BE1': 2, 'BE2': 1,
+            'EE': 4, 'ME': 3, 'AE': 2, 'BE': 1
+        }
         data['points'] = point_map.get(data['grade'], 1)
 
     student_average = round(sum(total_percentages) / len(total_percentages), 1) if total_percentages else 0
@@ -2556,18 +2708,44 @@ def bulk_class_reports(request, class_id, exam_id):
                 if ranking:
                     data['grade'] = ranking.grade
                 else:
+                    if is_junior_secondary:
+                        if perc >= 90: data['grade'] = 'EE1'
+                        elif perc >= 80: data['grade'] = 'EE2'
+                        elif perc >= 70: data['grade'] = 'ME1'
+                        elif perc >= 60: data['grade'] = 'ME2'
+                        elif perc >= 50: data['grade'] = 'AE1'
+                        elif perc >= 40: data['grade'] = 'AE2'
+                        elif perc >= 20: data['grade'] = 'BE1'
+                        else: data['grade'] = 'BE2'
+                    else:
+                        if perc >= 80: data['grade'] = 'EE'
+                        elif perc >= 60: data['grade'] = 'ME'
+                        elif perc >= 40: data['grade'] = 'AE'
+                        else: data['grade'] = 'BE'
+            else:
+                if is_junior_secondary:
+                    if perc >= 90: data['grade'] = 'EE1'
+                    elif perc >= 80: data['grade'] = 'EE2'
+                    elif perc >= 70: data['grade'] = 'ME1'
+                    elif perc >= 60: data['grade'] = 'ME2'
+                    elif perc >= 50: data['grade'] = 'AE1'
+                    elif perc >= 40: data['grade'] = 'AE2'
+                    elif perc >= 20: data['grade'] = 'BE1'
+                    else: data['grade'] = 'BE2'
+                else:
                     if perc >= 80: data['grade'] = 'EE'
                     elif perc >= 60: data['grade'] = 'ME'
                     elif perc >= 40: data['grade'] = 'AE'
                     else: data['grade'] = 'BE'
-            else:
-                if perc >= 80: data['grade'] = 'EE'
-                elif perc >= 60: data['grade'] = 'ME'
-                elif perc >= 40: data['grade'] = 'AE'
-                else: data['grade'] = 'BE'
             
-            # Calculate Points
-            point_map = {'EE': 4, 'ME': 3, 'AE': 2, 'BE': 1}
+            # Calculate Points (8-point scale for JSS, 4-point for others)
+            point_map = {
+                'EE1': 8, 'EE2': 7, 
+                'ME1': 6, 'ME2': 5, 
+                'AE1': 4, 'AE2': 3, 
+                'BE1': 2, 'BE2': 1,
+                'EE': 4, 'ME': 3, 'AE': 2, 'BE': 1
+            }
             data['points'] = point_map.get(data['grade'], 1)
 
         student_average = round(sum(total_percentages) / len(total_percentages), 1) if total_percentages else 0

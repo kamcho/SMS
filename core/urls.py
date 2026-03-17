@@ -33,6 +33,7 @@ urlpatterns = [
     path('attendance/<int:class_id>/', views.mark_attendance, name='mark-attendance'),
     path('attendance/<int:class_id>/<str:date>/', views.attendance_detail, name='attendance-detail'),
     path('attendance/data/', views.get_attendance_data, name='get-attendance-data'),
+    path('ajax/get-school-classes/', views.get_school_classes, name='get-school-classes'),
     path('schools-analytics/', views.schools_analytics, name='schools-analytics'),
     path('discipline/', views.discipline_log, name='discipline-log'),
     path('configurations/academic-year/<int:year_id>/activate/', views.activate_academic_year, name='activate-academic-year'),

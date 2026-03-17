@@ -28,6 +28,16 @@
                 <p class="text-2xl font-black text-indigo-600 leading-tight">{{ total_students }}</p>
             </div>
         </div>
+
+        <a href="{% url 'core:create-student' %}" class="bg-indigo-600 text-white px-8 py-4 rounded-[1.5rem] shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:-translate-y-1 transition-all duration-300 flex items-center gap-3">
+            <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <i class="fas fa-plus text-sm"></i>
+            </div>
+            <div class="text-left">
+                <p class="text-[9px] font-black text-indigo-200 uppercase tracking-widest leading-none mb-1">New Enrollment</p>
+                <p class="text-sm font-black uppercase leading-tight">Enroll Student</p>
+            </div>
+        </a>
     </div>
 </div>
 {% endblock %}
