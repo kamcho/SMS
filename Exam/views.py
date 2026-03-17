@@ -19,7 +19,6 @@ class TeacherScoreEntryView(LoginRequiredMixin, View):
                     subject_id=subject_id
                 )
             except TeacherClassProfile.DoesNotExist:
-                from django.contrib import messages
                 messages.error(request, "You are not permitted to enter scores for this class subject.")
                 return redirect('core:class-detail', pk=class_id)
 
@@ -83,7 +82,6 @@ class TeacherScoreEntryView(LoginRequiredMixin, View):
                     subject_id=subject_id
                 )
             except TeacherClassProfile.DoesNotExist:
-                from django.contrib import messages
                 messages.error(request, "Permission denied.")
                 return redirect('core:class-detail', pk=class_id)
                 
