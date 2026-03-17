@@ -12,7 +12,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from .models import Student, StudentProfile, School,StudentDiscipline, Class, Grade, AcademicYear, Term, ExamMode, TeacherClassProfile, AttendanceSession, StudentAttendance
 from .forms import StudentForm, StudentProfileForm, AcademicYearForm, TermForm, GradeForm, ClassForm, ExamForm, ExamModeForm, PaymentForm, AttendanceSessionForm, StudentAttendanceForm
-from Exam.models import ExamSUbjectScore, Exam, Subject
+from Exam.models import ExamSUbjectScore, Exam, Subject, ExamSubjectConfiguration, ScoreRanking
 from accounts.models import Payment, FeeStructure
 from communication.models import Notification, PaymentNotification
 from django.views.generic import TemplateView
@@ -312,7 +312,7 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
 
         invigilated_data = []
         if active_exam:
-            from Exam.models import ExamSubjectConfiguration
+            # Get exams
             # Use invigilator_classes strictly for score entry modal
             for c in invigilator_classes:
                 # Use active exam configurations to find relevant subjects for this grade
@@ -331,7 +331,7 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
                     })
         context['invigilated_data'] = invigilated_data
 
-        from Exam.models import Exam
+        # Get exams
         context['latest_exam'] = Exam.objects.order_by('-id').first()
         
         return context
@@ -717,8 +717,7 @@ class StudentDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        from Exam.models import Exam, ExamSUbjectScore
-        
+        # Fetch all available exams for the filter dropdown (newest first)
         # Fetch all available exams for the filter dropdown (newest first)
         context['all_exams'] = Exam.objects.all().order_by('-id')
         
@@ -743,7 +742,6 @@ class StudentDetailView(DetailView):
         
         # Fetch filtered exam scores with aggregation by subject
         if selected_exam:
-            from Exam.models import ExamSubjectConfiguration
             from types import SimpleNamespace
             
             # 1. Fetch RAW scores for current exam
@@ -1122,7 +1120,6 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
                 try:
                     from core.models import TeacherClassProfile
                     from users.models import MyUser
-                    from Exam.models import Subject
                     
                     teacher = MyUser.objects.get(id=teacher_id)
                     subject = Subject.objects.get(id=subject_id)
@@ -1174,7 +1171,6 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
         
         # Teacher Assignments & Exams for Score Entry
         from core.models import TeacherClassProfile
-        from Exam.models import Exam, Subject
         from users.models import MyUser
 
         context['teacher_assignments'] = TeacherClassProfile.objects.filter(
@@ -1525,7 +1521,6 @@ def class_exam_analytics(request, class_id):
         exam_scores = exam_scores.filter(paper__exam_subject__subject_id=selected_subject)
         
     # NEW: Fetch rankings if we have a specific subject filter
-    from Exam.models import ExamSubjectConfiguration, ScoreRanking
     rankings = []
     if selected_subject and selected_exam:
         config = ExamSubjectConfiguration.objects.filter(exam_id=selected_exam, subject_id=selected_subject).first()
@@ -1907,12 +1902,9 @@ def class_merit_list(request, class_id):
 
     exam_obj = None
     if selected_exam:
-        from Exam.models import Exam
         exam_obj = Exam.objects.filter(id=selected_exam).first()
         
     # NEW: Fetch rankings
-    from Exam.models import ExamSubjectConfiguration, ScoreRanking
-    
     # Organize data for display
     analytics_data = {}
     
@@ -2402,7 +2394,6 @@ def subject_exam_analytics(request, class_id, subject_id, exam_id):
 
 @login_required
 def student_report(request, student_id, exam_id):
-    from Exam.models import Exam, ExamSUbjectScore, ExamSubjectConfiguration
     from datetime import datetime
     student = get_object_or_404(Student, id=student_id)
     exam = get_object_or_404(Exam, id=exam_id)
@@ -2481,7 +2472,6 @@ def student_report(request, student_id, exam_id):
 
 @login_required
 def bulk_class_reports(request, class_id, exam_id):
-    from Exam.models import Exam, ExamSUbjectScore, ExamSubjectConfiguration
     from datetime import datetime
     class_obj = get_object_or_404(Class, id=class_id)
     exam = get_object_or_404(Exam, id=exam_id)
@@ -2850,8 +2840,6 @@ def get_attendance_data(request):
 
 @login_required
 def schools_analytics(request):
-    from Exam.models import Exam, Subject, ExamSUbjectScore
-    from core.models import Grade, Class, StudentProfile
     from django.db.models import Sum
     
     # Get distinct grade names for selection
