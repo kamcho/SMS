@@ -346,11 +346,23 @@
                     </h4>
                     
                     {% if icls.subjects %}
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {% for subj in icls.subjects %}
-                        <a href="{% url 'Exam:score-entry' icls.class_obj.id subj.id active_exam.id %}" class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:bg-indigo-600 hover:border-indigo-600 hover:text-white group transition-all shadow-sm">
-                            <span class="text-[12px] font-bold text-slate-700 group-hover:text-white transition-colors">{{ subj.name }}</span>
-                            <i class="fas fa-arrow-right text-[10px] text-slate-300 group-hover:text-white/70 transition-colors"></i>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {% for item in icls.subjects %}
+                        <a href="{% url 'Exam:score-entry' icls.class_obj.id item.subject.id active_exam.id %}" class="flex flex-col p-3 bg-white border border-slate-200 rounded-xl hover:bg-white hover:border-indigo-500 group transition-all shadow-sm">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[12px] font-bold text-slate-700">{{ item.subject.name }}</span>
+                                <i class="fas fa-arrow-right text-[10px] text-slate-300 group-hover:text-indigo-500 transition-colors"></i>
+                            </div>
+                            <div class="space-y-1.5">
+                                <div class="flex items-center justify-between text-[10px] font-bold">
+                                    <span class="{% if item.is_complete %}text-emerald-500{% else %}text-slate-400{% endif %}">
+                                        {{ item.progress }}% entered
+                                    </span>
+                                </div>
+                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="h-full {% if item.is_complete %}bg-emerald-500{% else %}bg-indigo-500{% endif %} transition-all duration-500" style="width: {{ item.progress }}%"></div>
+                                </div>
+                            </div>
                         </a>
                         {% endfor %}
                     </div>

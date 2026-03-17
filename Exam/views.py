@@ -20,7 +20,7 @@ class TeacherScoreEntryView(LoginRequiredMixin, View):
                 )
             except TeacherClassProfile.DoesNotExist:
                 messages.error(request, "You are not permitted to enter scores for this class subject.")
-                return redirect('core:class-detail', pk=class_id)
+                return redirect('core:teacher-dashboard')
 
         subject = get_object_or_404(Subject, id=subject_id)
         exam = get_object_or_404(Exam, id=exam_id)
@@ -83,7 +83,7 @@ class TeacherScoreEntryView(LoginRequiredMixin, View):
                 )
             except TeacherClassProfile.DoesNotExist:
                 messages.error(request, "Permission denied.")
-                return redirect('core:class-detail', pk=class_id)
+                return redirect('core:teacher-dashboard')
                 
         subject = get_object_or_404(Subject, id=subject_id)
         exam = get_object_or_404(Exam, id=exam_id)
@@ -121,7 +121,7 @@ class TeacherScoreEntryView(LoginRequiredMixin, View):
                         pass
         
         messages.success(request, f"Scores saved successfully for {subject.name} - {exam.name}")
-        return redirect('core:class-detail', pk=class_id)
+        return redirect('core:teacher-dashboard')
 
 
 class CreateExamView(LoginRequiredMixin, View):

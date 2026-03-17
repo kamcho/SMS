@@ -301,13 +301,17 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
         context['female_count'] = female_count
         context['recent_attendance'] = attendance_summary
         context['school_name'] = school_name
-        
-        # Determine active exam: BOTH is_running AND ExamMode active must be true
-        from core.models import ExamMode
+        # Determine active exam: prioritize ExamMode, fall back to latest running exam
         exam_mode = ExamMode.objects.select_related('exam').first()
         active_exam = None
         if exam_mode and exam_mode.active and exam_mode.exam and exam_mode.exam.is_running:
             active_exam = exam_mode.exam
+        
+        if not active_exam:
+            # Fallback to the latest exam marked as running
+            from Exam.models import Exam
+            active_exam = Exam.objects.filter(is_running=True).order_by('-id').first()
+            
         context['active_exam'] = active_exam
 
         invigilated_data = []
@@ -321,13 +325,35 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
                     subject__grade=c.grade.name
                 ).select_related('subject')
                 
-                subj_list = [conf.subject for conf in configs]
-                subj_list.sort(key=lambda s: s.name)
+                # Get total students in this class for percentage calculation
+                total_students_in_class = StudentProfile.objects.filter(class_id=c).count()
                 
-                if subj_list:
+                subjects_with_progress = []
+                for conf in configs:
+                    # Calculate progress: (Actual scores) / (Total expected scores)
+                    # Total expected = students * papers
+                    expected = total_students_in_class * conf.paper_count
+                    if expected > 0:
+                        actual = ExamSUbjectScore.objects.filter(
+                            paper__exam_subject=conf,
+                            student__studentprofile__class_id=c
+                        ).count()
+                        progress = round((actual / expected) * 100, 1)
+                    else:
+                        progress = 0
+                    
+                    subjects_with_progress.append({
+                        'subject': conf.subject,
+                        'progress': progress,
+                        'is_complete': progress >= 100
+                    })
+                
+                subjects_with_progress.sort(key=lambda x: x['subject'].name)
+                
+                if subjects_with_progress:
                     invigilated_data.append({
                         'class_obj': c,
-                        'subjects': subj_list
+                        'subjects': subjects_with_progress
                     })
         context['invigilated_data'] = invigilated_data
 
@@ -1181,6 +1207,7 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
         # Determine active exam: BOTH is_running AND ExamMode active must be true
         from core.models import ExamMode
         
+        # Determine active exam: prioritize ExamMode, fall back to latest running exam
         # Get the singleton ExamMode
         exam_mode = ExamMode.objects.select_related('exam').first()
         
@@ -1188,6 +1215,10 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
         active_exam = None
         if exam_mode and exam_mode.active and exam_mode.exam and exam_mode.exam.is_running:
             active_exam = exam_mode.exam
+            
+        if not active_exam:
+            # Fallback to latest running exam if no ExamMode is active
+            active_exam = Exam.objects.filter(is_running=True).order_by('-id').first()
         
         context['active_exam'] = active_exam
         context['latest_exam'] = Exam.objects.order_by('-id').first()
