@@ -309,7 +309,6 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
         
         if not active_exam:
             # Fallback to the latest exam marked as running
-            from Exam.models import Exam
             active_exam = Exam.objects.filter(is_running=True).order_by('-id').first()
             
         context['active_exam'] = active_exam
