@@ -125,7 +125,7 @@ def guardian_dashboard(request):
     # Fee structures related to the guardian's students' grades
     fee_structures = FeeStructure.objects.filter(
         grade__id__in=grade_ids
-    ).select_related('academic_year', 'term').prefetch_related('grade').distinct().order_by('-created_at')[:10]
+    ).select_related('term').prefetch_related('grade').distinct().order_by('-created_at')[:10]
     
     financial_log = []
     for p in student_payments:
@@ -139,8 +139,7 @@ def guardian_dashboard(request):
         })
     for i in student_invoices:
         if hasattr(i, 'fee_structure') and i.fee_structure:
-            year = i.fee_structure.academic_year.start_date.year if i.fee_structure.academic_year else ""
-            desc = f"Billed: {i.fee_structure.term.name} {year}"
+            desc = f"Billed: {i.fee_structure.term.name}"
         else:
             desc = i.description or "General Billing"
             
@@ -1373,7 +1372,7 @@ def configurations(request):
         'exams': Exam.objects.all().select_related('year', 'term').order_by('-year__start_date', 'term__name'),
         'exam_modes': ExamMode.objects.all(),
         'schools': School.objects.all(),
-        'fee_structures': FeeStructure.objects.all().select_related('academic_year', 'term').prefetch_related('grade'),
+        'fee_structures': FeeStructure.objects.all().select_related('term').prefetch_related('grade'),
     }
     
     # Get forms for each model

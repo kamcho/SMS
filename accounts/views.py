@@ -495,3 +495,87 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
             
         return redirect(get_redirect_url())
 
+class MigrateTermView(LoginRequiredMixin, TemplateView):
+    """
+    Invoices all students across all schools for a selected term
+    based on the fee structure of their grade and student type.
+    """
+    template_name = 'accounts/migrate_term.html'
+
+    def get_context_data(self, **kwargs):
+        from core.models import Term
+        context = super().get_context_data(**kwargs)
+
+        profiles = StudentProfile.objects.select_related('student', 'class_id__grade', 'school')
+
+        context['terms'] = Term.objects.all().order_by('id')
+        context['total_students'] = profiles.count()
+        context['schools'] = School.objects.all()
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        from core.models import Term
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+        if not request.user.is_superuser and request.user.role not in ['Admin', 'Accountant']:
+            msg = "Permission denied."
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': msg}, status=403)
+            messages.error(request, msg)
+            return redirect('accounts:migrate-term')
+
+        term_id = request.POST.get('term_id')
+        if not term_id:
+            msg = "Please select a term to migrate."
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': msg})
+            messages.error(request, msg)
+            return redirect('accounts:migrate-term')
+
+        try:
+            selected_term = Term.objects.get(id=term_id)
+        except Term.DoesNotExist:
+            msg = "Selected term does not exist."
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': msg})
+            messages.error(request, msg)
+            return redirect('accounts:migrate-term')
+
+        profiles = StudentProfile.objects.select_related('student', 'class_id__grade', 'school')
+
+        def get_structure_for_profile(profile):
+            s_type = 'boarder' if profile.student.is_boarder else 'day'
+            return FeeStructure.objects.filter(
+                term=selected_term,
+                school=profile.school,
+                student_type=s_type,
+                grade=profile.class_id.grade,
+            ).first()
+
+        invoice_count = 0
+        missing_structure_count = 0
+
+        for profile in profiles:
+            fee_structure = get_structure_for_profile(profile)
+            if not fee_structure:
+                missing_structure_count += 1
+                continue
+
+            if not Invoice.objects.filter(student=profile.student, fee_structure=fee_structure).exists():
+                Invoice.objects.create(
+                    student=profile.student,
+                    fee_structure=fee_structure,
+                    amount=fee_structure.amount,
+                )
+                invoice_count += 1
+
+        msg = f"Successfully created {invoice_count} invoices across all schools for {selected_term.name}."
+        if missing_structure_count > 0:
+            msg += f" {missing_structure_count} students skipped due to missing fee structures."
+
+        if is_ajax:
+            return JsonResponse({'status': 'success', 'message': msg})
+
+        messages.success(request, msg)
+        return redirect('accounts:migrate-term')

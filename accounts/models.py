@@ -8,7 +8,6 @@ class FeeStructure(models.Model):
         ('boarder', 'Boarder'),
     ]
     grade = models.ManyToManyField('core.Grade')
-    academic_year = models.ForeignKey('core.AcademicYear', on_delete=models.CASCADE)
     term = models.ForeignKey('core.Term', on_delete=models.CASCADE)
     school = models.ForeignKey('core.School', on_delete=models.CASCADE, null=True, blank=True)
     student_type = models.CharField(max_length=10, choices=STUDENT_TYPES, default='day')
@@ -16,12 +15,12 @@ class FeeStructure(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('academic_year', 'term', 'school', 'student_type')
-
+        unique_together = ('term', 'school', 'student_type')
+    
     def __str__(self):
-        academic_year = self.academic_year.start_date.year
-        term = self.term.name
-        return f"- {term} ({academic_year})"
+        term = self.term.name if self.term else ""
+        school = self.school.name if self.school else "All Schools"
+        return f"{school} - {term} ({self.get_student_type_display()})"
 
 class Structure(models.Model):
     fee = models.ForeignKey(FeeStructure, on_delete=models.CASCADE)

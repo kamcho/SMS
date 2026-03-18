@@ -3,14 +3,14 @@ from .models import FeeStructure, Invoice, Payment
 
 @admin.register(FeeStructure)
 class FeeStructureAdmin(admin.ModelAdmin):
-    list_display = ('term', 'academic_year', 'amount', 'created_at')
-    list_filter = ('term', 'academic_year')
+    list_display = ('term',  'amount', 'created_at')
+    list_filter = ('term', )
     search_fields = ('term__name',)
 
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
     list_display = ('student', 'fee_structure', 'amount', 'created_at')
-    list_filter = ('fee_structure__term', 'fee_structure__academic_year')
+    list_filter = ('fee_structure__term', )
     search_fields = ('student__first_name', 'student__last_name', 'student__adm_no')
     readonly_fields = ('amount', 'is_billed')
 

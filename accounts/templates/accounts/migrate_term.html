@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}Migrate Term | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+    <div class="flex items-center gap-4">
+        <a href="{% url 'accounts:fees-analytics' %}" class="bg-white border border-slate-200 text-slate-500 hover:text-slate-800 w-10 h-10 rounded-xl shadow-sm flex items-center justify-center transition-colors">
+            <i class="fas fa-arrow-left text-sm"></i>
+        </a>
+        <div>
+            <h1 class="text-[22px] font-bold text-slate-800">Migrate Term</h1>
+            <p class="text-[13px] text-slate-500 font-medium">Bulk invoicing for all students across all schools for a selected term.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 gap-6">
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800">Term Migration Summary</h3>
+                <p class="text-[12px] text-slate-500 font-medium mt-1">
+                    This action will create invoices for every student based on their grade fee structure and update their fee balances.
+                </p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 md:col-span-2">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Select Term To Migrate</p>
+                <form id="migrate-term-form" method="post" class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    {% csrf_token %}
+                    <select name="term_id" class="w-full sm:w-auto px-3 py-2 text-[13px] border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">-- Choose term --</option>
+                        {% for term in terms %}
+                        <option value="{{ term.id }}">{{ term.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-5 py-2.5 bg-indigo-600 border border-indigo-600 text-white rounded-xl text-[13px] font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm shadow-indigo-100">
+                        <i class="fas fa-file-invoice-dollar text-indigo-200"></i>
+                        Run Term Migration
+                    </button>
+                </form>
+            </div>
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Students (All Schools)</p>
+                <p class="text-[15px] font-bold text-slate-700">{{ total_students }}</p>
+            </div>
+        </div>
+
+        <p class="mt-4 text-[11px] text-slate-400 font-medium">
+            Note: Students without a matching fee structure (by school, grade, student type, and selected term) will be skipped.
+        </p>
+    </div>
+</div>
+<!-- Progress Modal -->
+<div id="term-progress-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+        <div class="p-8 text-center">
+            <div class="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 relative">
+                <i class="fas fa-file-invoice-dollar text-3xl animate-pulse"></i>
+                <div class="absolute inset-0 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+            </div>
+            
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Migrating Term Fees...</h3>
+            <p id="term-progress-status" class="text-slate-500 text-sm font-medium mb-8">
+                Please wait while we invoice all students for the selected term.
+            </p>
+            
+            <div class="relative pt-1">
+                <div class="flex mb-2 items-center justify-between">
+                    <div>
+                        <span id="term-progress-percentage-label" class="text-xs font-black inline-block py-1 px-2 uppercase rounded-full text-indigo-600 bg-indigo-50">
+                            0%
+                        </span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs font-bold inline-block text-slate-400">
+                            Processing...
+                        </span>
+                    </div>
+                </div>
+                <div class="overflow-hidden h-3 mb-4 text-xs flex rounded-full bg-slate-100 shadow-inner">
+                    <div id="term-progress-bar" style="width:0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-600 transition-all duration-300 ease-out rounded-full overflow-hidden">
+                        <div class="w-full h-full bg-[linear-gradient(45deg,rgba(255,255,255,.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,.15)_50%,rgba(255,255,255,.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-[progress-bar-stripes_1s_linear_infinite]"></div>
+                    </div>
+                </div>
+                <p class="text-[11px] font-bold text-slate-400 italic truncate h-4">
+                    Do not close this window.
+                </p>
+            </div>
+        </div>
+        
+        <div class="bg-slate-50 p-6 flex justify-center border-t border-slate-100">
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Processing migration in the background</p>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes progress-bar-stripes {
+    from { background-position: 1rem 0; }
+    to { background-position: 0 0; }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('migrate-term-form');
+    const modal = document.getElementById('term-progress-modal');
+    const progressBar = document.getElementById('term-progress-bar');
+    const progressPctLabel = document.getElementById('term-progress-percentage-label');
+    const statusLabel = document.getElementById('term-progress-status');
+
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+        const termSelect = form.querySelector('select[name="term_id"]');
+        if (!termSelect || !termSelect.value) {
+            // Let server-side validation handle message, but avoid showing modal
+            return;
+        }
+
+        // Show progress modal
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        statusLabel.textContent = 'Starting migration...';
+
+        // Fake incremental progress so user sees activity until page reloads
+        let pct = 0;
+        const interval = setInterval(() => {
+            // Cap at 95% so it does not appear "stuck" at 100% before reload
+            if (pct < 95) {
+                pct += Math.max(1, Math.round((95 - pct) * 0.1));
+                progressBar.style.width = pct + '%';
+                progressPctLabel.textContent = pct + '%';
+            }
+        }, 400);
+
+        // When the page unloads (navigation because request finished), stop timer
+        window.addEventListener('beforeunload', function() {
+            clearInterval(interval);
+        });
+    });
+});
+</script>
+
+{% endblock %}

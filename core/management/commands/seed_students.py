@@ -8,7 +8,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # 1. Get Schools (ID >= 2)
-        schools = School.objects.filter(id__gte=2)
+        schools = School.objects.all()
         if not schools.exists():
             self.stdout.write(self.style.WARNING("No schools found with ID >= 2."))
             return
@@ -57,8 +57,8 @@ class Command(BaseCommand):
                 classes.append(c)
 
             # 4. Create 100 Students (60:40 ratio)
-            males_to_create = 60
-            females_to_create = 40
+            males_to_create = 460
+            females_to_create = 545
             
             students_data = []
             for _ in range(males_to_create):

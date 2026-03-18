@@ -209,6 +209,9 @@
                         <a href="{% url 'communication:dashboard' %}" class="menu-item py-2 text-sm {% if 'communication' in request.path %}active{% endif %}">
                             Broadcasts
                         </a>
+                        <a href="{% url 'accounts:migrate-term' %}" class="menu-item py-2 text-sm {% if 'migrate-term' in request.path %}active{% endif %}">
+                            Migrate Term
+                        </a>
                     </div>
                 </div>
             </div>
