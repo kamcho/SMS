@@ -158,7 +158,7 @@
                 <td>BE</td>
             </tr>
             <tr class="uppercase text-[10px]">
-                <td>Rubric Key</td>
+                <td>Description</td>
                 <td>Exceeding Expectation</td>
                 <td>Meeting Expectation</td>
                 <td>Approaching Expectation</td>
@@ -173,8 +173,9 @@
                 <tr>
                     <th class="subject-column">Subject</th>
                     <th>Marks</th>
+                    <th>Out Of</th>
                     <th>Points</th>
-                    <th>Rubric</th>
+                    <th>Performance Level</th>
                 </tr>
             </thead>
             <tbody>
@@ -182,6 +183,7 @@
                 <tr>
                     <td class="subject-column">{{ result.name|upper }}</td>
                     <td class="font-bold">{{ result.display_score }}</td>
+                    <td class="font-bold">{{ result.out_of }}</td>
                     <td class="font-bold">{{ result.points }}</td>
                     <td class="font-bold">
                         <span class="{% if 'EE' in result.grade %}text-emerald-600{% elif 'ME' in result.grade %}text-blue-600{% elif 'AE' in result.grade %}text-amber-600{% else %}text-rose-600{% endif %}">

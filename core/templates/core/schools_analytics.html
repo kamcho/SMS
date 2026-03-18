@@ -2,28 +2,120 @@
 
 {% block title %}Schools Analytics | Excel SMS{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media print {
+        /* Hide everything from the base template except the content */
+        .sidebar, .navbar, nav, .no-print, header, footer,
+        [class*="menu"], [class*="sidebar"], [class*="nav-"] {
+            display: none !important;
+        }
+        body, html {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        main, .main-content, [role="main"] {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        @page {
+            margin: 0.7cm;
+            size: landscape;
+        }
+        .print-section {
+            page-break-inside: avoid;
+            margin-bottom: 1rem;
+        }
+        .grade-block {
+            page-break-inside: avoid;
+        }
+        .filter-card {
+            display: none !important;
+        }
+        .print-header {
+            display: flex !important;
+        }
+        .analytics-card {
+            box-shadow: none !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 0.5rem !important;
+        }
+        .stream-table th, .stream-table td {
+            padding: 4px 8px !important;
+            font-size: 10px !important;
+        }
+        .top-students-card {
+            box-shadow: none !important;
+            border: 1px solid #e2e8f0 !important;
+        }
+    }
+    .print-header {
+        display: none;
+    }
+    .crown-badge {
+        animation: pulse-glow 2s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    .rank-1 { background: linear-gradient(135deg, #fef3c7, #fde68a); border-color: #f59e0b; }
+    .rank-2 { background: linear-gradient(135deg, #f1f5f9, #e2e8f0); border-color: #94a3b8; }
+    .rank-3 { background: linear-gradient(135deg, #fff7ed, #fed7aa); border-color: #f97316; }
+</style>
+{% endblock %}
+
 {% block page_header %}
-<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
     <div>
         <h1 class="text-3xl font-black text-slate-900 tracking-tight">Schools Analytics</h1>
-        <p class="text-slate-500 mt-1 font-medium">Comparative performance analysis across schools and classes.</p>
+        <p class="text-slate-500 mt-1 font-medium">Comparative performance analysis across all grades, streams & schools.</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <button onclick="window.print()" class="h-11 px-6 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-xs uppercase tracking-wider shadow-sm hover:bg-slate-50 active:scale-95 transition-all flex items-center gap-2">
+            <i class="fas fa-print text-slate-400"></i>
+            Print Report
+        </button>
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
+<!-- Print-Only Header -->
+<div class="print-header justify-between items-start mb-6 border-b-2 border-slate-800 pb-4">
+    <div>
+        <h1 class="text-2xl font-extrabold text-slate-900 uppercase leading-tight">SCHOOLS ANALYTICS REPORT</h1>
+        <div class="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold text-slate-500">
+            {% if selected_exam %}
+                <span>EXAM: <strong class="text-slate-800">{{ selected_exam.name }}</strong></span>
+                <span>PERIOD: <strong class="text-slate-800">{{ selected_exam.period }}</strong></span>
+                <span>TERM: <strong class="text-slate-800">{{ selected_exam.term.name }}</strong></span>
+                <span>YEAR: <strong class="text-slate-800">{{ selected_exam.year.start_date|date:"Y" }}</strong></span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="text-right">
+        <p class="text-xs font-bold text-slate-400 uppercase">Generated On</p>
+        <p class="text-[13px] font-bold text-slate-700">{% now "d M, Y" %}</p>
+        <p class="text-[13px] font-bold text-slate-700">{% now "H:i" %}</p>
+    </div>
+</div>
+
 <div class="space-y-8">
     <!-- Filter Section -->
-    <div class="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100">
+    <div class="filter-card bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100">
         <form method="get" class="flex flex-col md:flex-row gap-6 items-end">
-            <div class="w-full md:w-1/3 space-y-2">
-                <label for="grade" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Grade</label>
+            <div class="w-full md:flex-1 space-y-2">
+                <label for="exam" class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Exam</label>
                 <div class="relative">
-                    <select name="grade" id="grade" class="w-full pl-6 pr-12 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer" required>
-                        <option value="">-- Select Grade --</option>
-                        {% for grade_name in grade_choices %}
-                            <option value="{{ grade_name }}" {% if selected_grade_name == grade_name %}selected{% endif %}>
-                                {{ grade_name }}
+                    <select name="exam" id="exam" class="w-full pl-6 pr-12 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer">
+                        <option value="">-- Select Exam --</option>
+                        {% for exam in exams %}
+                            <option value="{{ exam.id }}" {% if selected_exam_id == exam.id|stringformat:"s" %}selected{% endif %}>
+                                {{ exam.name }} - {{ exam.period }} ({{ exam.year.start_date|date:"Y" }} / {{ exam.term.name }})
                             </option>
                         {% endfor %}
                     </select>
@@ -38,63 +130,189 @@
     </div>
 
     <!-- Results Section -->
-    {% if selected_grade_name %}
+    {% if selected_exam %}
         {% if analytics_data %}
-            <div class="space-y-12">
-            {% for data in analytics_data %}
-                <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="bg-slate-50 p-6 text-center border-b border-slate-200">
-                        <h2 class="text-xl font-black text-slate-800 uppercase tracking-widest">{{ selected_grade_name }} {{ data.exam.term.name|upper }} ANALYSIS</h2>
-                        <h3 class="text-md font-bold text-slate-600 mt-2 uppercase tracking-wide">{{ data.exam.name|upper }} - {{ data.exam.period|upper }}</h3>
+            <!-- Exam Info Banner -->
+            <div class="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-[2rem] p-6 shadow-lg no-print">
+                <div class="flex flex-wrap items-center justify-between gap-4 text-white">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                            <i class="fas fa-chart-bar text-xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-black uppercase tracking-wide">{{ selected_exam.name }}</h2>
+                            <p class="text-indigo-200 text-sm font-semibold">{{ selected_exam.period }} • {{ selected_exam.term.name }} • {{ selected_exam.year.start_date|date:"Y" }}</p>
+                        </div>
                     </div>
-                    <div class="overflow-x-auto p-6">
-                        <table class="w-full text-center border-collapse">
-                            <thead>
-                                <tr class="bg-slate-100 border-b-2 border-slate-300">
-                                    <th class="py-4 px-6 text-left text-xs font-black text-slate-700 uppercase tracking-widest border-r border-slate-300">Class / School</th>
-                                    {% for subject in data.subjects %}
-                                        <th class="py-4 px-4 text-xs font-black text-slate-700 uppercase tracking-widest border-r border-slate-300 min-w-[80px]">{{ subject.name|upper|truncatechars:10|slice:":-3" }}</th>
-                                    {% endfor %}
-                                    <th class="py-4 px-6 text-xs font-black text-indigo-700 uppercase tracking-widest">Totals</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-200">
-                                {% for row in data.class_rows %}
-                                    <tr class="hover:bg-slate-50 transition-colors border-b border-slate-200">
-                                        <td class="py-4 px-6 text-left font-bold text-slate-800 text-sm border-r border-slate-200 whitespace-nowrap">
-                                            {{ row.class_name|upper }} <span class="text-slate-400 text-xs">({{ row.school_name|upper }})</span>
-                                        </td>
-                                        {% for score in row.scores %}
-                                            <td class="py-4 px-4 font-medium text-sm border-r border-slate-200 relative {% if score.is_highest %}text-indigo-700 font-black bg-indigo-50/50{% else %}text-slate-700{% endif %}">
-                                                {{ score.value|default:"-" }}
-                                                {% if score.is_highest %}
-                                                <i class="fas fa-crown text-amber-500 absolute top-2 right-2 text-[10px] drop-shadow-sm" title="Highest Score"></i>
-                                                {% endif %}
-                                            </td>
+                    <div class="flex items-center gap-6 text-sm font-bold">
+                        <div class="text-center">
+                            <p class="text-3xl font-black">{{ analytics_data|length }}</p>
+                            <p class="text-indigo-200 text-xs uppercase tracking-wider">Grades</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grade Blocks -->
+            <div class="space-y-10">
+            {% for grade_data in analytics_data %}
+                <div class="grade-block print-section">
+                    <!-- Grade Header -->
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-layer-group text-sm font-bold"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-black text-slate-800 uppercase tracking-wide">{{ grade_data.grade_name }}</h2>
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">{{ grade_data.streams|length }} Stream{{ grade_data.streams|length|pluralize }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Stream Performance Table -->
+                    <div class="analytics-card bg-white rounded-[1.5rem] shadow-sm border border-slate-200 overflow-hidden mb-6">
+                        <div class="bg-slate-50 px-6 py-4 border-b border-slate-200">
+                            <h3 class="text-sm font-black text-slate-700 uppercase tracking-widest">Stream Performance Comparison</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-center border-collapse stream-table">
+                                <thead>
+                                    <tr class="bg-slate-100 border-b-2 border-slate-300">
+                                        <th class="py-3 px-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest border-r border-slate-200 min-w-[50px]">#</th>
+                                        <th class="py-3 px-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest border-r border-slate-200 min-w-[180px]">Stream / School</th>
+                                        <th class="py-3 px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest border-r border-slate-200">Students</th>
+                                        {% for subject in grade_data.subjects %}
+                                            <th class="py-3 px-3 text-[10px] font-black text-slate-600 uppercase tracking-widest border-r border-slate-200 min-w-[70px]">{{ subject.name|upper|truncatechars:10|slice:":-3" }}</th>
                                         {% endfor %}
-                                        <td class="py-4 px-6 font-black text-sm text-indigo-600">{{ row.total_mean|default:"0.00" }}</td>
+                                        <th class="py-3 px-4 text-[10px] font-black text-indigo-700 uppercase tracking-widest bg-indigo-50/50">Total Mean</th>
                                     </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    {% for stream in grade_data.streams %}
+                                        <tr class="hover:bg-slate-50 transition-colors border-b border-slate-200">
+                                            <td class="py-3 px-4 text-left font-black text-slate-800 text-sm border-r border-slate-100 whitespace-nowrap">
+                                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black
+                                                    {% if forloop.counter == 1 %}bg-yellow-100 text-yellow-700
+                                                    {% elif forloop.counter == 2 %}bg-slate-200 text-slate-600
+                                                    {% elif forloop.counter == 3 %}bg-amber-100 text-amber-700
+                                                    {% else %}bg-slate-100 text-slate-500{% endif %}">
+                                                    {{ forloop.counter }}
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-4 text-left font-bold text-slate-800 text-sm border-r border-slate-100 whitespace-nowrap">
+                                                {{ stream.class_name|upper }}
+                                                <span class="text-slate-400 text-xs font-medium block">{{ stream.school_name }}</span>
+                                            </td>
+                                            <td class="py-3 px-3 text-sm font-bold text-slate-600 border-r border-slate-100">{{ stream.student_count }}</td>
+                                            {% for score in stream.scores %}
+                                                <td class="py-3 px-3 font-medium text-sm border-r border-slate-100 relative
+                                                    {% if score.is_highest %}text-indigo-700 font-black bg-indigo-50/50{% else %}text-slate-700{% endif %}">
+                                                    {{ score.value|default:"-" }}
+                                                    {% if score.is_highest %}
+                                                    <i class="fas fa-crown text-amber-500 absolute top-1 right-1 text-[8px] drop-shadow-sm crown-badge" title="Highest Score"></i>
+                                                    {% endif %}
+                                                </td>
+                                            {% endfor %}
+                                            <td class="py-3 px-4 font-black text-sm text-indigo-600 bg-indigo-50/30">{{ stream.total_mean|default:"0.00" }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+
+                    <!-- Top 3 Students for this GRADE (across all schools) -->
+                    {% if grade_data.top_students %}
+                    <div class="analytics-card bg-white rounded-[1.5rem] shadow-sm border border-slate-200 overflow-hidden mb-4">
+                        <div class="bg-gradient-to-r from-slate-800 to-slate-700 px-6 py-4">
+                            <h3 class="text-sm font-black text-white uppercase tracking-widest">
+                                <i class="fas fa-trophy text-amber-400 mr-2"></i>
+                                Top 3 Students — {{ grade_data.grade_name }} (All Schools)
+                            </h3>
+                        </div>
+                        <div class="p-5">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {% for student in grade_data.top_students %}
+                                    <div class="flex items-center gap-3 p-4 rounded-xl border-2
+                                        {% if student.rank == 1 %}rank-1 border-amber-300
+                                        {% elif student.rank == 2 %}rank-2 border-slate-300
+                                        {% elif student.rank == 3 %}rank-3 border-orange-300
+                                        {% else %}bg-slate-50 border-slate-200{% endif %}">
+                                        
+                                        <!-- Rank Badge -->
+                                        <div class="flex-shrink-0">
+                                            {% if student.rank == 1 %}
+                                                <span class="w-10 h-10 bg-amber-500 text-white rounded-full flex items-center justify-center font-black text-sm shadow-lg">
+                                                    <i class="fas fa-medal"></i>
+                                                </span>
+                                            {% elif student.rank == 2 %}
+                                                <span class="w-10 h-10 bg-slate-500 text-white rounded-full flex items-center justify-center font-black text-sm shadow-lg">
+                                                    #2
+                                                </span>
+                                            {% elif student.rank == 3 %}
+                                                <span class="w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm shadow-lg">
+                                                    #3
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Student Info -->
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-[13px] font-bold text-slate-800 uppercase truncate">{{ student.name }}</p>
+                                            <p class="text-[10px] font-medium text-slate-400">Adm: {{ student.adm_no }}</p>
+                                            <p class="text-[10px] font-semibold text-indigo-500">{{ student.class_name }} • {{ student.school_name }}</p>
+                                        </div>
+                                        
+                                        <!-- Score -->
+                                        <div class="text-right flex-shrink-0">
+                                            <p class="text-[16px] font-black text-slate-800">{{ student.total }}</p>
+                                            <p class="text-[11px] font-bold text-indigo-500">{{ student.avg }}%</p>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             {% endfor %}
             </div>
+
+            <!-- Print Footer -->
+            <div class="print-section mt-8" style="display:none;">
+                <style>@media print { .print-section { display: block !important; } }</style>
+                <div class="grid grid-cols-3 gap-8 mt-12 pt-6 border-t border-slate-300">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-8">Prepared By</p>
+                        <div class="w-full border-b border-slate-400 border-dashed"></div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-8">Verified By</p>
+                        <div class="w-full border-b border-slate-400 border-dashed"></div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-8">Principal's Stamp</p>
+                        <div class="w-full border-b border-slate-400 border-dashed"></div>
+                    </div>
+                </div>
+                <p class="mt-6 text-center text-[10px] text-slate-400 font-medium italic">
+                    Schools Analytics Report generated by Excel School Management System on {% now "d M, Y" %} at {% now "H:i" %}.
+                </p>
+            </div>
+
         {% else %}
             <div class="bg-white rounded-[2rem] p-16 shadow-sm border border-slate-100 text-center">
                 <div class="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
                     <i class="fas fa-chart-bar"></i>
                 </div>
                 <h3 class="text-xl font-black text-slate-900 tracking-tight">No Data Available</h3>
-                <p class="text-slate-500 font-medium mt-2 max-w-sm mx-auto">We couldn't find any exam scores for the selected grade across all schools.</p>
+                <p class="text-slate-500 font-medium mt-2 max-w-sm mx-auto">We couldn't find any exam scores for <strong>{{ selected_exam.name }}</strong> across all schools and grades.</p>
             </div>
         {% endif %}
     {% else %}
         <div class="bg-white rounded-[2rem] p-16 shadow-sm border border-slate-100 text-center relative overflow-hidden group">
             <i class="fas fa-chart-pie absolute -right-10 -bottom-10 text-9xl text-slate-50 rotate-12 group-hover:scale-110 transition-transform duration-700"></i>
-            <h3 class="text-xl font-black text-slate-900 tracking-tight relative z-10">Select a Grade</h3>
-            <p class="text-slate-500 font-medium mt-2 max-w-sm mx-auto relative z-10">Please select a grade from the dropdown above to view the schools analytics and comparative performance.</p>
+            <h3 class="text-xl font-black text-slate-900 tracking-tight relative z-10">Select an Exam</h3>
+            <p class="text-slate-500 font-medium mt-2 max-w-sm mx-auto relative z-10">Please select an exam from the dropdown above to view the schools analytics and comparative performance.</p>
         </div>
     {% endif %}
 </div>

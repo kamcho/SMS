@@ -2584,10 +2584,11 @@ def student_report(request, student_id, exam_id):
         total_percentages.append(perc)
         
         # Determine score to display
+        data['out_of'] = data['max']
         if is_junior_secondary:
             data['display_score'] = f"{round(perc)}%"
         else:
-            data['display_score'] = f"{data['score']}/{data['max']}"
+            data['display_score'] = data['score']
 
         # Determine grade for this aggregated subject score
         config = ExamSubjectConfiguration.objects.filter(exam=exam, subject_id=subj_id).first()
@@ -2697,10 +2698,11 @@ def bulk_class_reports(request, class_id, exam_id):
             total_percentages.append(perc)
             
             # Determine score to display
+            data['out_of'] = data['max']
             if is_junior_secondary:
                 data['display_score'] = f"{round(perc)}%"
             else:
-                data['display_score'] = f"{data['score']}/{data['max']}"
+                data['display_score'] = data['score']
 
             config = data['config']
             if config:
@@ -3050,47 +3052,65 @@ def get_attendance_data(request):
 def schools_analytics(request):
     from django.db.models import Sum
     
-    # Get distinct grade names for selection
-    grade_choices = [c[0] for c in Grade.choices]
+    # Get all exams for the filter dropdown
+    exams = Exam.objects.all().select_related('year', 'term').order_by('-id')
     
-    selected_grade_name = request.GET.get('grade')
+    selected_exam_id = request.GET.get('exam')
+    selected_exam = None
     
-    exams = Exam.objects.all().select_related('year', 'term').order_by('-year__start_date', 'term__name')
+    # Default to the latest exam if none selected
+    if selected_exam_id and selected_exam_id.isdigit():
+        selected_exam = Exam.objects.filter(id=selected_exam_id).select_related('year', 'term').first()
     
-    analytics_data = []
+    if not selected_exam:
+        selected_exam = exams.first()
+    
+    analytics_data = []  # list of grade-level data dicts
 
-    if selected_grade_name:
-        subjects = Subject.objects.filter(grade=selected_grade_name).order_by('name')
+    if selected_exam:
+        # Find all grades that have scores for this exam
+        grade_names_with_scores = ExamSUbjectScore.objects.filter(
+            paper__exam_subject__exam=selected_exam
+        ).values_list(
+            'paper__exam_subject__subject__grade', flat=True
+        ).distinct()
         
-        for exam in exams:
-            exam_scores_exist = ExamSUbjectScore.objects.filter(
-                paper__exam_subject__exam=exam,
-                paper__exam_subject__subject__grade=selected_grade_name
-            ).exists()
+        # Sort grades by the Grade.choices ordering
+        grade_order = [c[0] for c in Grade.choices]
+        sorted_grade_names = sorted(
+            grade_names_with_scores,
+            key=lambda g: grade_order.index(g) if g in grade_order else 999
+        )
+        
+        for grade_name in sorted_grade_names:
+            subjects = Subject.objects.filter(grade=grade_name).order_by('name')
             
-            if not exam_scores_exist:
+            if not subjects.exists():
                 continue
-                
-            exam_data = {
-                'exam': exam,
+            
+            classes = Class.objects.filter(grade__name=grade_name).select_related('school', 'grade')
+            
+            grade_data = {
+                'grade_name': grade_name,
                 'subjects': subjects,
-                'class_rows': []
+                'streams': [],
+                'top_students': [],  # top 3 across ALL streams/schools for this grade
             }
             
-            classes = Class.objects.filter(grade__name=selected_grade_name).select_related('school')
-            
             for cls in classes:
-                student_profiles = StudentProfile.objects.filter(class_id=cls)
-                student_ids = student_profiles.values_list('student_id', flat=True)
+                student_profiles = StudentProfile.objects.filter(class_id=cls, status='Active')
+                student_ids = list(student_profiles.values_list('student_id', flat=True))
                 
                 if not student_ids:
                     continue
                 
-                row = {
+                stream = {
+                    'class_obj': cls,
                     'class_name': cls.name,
                     'school_name': cls.school.name if cls.school else '',
                     'scores': [],
-                    'total_mean': 0
+                    'total_mean': 0,
+                    'student_count': len(student_ids),
                 }
                 
                 has_any_score = False
@@ -3099,7 +3119,7 @@ def schools_analytics(request):
                 for subject in subjects:
                     student_subject_totals = ExamSUbjectScore.objects.filter(
                         student_id__in=student_ids,
-                        paper__exam_subject__exam=exam,
+                        paper__exam_subject__exam=selected_exam,
                         paper__exam_subject__subject=subject
                     ).values('student_id').annotate(total_score=Sum('score'))
                     
@@ -3109,35 +3129,77 @@ def schools_analytics(request):
                     else:
                         mean_score = 0
                         
-                    row['scores'].append(round(mean_score, 2))
+                    stream['scores'].append(round(mean_score, 2))
                     total_sum += mean_score
-                    
-                if has_any_score:
-                    row['total_mean'] = round(total_sum, 2)
-                    exam_data['class_rows'].append(row)
+                
+                if not has_any_score:
+                    continue
+                
+                stream['total_mean'] = round(total_sum, 2)
+                grade_data['streams'].append(stream)
             
-            if exam_data['class_rows']:
-                highest_scores = []
+            if grade_data['streams']:
+                # Tag highest scores per subject column
                 for i in range(len(subjects)):
-                    col_scores = [row['scores'][i] for row in exam_data['class_rows'] if row['scores'][i] > 0]
-                    highest_scores.append(max(col_scores) if col_scores else 0)
+                    col_scores = [s['scores'][i] for s in grade_data['streams'] if s['scores'][i] > 0]
+                    highest = max(col_scores) if col_scores else 0
+                    for s in grade_data['streams']:
+                        val = s['scores'][i]
+                        s['scores'][i] = {
+                            'value': val,
+                            'is_highest': (val == highest and val > 0)
+                        }
                 
-                for row in exam_data['class_rows']:
-                    tagged_scores = []
-                    for i, score in enumerate(row['scores']):
-                        is_highest = (score == highest_scores[i] and score > 0)
-                        tagged_scores.append({
-                            'value': score,
-                            'is_highest': is_highest
+                # Sort streams by total mean descending
+                grade_data['streams'].sort(key=lambda x: x['total_mean'], reverse=True)
+                
+                # ---- Top 3 students for this GRADE across ALL streams/schools ----
+                all_student_ids = []
+                for cls in classes:
+                    ids = list(StudentProfile.objects.filter(
+                        class_id=cls, status='Active'
+                    ).values_list('student_id', flat=True))
+                    all_student_ids.extend(ids)
+                
+                if all_student_ids:
+                    student_totals = ExamSUbjectScore.objects.filter(
+                        student_id__in=all_student_ids,
+                        paper__exam_subject__exam=selected_exam,
+                        paper__exam_subject__subject__grade=grade_name
+                    ).values(
+                        'student_id',
+                        'student__first_name',
+                        'student__last_name',
+                        'student__adm_no',
+                        'student__studentprofile__class_id__name',
+                        'student__studentprofile__school__name',
+                    ).annotate(
+                        total=Sum('score')
+                    ).order_by('-total')[:3]
+                    
+                    max_possible = ExamSubjectConfiguration.objects.filter(
+                        exam=selected_exam,
+                        subject__grade=grade_name
+                    ).aggregate(total_max=Sum('max_score'))['total_max'] or 1
+                    
+                    for idx, st in enumerate(student_totals, 1):
+                        avg_pct = round((st['total'] / max_possible) * 100, 1) if max_possible else 0
+                        grade_data['top_students'].append({
+                            'rank': idx,
+                            'name': f"{st['student__first_name']} {st['student__last_name']}",
+                            'adm_no': st['student__adm_no'],
+                            'total': st['total'],
+                            'avg': avg_pct,
+                            'class_name': st['student__studentprofile__class_id__name'] or '',
+                            'school_name': st['student__studentprofile__school__name'] or '',
                         })
-                    row['scores'] = tagged_scores
-
-                exam_data['class_rows'].sort(key=lambda x: x['total_mean'], reverse=True)
-                analytics_data.append(exam_data)
                 
+                analytics_data.append(grade_data)
+    
     context = {
-        'grade_choices': grade_choices,
-        'selected_grade_name': selected_grade_name,
+        'exams': exams,
+        'selected_exam': selected_exam,
+        'selected_exam_id': str(selected_exam.id) if selected_exam else '',
         'analytics_data': analytics_data,
     }
     
