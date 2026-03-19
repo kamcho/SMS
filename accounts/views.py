@@ -2,8 +2,9 @@ from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count, Q
+from django.db import transaction as django_transaction
 from django.utils import timezone
-from .models import Payment, FeeStructure, Invoice, StaffSalary, StaffPayment, Structure
+from .models import Payment, FeeStructure, Invoice, StaffSalary, StaffPayment, Structure, MpesaTransaction
 from core.models import School, Student, StudentProfile
 from users.models import MyUser
 from django.shortcuts import render, redirect, get_object_or_404
@@ -12,8 +13,11 @@ from django.contrib import messages
 from django.urls import reverse
 import json
 from datetime import datetime, timedelta
+from django.views.decorators.http import require_http_methods
 from decimal import Decimal
 from django.views.generic import DetailView
+from .mpesa_transaction_service import MpesaTransactionService
+from .mpesa_service import MpesaService
 
 class FeeStructureDetailView(LoginRequiredMixin, DetailView):
     model = FeeStructure
@@ -579,3 +583,348 @@ class MigrateTermView(LoginRequiredMixin, TemplateView):
 
         messages.success(request, msg)
         return redirect('accounts:migrate-term')
+@login_required
+def payments_list_view(request):
+    """View that calls M-Pesa Pull Transactions API for reconciliation"""
+    print("🎯 DEBUG: Payments list view (Pull API) called!")
+    
+    from django.utils import timezone
+    from datetime import datetime, timedelta
+    
+    mpesa_service = MpesaService()
+    
+    # Get filters from request
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    offset = request.GET.get('offset', 0)
+    
+    # Format dates as required by Daraja: YYYY-MM-DD HH:MM:SS
+    if not date_from:
+        # Default to last 48 hours as per Daraja Pull API capability
+        start_date = (timezone.localtime() - timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        start_date = f"{date_from} 00:00:00"
+        
+    now_time = timezone.localtime()
+    if not date_to:
+        end_date = now_time.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        # If the user selected today or a future date, cap it at 'now'
+        # Otherwise use the end of the selected day.
+        try:
+            match_date = datetime.strptime(date_to, '%Y-%m-%d').date()
+            if match_date >= now_time.date():
+                end_date = now_time.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                end_date = f"{date_to} 23:59:59"
+        except:
+            end_date = now_time.strftime('%Y-%m-%d %H:%M:%S')
+
+    # Call the service
+    result = mpesa_service.query_pull_transactions(
+        start_date=start_date,
+        end_date=end_date,
+        offset=offset
+    )
+    
+    transactions = []
+    if result.get('success'):
+        data = result.get('data', {})
+        
+        # Based on Documentation: Response Parameter Definition 2. Query Pull Transaction
+        # Successful response usually contains a 'Transaction' field which is a list
+        # Error 1001 says: "Transaction": "[[]]"
+        
+        # Safaricom uses different field names: 'Response' in some versions, 'Transaction' in others
+        raw_transactions = data.get('Response') or data.get('Transaction')
+        
+        # If it's a string representation of a list, try to parse it (sometimes Safaricom APIs do this)
+        if isinstance(raw_transactions, str):
+            try:
+                import json
+                raw_transactions = json.loads(raw_transactions)
+            except:
+                pass
+
+        if isinstance(raw_transactions, list):
+            # Handle list of lists or list of dicts: [[{...}]] or [{...}]
+            for entry in raw_transactions:
+                # Flatten one level if needed
+                items_to_process = entry if isinstance(entry, list) else [entry]
+                
+                for item in items_to_process:
+                    if not item:
+                        continue
+                        
+                    if isinstance(item, dict):
+                        receipt = item.get('transactionId')
+                        phone = item.get('msisdn')
+                        amount = item.get('amount')
+                        date_str = item.get('trxDate')
+                        
+                        # Save to database if not exists
+                        txn = None
+                        processed = False
+                        if receipt:
+                            txn, created = MpesaTransaction.objects.get_or_create(
+                                mpesa_receipt_number=receipt,
+                                defaults={
+                                    'transaction_type': 'stk_push',
+                                    'phone_number': phone,
+                                    'amount': amount,
+                                    'status': 'completed',
+                                    'response_code': '0',
+                                    'response_description': 'Pulled from Daraja API',
+                                    'processed_at': timezone.now()
+                                }
+                            )
+                            processed = hasattr(txn, 'fee_payment') or hasattr(txn, 'salary_payment')
+                            if created and date_str:
+                                try:
+                                    # Pull API date format is usually YYYY-MM-DD HH:MM:SS
+                                    txn.transaction_date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+                                    txn.save()
+                                except:
+                                    pass
+
+                        transactions.append({
+                            'id': receipt,
+                            'phone_number': phone,
+                            'amount': amount,
+                            'reference_number': receipt,
+                            'transaction_date': date_str,
+                            'type': item.get('transactiontype'),
+                            'account': item.get('billreference'),
+                            'organization': item.get('organizationname'),
+                            'api_response': item,
+                            'saved': True if txn else False,
+                            'processed': processed
+                        })
+                    elif isinstance(item, list) and len(item) >= 6:
+                        receipt = item[0]
+                        date_str = item[1]
+                        phone = item[2]
+                        amount = item[5]
+                        
+                        # Save to database if not exists
+                        txn = None
+                        processed = False
+                        if receipt:
+                            txn, created = MpesaTransaction.objects.get_or_create(
+                                mpesa_receipt_number=receipt,
+                                defaults={
+                                    'transaction_type': 'stk_push',
+                                    'phone_number': phone,
+                                    'amount': amount,
+                                    'status': 'completed',
+                                    'response_code': '0',
+                                    'response_description': 'Pulled from Daraja API',
+                                    'processed_at': timezone.now()
+                                }
+                            )
+                            processed = hasattr(txn, 'fee_payment') or hasattr(txn, 'salary_payment')
+                            if created and date_str:
+                                try:
+                                    txn.transaction_date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+                                    txn.save()
+                                except:
+                                    pass
+
+                        transactions.append({
+                            'id': receipt,
+                            'transaction_date': date_str,
+                            'phone_number': phone,
+                            'type': item[3],
+                            'account': item[4],
+                            'amount': amount,
+                            'organization': item[6] if len(item) > 6 else '',
+                            'api_response': item,
+                            'saved': True if txn else False,
+                            'processed': processed
+                        })
+        
+        # Check if individual fields are at the root
+        elif data.get('transactionId'):
+            receipt = data.get('transactionId')
+            phone = data.get('msisdn')
+            amount = data.get('amount')
+            date_str = data.get('trxDate')
+            
+            txn = None
+            processed = False
+            if receipt:
+                txn, created = MpesaTransaction.objects.get_or_create(
+                    mpesa_receipt_number=receipt,
+                    defaults={
+                        'transaction_type': 'stk_push',
+                        'phone_number': phone,
+                        'amount': amount,
+                        'status': 'completed',
+                        'response_code': '0',
+                        'response_description': 'Pulled from Daraja API',
+                        'processed_at': timezone.now()
+                    }
+                )
+                processed = hasattr(txn, 'fee_payment') or hasattr(txn, 'salary_payment')
+                if created and date_str:
+                    try:
+                        txn.transaction_date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+                        txn.save()
+                    except:
+                        pass
+
+            transactions.append({
+                'id': receipt,
+                'phone_number': phone,
+                'amount': amount,
+                'reference_number': receipt,
+                'transaction_date': date_str,
+                'type': data.get('transactiontype'),
+                'account': data.get('billreference'),
+                'organization': data.get('organizationname'),
+                'api_response': data,
+                'saved': True,
+                'processed': processed
+            })
+
+    context = {
+        'result': result,
+        'success': result.get('success', False),
+        'transactions': transactions,
+        'error': result.get('error'),
+        'status_code': result.get('status_code'),
+        'total_count': len(transactions),
+        'raw_response': result.get('data', {}),
+        'date_from': date_from,
+        'date_to': date_to,
+        'offset': offset,
+        # Specific Daraja fields
+        'response_ref_id': result.get('data', {}).get('ResponseRefID') or result.get('data', {}).get('RequestID'),
+        'response_code': result.get('data', {}).get('ResponseCode'),
+        'response_message': result.get('data', {}).get('ResponseMessage'),
+    }
+    
+    return render(request, 'accounts/payments_list.html', context)
+
+@login_required
+def payments_api_view(request):
+    """API endpoint for payments data"""
+    mpesa_service = MpesaService()
+    mpesa_service = MpesaTransactionService()
+    
+    if request.method == 'GET':
+        # Get transactions with filters
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        phone_number = request.GET.get('phone_number')
+        reference = request.GET.get('reference')
+        status = request.GET.get('status')
+        
+        # Parse dates
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            except ValueError:
+                start_date = None
+        
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            except ValueError:
+                end_date = None
+        
+        transactions = mpesa_service.search_transactions(
+            phone_number=phone_number,
+            reference=reference,
+            start_date=start_date,
+            end_date=end_date,
+            status=status
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'transactions': transactions,
+            'total_count': len(transactions)
+        })
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+
+@login_required
+def get_student_by_id(request, student_id):
+    """Fetch student details by id for M-Pesa reconciliation"""
+    from core.models import Student
+    try:
+        # Search for student with matching id
+        student = Student.objects.get(id=student_id)
+        profile = student.studentprofile
+        return JsonResponse({
+            'success': True,
+            'student': {
+                'id': student.id,
+                'full_name': student.get_full_name(),
+                'adm_no': student.adm_no,
+                'fee_balance': profile.fee_balance
+            }
+        })
+    except (Student.DoesNotExist, ValueError):
+        return JsonResponse({'success': False, 'error': 'Student not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def process_pulled_payment(request):
+    """Confirm and process a pulled M-Pesa transaction as a fee payment"""
+    try:
+        data = json.loads(request.body)
+        txn_receipt = data.get('receipt')
+        student_id = data.get('student_id')
+        amount_val = data.get('amount')
+        
+        if not all([txn_receipt, student_id, amount_val]):
+            return JsonResponse({'success': False, 'error': 'Missing required data'}, status=400)
+            
+        amount = Decimal(str(amount_val))
+
+        from core.models import Student
+        from .models import Payment, MpesaTransaction
+
+        student = Student.objects.get(id=student_id)
+        txn = MpesaTransaction.objects.get(mpesa_receipt_number=txn_receipt)
+
+        # Check if already linked via fee_payment or salary_payment
+        if hasattr(txn, 'fee_payment'):
+             return JsonResponse({'success': False, 'error': 'Transaction already processed as fee payment'}, status=400)
+             
+        if hasattr(txn, 'salary_payment'):
+             return JsonResponse({'success': False, 'error': 'Transaction already processed as salary payment'}, status=400)
+
+        with django_transaction.atomic():
+            # Create payment record
+            # Note: Payment model's save() method automatically handles fee_balance deduction
+            # and captures previous/current balance.
+            payment = Payment.objects.create(
+                student=student,
+                amount=amount,
+                method='Mpesa',
+                reference=txn_receipt,
+                mpesa_transaction=txn,
+                date_paid=timezone.now().date(),
+                recorded_by=request.user
+            )
+
+            # Re-fetch profile to get updated balance from model save()
+            profile = student.studentprofile
+            
+            return JsonResponse({
+                'success': True, 
+                'message': f'Payment of KES {amount} processed for {student.get_full_name()}. New balance: {profile.fee_balance}'
+            })
+
+    except (Student.DoesNotExist, MpesaTransaction.DoesNotExist) as e:
+        return JsonResponse({'success': False, 'error': f"Object not found: {str(e)}"}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

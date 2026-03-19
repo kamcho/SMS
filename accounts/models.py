@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from decimal import Decimal
+import uuid
 
 class FeeStructure(models.Model):
     STUDENT_TYPES = [
@@ -38,6 +39,35 @@ class Structure(models.Model):
     class Meta:
         unique_together = ('fee', 'order')
         ordering = ['order']
+
+class AdmissionFee(models.Model):
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Admission Fee: {self.amount}"
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = "Admission Fee"
+        verbose_name_plural = "Admission Fees"
+
+class AdditionalCharges(models.Model):
+    name = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    grades = models.ManyToManyField('core.Grade')
+    school = models.ForeignKey('core.School', on_delete=models.CASCADE)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_additional_charges', null=True, blank=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='updated_additional_charges', null=True, blank=True)
+    
+    def __str__(self):
+        return f"Additional Charge: {self.name}"
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = "Additional Charge"
+        verbose_name_plural = "Additional Charges"
 
 class Invoice(models.Model):
     """
@@ -97,6 +127,7 @@ class Payment(models.Model):
     reference = models.CharField(max_length=100, unique=True, null=True, blank=True)
     date_paid = models.DateField()
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    mpesa_transaction = models.OneToOneField('MpesaTransaction', on_delete=models.SET_NULL, null=True, blank=True, related_name='fee_payment')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -140,6 +171,7 @@ class StaffPayment(models.Model):
     payment_method = models.CharField(max_length=50, choices=[('Cash', 'Cash'), ('Bank', 'Bank Transfer'), ('Mpesa', 'Mpesa')])
     reference = models.CharField(max_length=100, blank=True, null=True)
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='recorded_staff_payments')
+    mpesa_transaction = models.OneToOneField('MpesaTransaction', on_delete=models.SET_NULL, null=True, blank=True, related_name='salary_payment')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -156,3 +188,86 @@ class StaffPayment(models.Model):
 
     def __str__(self):
         return f"Payment to {self.staff.email}: {self.amount}"
+
+
+# M-Pesa Integration Models
+class MpesaTransaction(models.Model):
+    """Main M-Pesa transaction model to track all transactions"""
+    TRANSACTION_TYPES = [
+        ('stk_push', 'STK Push (Customer to Business)'),
+        ('b2c', 'Business to Customer (B2C)'),
+        ('b2b', 'Business to Business (B2B)'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    phone_number = models.CharField(max_length=15)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # M-Pesa specific fields
+    merchant_request_id = models.CharField(max_length=100, blank=True, null=True)
+    checkout_request_id = models.CharField(max_length=100, blank=True, null=True)
+    response_code = models.CharField(max_length=10, blank=True, null=True)
+    response_description = models.TextField(blank=True, null=True)
+    mpesa_receipt_number = models.CharField(max_length=50, unique=True)
+    transaction_date = models.DateTimeField(blank=True, null=True)
+    
+    # System fields
+    # Links are now handled from the relevant models (Payment/StaffPayment)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['merchant_request_id']),
+            models.Index(fields=['checkout_request_id']),
+            models.Index(fields=['phone_number']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"M-Pesa {self.get_transaction_type_display()}: {self.phone_number} - {self.amount}"
+
+
+class MpesaCallback(models.Model):
+    """Model to store M-Pesa callback data"""
+    transaction = models.ForeignKey(MpesaTransaction, on_delete=models.CASCADE, related_name='callbacks')
+    callback_type = models.CharField(max_length=20)  # 'success', 'timeout', 'failed'
+    raw_data = models.JSONField()  # Store the complete callback data
+    processed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Callback for {self.transaction}: {self.callback_type}"
+
+
+class MpesaAccessToken(models.Model):
+    """Model to cache M-Pesa access tokens"""
+    token = models.TextField()
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Token expires at {self.expires_at}"
+    
+    def is_expired(self):
+        from django.utils import timezone
+        return timezone.now() >= self.expires_at

@@ -67,6 +67,10 @@ class ExamSubjectConfiguration(models.Model):
         is_new = self.pk is None
         super().save(*args, **kwargs)
         
+        # Automatically create score rankings for grades except 7, 8, and 9
+        if is_new and self.subject.grade not in ['Grade 7', 'Grade 8', 'Grade 9']:
+            self._create_score_rankings()
+        
         # Automatically create a paper if paper_count is 1 and no papers exist
         if self.paper_count == 1:
             if not ExamSubjectPaper.objects.filter(exam_subject=self).exists():
@@ -75,6 +79,36 @@ class ExamSubjectConfiguration(models.Model):
                     name='Paper 1',
                     paper_number=1,
                     out_of=self.max_score
+                )
+    
+    def _create_score_rankings(self):
+        """Create score rankings for EE, ME, AE, BE by dividing max_score by 4"""
+        # Delete existing rankings for this configuration to avoid duplicates
+        ScoreRanking.objects.filter(subject=self).delete()
+        
+        # Calculate the range size (max_score divided by 4, rounded)
+        range_size = round(self.max_score / 4)
+        
+        # Create rankings for EE, ME, AE, BE (from highest to lowest)
+        rankings = [
+            ('EE', self.max_score - range_size + 1, self.max_score),  # Top 25%
+            ('ME', self.max_score - range_size * 2 + 1, self.max_score - range_size),  # 50-75%
+            ('AE', self.max_score - range_size * 3 + 1, self.max_score - range_size * 2),  # 25-50%
+            ('BE', 0, self.max_score - range_size * 3),  # Bottom 25%
+        ]
+        
+        for grade, min_score, max_score in rankings:
+            # Ensure min_score doesn't go below 0 and max_score doesn't exceed max_score
+            actual_min = max(0, min_score)
+            actual_max = min(self.max_score, max_score)
+            
+            # Only create if the range is valid
+            if actual_min <= actual_max:
+                ScoreRanking.objects.create(
+                    subject=self,
+                    grade=grade,
+                    min_score=actual_min,
+                    max_score=actual_max
                 )
 
 class ScoreRanking(models.Model):

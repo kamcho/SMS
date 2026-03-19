@@ -13,7 +13,7 @@ from core.models import Student, StudentProfile, Class, Grade
 from django.db import transaction
 
 def seed_data():
-    exam_id = 8
+    exam_id = 1
     try:
         exam = Exam.objects.get(id=exam_id)
     except Exam.DoesNotExist:

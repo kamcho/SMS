@@ -19,12 +19,12 @@ class BaseStyledForm(forms.ModelForm):
 class StudentForm(BaseStyledForm):
     class Meta:
         model = Student
-        fields = ['first_name', 'middle_name', 'last_name', 'adm_no', 'date_of_birth', 'joined_date', 'gender', 'location', 'is_boarder']
+        fields = ['first_name', 'middle_name', 'last_name', 'adm_no', 'date_of_birth', 'joined_date', 'gender', 'location', 'fee_category']
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'joined_date': forms.DateInput(attrs={'type': 'date'}),
             'gender': forms.Select(choices=Student.GENDERS),
-            'is_boarder': forms.CheckboxInput(),
+            'fee_category': forms.Select(choices=Student.FEE_CATEGORIES),
         }
 
 class StudentProfileForm(BaseStyledForm):
@@ -32,7 +32,7 @@ class StudentProfileForm(BaseStyledForm):
         model = StudentProfile
         fields = ['class_id', 'school', 'fee_balance', 'discipline']
         widgets = {
-            'fee_balance': forms.NumberInput(attrs={'min': 0}),
+            'fee_balance': forms.NumberInput(attrs={'min': 0, 'placeholder': '0'}),
             'discipline': forms.NumberInput(attrs={'min': 0, 'max': 100}),
         }
 
@@ -40,6 +40,7 @@ class StudentProfileForm(BaseStyledForm):
         super().__init__(*args, **kwargs)
         self.fields['school'].queryset = School.objects.all()
         self.fields['school'].empty_label = "Select School"
+        self.fields['fee_balance'].label = "Opening Balance"
 
 
 class AcademicYearForm(BaseStyledForm):

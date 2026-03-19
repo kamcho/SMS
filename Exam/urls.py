@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import api_views
 
 app_name = 'Exam'
 
@@ -10,4 +11,8 @@ urlpatterns = [
     path('subject-configurations/<str:grade>/', views.SubjectConfigurationView.as_view(), name='subject-configurations'),
     path('subject-configurations/<str:grade>/<int:exam_id>/', views.SubjectConfigurationView.as_view(), name='subject-configurations-with-exam'),
     path('score-entry/<int:class_id>/<int:subject_id>/<int:exam_id>/', views.TeacherScoreEntryView.as_view(), name='score-entry'),
+    
+    # API endpoints
+    path('api/get-subjects-for-grade/<str:grade>/', api_views.get_subjects_for_grade, name='api-subjects-for-grade'),
+    path('api/get-available-subjects/<int:exam_id>/<str:grade>/', api_views.get_available_subjects, name='api-available-subjects'),
 ]

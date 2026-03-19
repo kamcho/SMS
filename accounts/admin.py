@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import FeeStructure, Invoice, Payment
+from .models import FeeStructure, Invoice, Payment, AdmissionFee, AdditionalCharges
+
+@admin.register(AdmissionFee)
+class AdmissionFeeAdmin(admin.ModelAdmin):
+    list_display = ('amount', 'created_at')
+    search_fields = ('term__name',)
+
+@admin.register(AdditionalCharges)
+class AdditionalChargesAdmin(admin.ModelAdmin):
+    list_display = ('name', 'amount', 'created_at')
 
 @admin.register(FeeStructure)
 class FeeStructureAdmin(admin.ModelAdmin):

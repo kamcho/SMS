@@ -705,7 +705,10 @@ def create_student(request):
         profile_form = StudentProfileForm(request.POST)
         
         if student_form.is_valid() and profile_form.is_valid():
-            student = student_form.save()
+            student = student_form.save(commit=False)
+            # keep legacy boolean in sync for existing logic
+            student.is_boarder = student.get_fee_student_type() == 'boarder'
+            student.save()
             profile = profile_form.save(commit=False)
             
             # Use the balance from the form as the initial invoice amount
@@ -715,6 +718,75 @@ def create_student(request):
             profile.fee_balance = 0
             profile.student = student
             profile.save()
+
+            # Negotiated admission fee (invoiced as agreed amount)
+            from accounts.models import AdmissionFee, Invoice
+            admission_fee_raw = request.POST.get('admission_fee_amount', '').strip()
+            if admission_fee_raw:
+                try:
+                    agreed_admission_fee = int(float(admission_fee_raw))
+                except ValueError:
+                    agreed_admission_fee = 0
+            else:
+                agreed_admission_fee = 0
+
+            if agreed_admission_fee > 0:
+                Invoice.objects.create(
+                    student=student,
+                    amount=agreed_admission_fee,
+                    description="Admission Fee",
+                )
+
+            # Auto-invoice current term fee based on configured fee structure
+            from accounts.models import FeeStructure
+            from core.models import Term
+            from decimal import Decimal
+            from django.db.models import Q
+            active_term = Term.objects.filter(is_active=True).first()
+            if not active_term:
+                messages.warning(request, "No active term is set. Term fees were not invoiced on enrollment.")
+            elif not profile.class_id:
+                messages.warning(request, "No class was selected. Term fees were not invoiced on enrollment.")
+            else:
+                student_type = student.get_fee_student_type()  # 'day' or 'boarder'
+                fee_structure = FeeStructure.objects.filter(
+                    term=active_term,
+                    student_type=student_type,
+                    grade=profile.class_id.grade,
+                ).filter(
+                    Q(school=profile.school) | Q(school__isnull=True)
+                ).order_by('-school').first()
+
+                if fee_structure:
+                    multiplier = Decimal(str(student.get_fee_multiplier()))
+                    term_amount = (Decimal(str(fee_structure.amount)) * multiplier).quantize(Decimal('1.00'))
+                    if term_amount > 0 and not Invoice.objects.filter(student=student, fee_structure=fee_structure).exists():
+                        Invoice.objects.create(
+                            student=student,
+                            fee_structure=fee_structure,
+                            amount=term_amount,
+                        )
+                else:
+                    messages.warning(
+                        request,
+                        "No fee structure found for the selected school/grade/type in the active term. Term fees were not invoiced."
+                    )
+
+            # Optional additional charges at enrollment (full amounts; no staff discount)
+            from accounts.models import AdditionalCharges
+            charge_ids = request.POST.getlist('additional_charge_ids')
+            if charge_ids:
+                charges = AdditionalCharges.objects.filter(
+                    id__in=charge_ids,
+                    school=profile.school,
+                    grades=profile.class_id.grade if profile.class_id else None,
+                ).distinct()
+                for ch in charges:
+                    Invoice.objects.create(
+                        student=student,
+                        amount=ch.amount,
+                        description=f"Additional Charge: {ch.name}",
+                    )
 
             if initial_balance > 0:
                 from accounts.models import Invoice
@@ -731,9 +803,20 @@ def create_student(request):
         student_form = StudentForm()
         profile_form = StudentProfileForm()
     
+    from accounts.models import AdditionalCharges, AdmissionFee
+    default_admission_fee = AdmissionFee.objects.order_by('-created_at').first()
+    try:
+        admission_fee_default = int(default_admission_fee.amount) if default_admission_fee else 0
+    except Exception:
+        admission_fee_default = 0
+    admission_fee_max = admission_fee_default if admission_fee_default > 0 else 50000
     context = {
         'student_form': student_form,
         'profile_form': profile_form,
+        'additional_charges': AdditionalCharges.objects.select_related('school').all(),
+        'default_admission_fee': default_admission_fee,
+        'admission_fee_default': admission_fee_default,
+        'admission_fee_max': admission_fee_max,
     }
     return render(request, 'core/create_student.html', context)
 
@@ -752,17 +835,54 @@ def get_school_classes(request):
     return JsonResponse({'classes': data})
 
 @login_required
-def get_school_classes(request):
+def fee_structure_preview(request):
+    """
+    Live preview for enrollment page: returns the term fee that will be invoiced
+    for a selected school + class + fee category, using the active term.
+    """
+    from accounts.models import FeeStructure
+    from core.models import Term, Class as SchoolClass
+    from django.db.models import Q
+    from decimal import Decimal
+
     school_id = request.GET.get('school_id')
-    if not school_id:
-        return JsonResponse({'classes': []})
-    
-    classes = Class.objects.filter(school_id=school_id).select_related('grade')
-    data = [
-        {'id': c.id, 'name': f"{c.name} ({c.grade.name})"} 
-        for c in classes
-    ]
-    return JsonResponse({'classes': data})
+    class_id = request.GET.get('class_id')
+    fee_category = request.GET.get('fee_category', 'day')
+
+    if not school_id or not class_id:
+        return JsonResponse({'found': False, 'reason': 'Missing school/class'}, status=400)
+
+    active_term = Term.objects.filter(is_active=True).first()
+    if not active_term:
+        return JsonResponse({'found': False, 'reason': 'No active term set'}, status=200)
+
+    try:
+        class_obj = SchoolClass.objects.select_related('grade').get(id=class_id, school_id=school_id)
+    except SchoolClass.DoesNotExist:
+        return JsonResponse({'found': False, 'reason': 'Class not found for school'}, status=200)
+
+    student_type = 'boarder' if fee_category in ('boarder', 'staff_boarder') else 'day'
+    multiplier = Decimal('0.5') if fee_category in ('staff_boarder', 'staff_day') else (Decimal('0') if fee_category == 'director' else Decimal('1'))
+
+    fs = FeeStructure.objects.filter(
+        term=active_term,
+        student_type=student_type,
+        grade=class_obj.grade,
+    ).filter(Q(school_id=school_id) | Q(school__isnull=True)).order_by('-school').first()
+
+    if not fs:
+        return JsonResponse({'found': False, 'reason': 'No matching fee structure'}, status=200)
+
+    amount = (Decimal(str(fs.amount)) * multiplier).quantize(Decimal('1.00'))
+    return JsonResponse({
+        'found': True,
+        'term': active_term.name,
+        'student_type': student_type,
+        'fee_structure_id': fs.id,
+        'base_amount': str(fs.amount),
+        'multiplier': str(multiplier),
+        'amount': str(amount),
+    })
 
 class StudentDetailView(DetailView):
     model = Student

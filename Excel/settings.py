@@ -13,20 +13,40 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import os
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover
+    load_dotenv = None
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+if load_dotenv:
+    load_dotenv(BASE_DIR / '.env')
+
+
+def _env(key: str, default: str | None = None) -> str | None:
+    return os.getenv(key, default)
+
+
+def _env_bool(key: str, default: bool = False) -> bool:
+    val = os.getenv(key)
+    if val is None:
+        return default
+    return val.strip().lower() in ('1', 'true', 'yes', 'y', 'on')
+
+
+ENVIRONMENT = (_env('ENVIRONMENT', 'dev') or 'dev').strip().lower()
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-edn_eclp5%_t#s1$k%x5!wc4@gx!)-_!r+wpy#^wmlw1y+c9&r'
+SECRET_KEY = _env('SECRET_KEY', 'django-insecure-change-me-in-env')  # set in .env in prod
+DEBUG = _env_bool('DEBUG', default=(ENVIRONMENT == 'dev'))
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['127.0.0.1','excelschools.pythonanywhere.com']
+_allowed_hosts = _env('ALLOWED_HOSTS', '127.0.0.1,localhost')
+ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',') if h.strip()]
 
 
 # Application definition
@@ -80,15 +100,27 @@ TEMPLATES = [
 WSGI_APPLICATION = 'Excel.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if ENVIRONMENT == 'dev':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': _env('MYSQL_DATABASE', ''),
+            'USER': _env('MYSQL_USER', ''),
+            'PASSWORD': _env('MYSQL_PASSWORD', ''),
+            'HOST': _env('MYSQL_HOST', '127.0.0.1'),
+            'PORT': _env('MYSQL_PORT', '3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+            },
+        }
+    }
 
 
 # Password validation
@@ -115,7 +147,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Nairobi'
 
 USE_I18N = True
 
@@ -139,3 +171,16 @@ AUTH_USER_MODEL = 'users.MyUser'
 LOGIN_URL = 'users:login'
 LOGIN_REDIRECT_URL = 'core:dashboard'
 LOGOUT_REDIRECT_URL = 'users:login'
+
+# M-Pesa Integration Settings
+MPESA_ENVIRONMENT = (_env('MPESA_ENVIRONMENT') or 'sandbox').strip()
+MPESA_CONSUMER_KEY = (_env('MPESA_CONSUMER_KEY') or '').strip()
+MPESA_CONSUMER_SECRET = (_env('MPESA_CONSUMER_SECRET') or '').strip()
+MPESA_PASSKEY = (_env('MPESA_PASSKEY') or '').strip()
+MPESA_SHORTCODE = (_env('MPESA_SHORTCODE') or '').strip()
+MPESA_INITIATOR_NAME = (_env('MPESA_INITIATOR_NAME') or '').strip()
+MPESA_INITIATOR_PASSWORD = (_env('MPESA_INITIATOR_PASSWORD') or '').strip()
+MPESA_SECURITY_CREDENTIAL = (_env('MPESA_SECURITY_CREDENTIAL') or '').strip()
+MPESA_CALLBACK_URL = (_env('MPESA_CALLBACK_URL') or '').strip()
+MPESA_RESULT_URL = (_env('MPESA_RESULT_URL') or '').strip()
+MPESA_QUEUE_TIMEOUT_URL = (_env('MPESA_QUEUE_TIMEOUT_URL') or '').strip()

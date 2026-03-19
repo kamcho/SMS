@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+
+{% block title %}M-Pesa Test | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-slate-900 tracking-tight">M-Pesa Integration Test</h1>
+        <p class="text-slate-500 mt-1 font-medium">Test M-Pesa STK Push and Pull transactions</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+    <!-- STK Push Test -->
+    <div class="glass-card">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-8 bg-green-600 rounded-full"></div>
+                STK Push Test
+            </h3>
+        </div>
+
+        <form id="stkPushForm" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-green-700 uppercase tracking-widest mb-2 px-1">
+                        Phone Number <span class="text-red-500">*</span>
+                    </label>
+                    <input type="tel" id="phone_number" name="phone_number" required
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all"
+                           placeholder="254XXXXXXXXX">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-green-700 uppercase tracking-widest mb-2 px-1">
+                        Amount <span class="text-red-500">*</span>
+                    </label>
+                    <input type="number" id="amount" name="amount" required min="1" step="0.01"
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all"
+                           placeholder="100.00">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-green-700 uppercase tracking-widest mb-2 px-1">
+                        Account Reference
+                    </label>
+                    <input type="text" id="account_reference" name="account_reference"
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all"
+                           placeholder="Test Account">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-green-700 uppercase tracking-widest mb-2 px-1">
+                        Transaction Description
+                    </label>
+                    <input type="text" id="transaction_desc" name="transaction_desc"
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all"
+                           placeholder="Test Payment">
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit" class="h-12 px-6 bg-green-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-green-100 hover:bg-green-700 transition-all active:scale-95">
+                    <i class="fas fa-paper-plane text-[10px]"></i>
+                    Send STK Push
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Pull Transaction Test -->
+    <div class="glass-card">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-8 bg-blue-600 rounded-full"></div>
+                Pull Transaction Test
+            </h3>
+        </div>
+
+        <form id="pullForm" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2 px-1">
+                        Receiver Phone <span class="text-red-500">*</span>
+                    </label>
+                    <input type="tel" id="receiver_party" name="receiver_party" required
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                           placeholder="254XXXXXXXXX">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2 px-1">
+                        Amount <span class="text-red-500">*</span>
+                    </label>
+                    <input type="number" id="pull_amount" name="pull_amount" required min="1" step="0.01"
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                           placeholder="100.00">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2 px-1">
+                        Remarks
+                    </label>
+                    <input type="text" id="remarks" name="remarks"
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                           placeholder="Payment">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2 px-1">
+                        Occasion
+                    </label>
+                    <input type="text" id="occasion" name="occasion"
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                           placeholder="Salary">
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit" class="h-12 px-6 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
+                    <i class="fas fa-hand-holding-usd text-[10px]"></i>
+                    Send Pull Transaction
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Transaction Status -->
+    <div class="glass-card">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-8 bg-purple-600 rounded-full"></div>
+                Transaction Status
+            </h3>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-[10px] font-black text-purple-700 uppercase tracking-widest mb-2 px-1">
+                    Transaction ID
+                </label>
+                <div class="flex gap-3">
+                    <input type="text" id="transaction_id" 
+                           class="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 transition-all"
+                           placeholder="Enter transaction UUID">
+                    <button type="button" onclick="checkTransactionStatus()" 
+                            class="h-12 px-6 bg-purple-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-purple-100 hover:bg-purple-700 transition-all active:scale-95">
+                        <i class="fas fa-search text-[10px]"></i>
+                        Check Status
+                    </button>
+                </div>
+            </div>
+            <div id="statusResult" class="hidden p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <!-- Status result will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Response Display -->
+    <div id="responseDisplay" class="hidden glass-card">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <div class="w-2 h-8 bg-indigo-600 rounded-full"></div>
+                Response
+            </h3>
+        </div>
+        <pre id="responseContent" class="bg-slate-900 text-green-400 p-4 rounded-xl text-xs overflow-x-auto"></pre>
+    </div>
+</div>
+
+<script>
+// STK Push Form
+document.getElementById('stkPushForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        phone_number: formData.get('phone_number'),
+        amount: formData.get('amount'),
+        account_reference: formData.get('account_reference') || 'Test Account',
+        transaction_desc: formData.get('transaction_desc') || 'Test Payment'
+    };
+    
+    try {
+        const response = await fetch('/accounts/mpesa/stk-push/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        displayResponse(result);
+        
+        if (result.success) {
+            document.getElementById('transaction_id').value = result.transaction_id;
+        }
+    } catch (error) {
+        displayResponse({success: false, error: error.message});
+    }
+});
+
+// Pull Transaction Form
+document.getElementById('pullForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        receiver_party: formData.get('receiver_party'),
+        amount: formData.get('pull_amount'),
+        remarks: formData.get('remarks') || 'Payment',
+        occasion: formData.get('occasion') || ''
+    };
+    
+    try {
+        const response = await fetch('/accounts/mpesa/pull/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        displayResponse(result);
+        
+        if (result.success) {
+            document.getElementById('transaction_id').value = result.transaction_id;
+        }
+    } catch (error) {
+        displayResponse({success: false, error: error.message});
+    }
+});
+
+// Check Transaction Status
+async function checkTransactionStatus() {
+    const transactionId = document.getElementById('transaction_id').value;
+    
+    if (!transactionId) {
+        alert('Please enter a transaction ID');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/accounts/mpesa/transaction/${transactionId}/`);
+        const result = await response.json();
+        
+        const statusDiv = document.getElementById('statusResult');
+        statusDiv.classList.remove('hidden');
+        
+        if (result.success) {
+            const transaction = result.transaction;
+            statusDiv.innerHTML = `
+                <div class="space-y-2">
+                    <p><strong>Status:</strong> <span class="px-2 py-1 bg-${getStatusColor(transaction.status)}-100 text-${getStatusColor(transaction.status)}-700 rounded-lg text-xs font-black">${transaction.status}</span></p>
+                    <p><strong>Type:</strong> ${transaction.transaction_type}</p>
+                    <p><strong>Phone:</strong> ${transaction.phone_number}</p>
+                    <p><strong>Amount:</strong> KES ${transaction.amount}</p>
+                    <p><strong>Created:</strong> ${new Date(transaction.created_at).toLocaleString()}</p>
+                    ${transaction.processed_at ? `<p><strong>Processed:</strong> ${new Date(transaction.processed_at).toLocaleString()}</p>` : ''}
+                    ${transaction.mpesa_receipt_number ? `<p><strong>M-Pesa Receipt:</strong> ${transaction.mpesa_receipt_number}</p>` : ''}
+                    ${transaction.response_description ? `<p><strong>Description:</strong> ${transaction.response_description}</p>` : ''}
+                </div>
+            `;
+        } else {
+            statusDiv.innerHTML = `<p class="text-red-600">Error: ${result.error}</p>`;
+        }
+    } catch (error) {
+        document.getElementById('statusResult').innerHTML = `<p class="text-red-600">Error: ${error.message}</p>`;
+    }
+}
+
+function displayResponse(data) {
+    const display = document.getElementById('responseDisplay');
+    const content = document.getElementById('responseContent');
+    
+    display.classList.remove('hidden');
+    content.textContent = JSON.stringify(data, null, 2);
+}
+
+function getStatusColor(status) {
+    const colors = {
+        'pending': 'yellow',
+        'completed': 'green',
+        'failed': 'red',
+        'cancelled': 'gray'
+    };
+    return colors[status] || 'gray';
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

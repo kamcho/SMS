@@ -57,6 +57,13 @@ class Student(models.Model):
         ('male', 'Male'),
         ('female', 'Female'),
     )
+    FEE_CATEGORIES = (
+        ('boarder', 'Border'),
+        ('day', 'Day'),
+        ('staff_boarder', 'Staff Border'),
+        ('staff_day', 'Staff Day'),
+        ('director', 'Director'),
+    )
     first_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -66,9 +73,20 @@ class Student(models.Model):
     gender = models.CharField(max_length=10, choices=GENDERS)
     location = models.CharField(max_length=100, null=True, blank=True)
     is_boarder = models.BooleanField(default=False)
+    fee_category = models.CharField(max_length=20, choices=FEE_CATEGORIES, default='day')
     
     def get_full_name(self):
         return f"{self.first_name} {self.middle_name} {self.last_name}".strip()
+
+    def get_fee_student_type(self) -> str:
+        return 'boarder' if self.fee_category in ('boarder', 'staff_boarder') else 'day'
+
+    def get_fee_multiplier(self) -> float:
+        if self.fee_category in ('staff_boarder', 'staff_day'):
+            return 0.5
+        if self.fee_category == 'director':
+            return 0.0
+        return 1.0
 
     def __str__(self):
         return self.get_full_name()

@@ -3,6 +3,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import View
 from django.contrib import messages
 from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
 from core.models import Class, StudentProfile, TeacherClassProfile
 from .models import Exam, Subject, ExamSUbjectScore, ExamSubjectConfiguration, ExamSubjectPaper, ScoreRanking
 from .forms import ExamForm, ExamSubjectConfigurationForm, ExamSubjectPaperForm, ScoreRankingForm
@@ -126,9 +128,9 @@ class TeacherScoreEntryView(LoginRequiredMixin, View):
 
 class CreateExamView(LoginRequiredMixin, View):
     def get(self, request):
-        # Check permissions - only admin and teachers can create exams
-        if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role not in ['Admin', 'Teacher']:
-            messages.error(request, 'You do not have permission to create exams.')
+        # Check permissions - only exam officer can create exams
+        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False):
+            messages.error(request, 'You do not have permission to create exams. Only the Exam Officer can perform this action.')
             return redirect('core:dashboard')
         
         form = ExamForm()
@@ -142,9 +144,9 @@ class CreateExamView(LoginRequiredMixin, View):
         return render(request, 'Exam/create_exam.html', context)
     
     def post(self, request):
-        # Check permissions
-        if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role not in ['Admin', 'Teacher']:
-            messages.error(request, 'You do not have permission to create exams.')
+        # Check permissions - only exam officer can create exams
+        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False):
+            messages.error(request, 'You do not have permission to create exams. Only the Exam Officer can perform this action.')
             return redirect('core:dashboard')
         
         form = ExamForm(request.POST)
@@ -175,9 +177,9 @@ class CreateExamView(LoginRequiredMixin, View):
 
 class ManageExamView(LoginRequiredMixin, View):
     def get(self, request, exam_id):
-        # Check permissions
-        if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role not in ['Admin', 'Teacher']:
-            messages.error(request, 'You do not have permission to manage exams.')
+        # Check permissions - only exam officer can manage exams
+        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False):
+            messages.error(request, 'You do not have permission to manage exams. Only the Exam Officer can perform this action.')
             return redirect('core:dashboard')
         
         exam = get_object_or_404(Exam, id=exam_id)
@@ -231,9 +233,9 @@ class ManageExamView(LoginRequiredMixin, View):
         return render(request, 'Exam/manage_exam.html', context)
     
     def post(self, request, exam_id):
-        # Check permissions
-        if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role not in ['Admin', 'Teacher']:
-            messages.error(request, 'You do not have permission to manage exams.')
+        # Check permissions - only exam officer can manage exams
+        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False):
+            messages.error(request, 'You do not have permission to manage exams. Only the Exam Officer can perform this action.')
             return redirect('core:dashboard')
         
         exam = get_object_or_404(Exam, id=exam_id)
@@ -348,14 +350,24 @@ class ManageExamView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f'Error deleting item: {str(e)}')
         
-        return JsonResponse({'success': True})
+        # Check if this is an AJAX request or form submission
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True})
+        else:
+            # For regular form submissions, redirect back to the same page
+            referer = request.META.get('HTTP_REFERER')
+            if referer:
+                return redirect(referer)
+            else:
+                # Fallback redirect
+                return redirect('Exam:exam-list')
 
 
 class ExamListView(LoginRequiredMixin, View):
     def get(self, request):
-        # Check permissions
-        if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role not in ['Admin', 'Teacher']:
-            messages.error(request, 'You do not have permission to view exams.')
+        # Check permissions - only exam officer can view exams
+        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False):
+            messages.error(request, 'You do not have permission to view exams. Only the Exam Officer can access this page.')
             return redirect('core:dashboard')
         
         # Get filter parameters
@@ -391,9 +403,9 @@ class ExamListView(LoginRequiredMixin, View):
 
 class SubjectConfigurationView(LoginRequiredMixin, View):
     def get(self, request, grade, exam_id=None):
-        # Check permissions
-        if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role not in ['Admin', 'Teacher']:
-            messages.error(request, 'You do not have permission to manage subject configurations.')
+        # Check permissions - only exam officer can manage subject configurations
+        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False):
+            messages.error(request, 'You do not have permission to manage subject configurations. Only the Exam Officer can perform this action.')
             return redirect('core:dashboard')
         
         # Get existing subject configurations for subjects in this grade
@@ -406,17 +418,17 @@ class SubjectConfigurationView(LoginRequiredMixin, View):
             
         subject_configs = subject_configs.select_related('exam', 'subject').prefetch_related('examsubjectpaper_set').order_by('subject__name')
         
-        # Get all subjects for this grade that are NOT yet configured (if exam_id is provided)
+        # Get all subjects for this grade
         subjects = Subject.objects.filter(grade=grade).order_by('name')
+        configured_subject_ids = []
         if exam_id:
-            configured_subject_ids = subject_configs.values_list('subject_id', flat=True)
-            subjects = subjects.exclude(id__in=configured_subject_ids)
+            configured_subject_ids = list(subject_configs.values_list('subject_id', flat=True))
         
         # Get all exams (since grade field was removed, we'll show all exams)
         exams = Exam.objects.all().order_by('-id')
         
         # Create form with pre-selected exam if exam_id is provided
-        subject_config_form = ExamSubjectConfigurationForm(grade=grade)
+        subject_config_form = ExamSubjectConfigurationForm(grade=grade, exam_id=exam_id)
         selected_exam = None
         if exam_id:
             try:
@@ -430,6 +442,7 @@ class SubjectConfigurationView(LoginRequiredMixin, View):
             'grade': grade,
             'subjects': subjects,
             'subject_configs': subject_configs,
+            'configured_subject_ids': configured_subject_ids,
             'exams': exams,
             'selected_exam': selected_exam,
             'subject_config_form': subject_config_form,
@@ -443,9 +456,9 @@ class SubjectConfigurationView(LoginRequiredMixin, View):
         return render(request, 'Exam/subject_configurations.html', context)
     
     def post(self, request, grade, exam_id=None):
-        # Check permissions
-        if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role not in ['Admin', 'Teacher']:
-            messages.error(request, 'You do not have permission to manage subject configurations.')
+        # Check permissions - only exam officer can manage subject configurations
+        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False):
+            messages.error(request, 'You do not have permission to manage subject configurations. Only the Exam Officer can perform this action.')
             return redirect('core:dashboard')
         
         # Handle different form actions
@@ -604,4 +617,14 @@ class SubjectConfigurationView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f'Error deleting item: {str(e)}')
         
-        return JsonResponse({'success': True})
+        # Check if this is an AJAX request or form submission
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True})
+        else:
+            # For regular form submissions, redirect back to the same page
+            referer = request.META.get('HTTP_REFERER')
+            if referer:
+                return redirect(referer)
+            else:
+                # Fallback redirect
+                return redirect('Exam:exam-list')

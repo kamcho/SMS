@@ -65,13 +65,24 @@ class ExamSubjectConfigurationForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         grade = kwargs.pop('grade', None)
+        exam_id = kwargs.pop('exam_id', None)
         super().__init__(*args, **kwargs)
         self.fields['exam'].empty_label = "Select Exam"
         self.fields['subject'].empty_label = "Select Subject"
         
         # Filter subjects by grade if provided
         if grade:
-            self.fields['subject'].queryset = Subject.objects.filter(grade=grade).order_by('name')
+            subjects_queryset = Subject.objects.filter(grade=grade).order_by('name')
+            
+            # Further exclude subjects that already have configurations for this exam
+            if exam_id:
+                configured_subject_ids = ExamSubjectConfiguration.objects.filter(
+                    exam_id=exam_id,
+                    subject__grade=grade
+                ).values_list('subject_id', flat=True)
+                subjects_queryset = subjects_queryset.exclude(id__in=configured_subject_ids)
+            
+            self.fields['subject'].queryset = subjects_queryset
 
 
 class ExamSubjectPaperForm(forms.ModelForm):
