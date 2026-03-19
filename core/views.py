@@ -1215,13 +1215,15 @@ class ClassesListView(LoginRequiredMixin, ListView):
     paginate_by = 20
     
     def post(self, request, *args, **kwargs):
-        if not request.user.is_superuser and not (hasattr(request.user, 'role') and request.user.role == 'Admin'):
-            from django.contrib import messages
-            messages.error(request, "Only administrators can assign invigilators.")
-            return redirect('core:classes-list')
-            
         action = request.POST.get('action')
+        
         if action == 'assign_invigilator':
+            # Only superusers, admins, and exam officers can assign invigilators
+            if not request.user.is_superuser and not (hasattr(request.user, 'role') and request.user.role == 'Admin' or request.user.is_exam_officer):
+                from django.contrib import messages
+                messages.error(request, "Only administrators and exam officers can assign invigilators.")
+                return redirect('core:classes-list')
+                
             class_id = request.POST.get('class_id')
             teacher_id = request.POST.get('teacher_id')
             
@@ -1241,6 +1243,33 @@ class ClassesListView(LoginRequiredMixin, ListView):
                 except Exception as e:
                     from django.contrib import messages
                     messages.error(request, f"Error assigning invigilator: {str(e)}")
+                    
+        elif action == 'assign_class_teacher':
+            # Only superusers, admins, and head teachers can assign class teachers
+            if not request.user.is_superuser and not (hasattr(request.user, 'role') and request.user.role == 'Admin' or request.user.is_headteacher):
+                from django.contrib import messages
+                messages.error(request, "Only administrators and head teachers can assign class teachers.")
+                return redirect('core:classes-list')
+                
+            class_id = request.POST.get('class_id')
+            teacher_id = request.POST.get('teacher_id')
+            
+            if class_id and teacher_id:
+                try:
+                    from .models import Class
+                    from users.models import MyUser
+                    from django.contrib import messages
+                    
+                    class_obj = Class.objects.get(id=class_id)
+                    teacher = MyUser.objects.get(id=teacher_id)
+                    
+                    class_obj.class_teacher = teacher
+                    class_obj.save()
+                    
+                    messages.success(request, f"Class teacher {teacher.get_full_name() or teacher.email} assigned to {class_obj.name}.")
+                except Exception as e:
+                    from django.contrib import messages
+                    messages.error(request, f"Error assigning class teacher: {str(e)}")
                     
         return redirect('core:classes-list')
     
@@ -1302,6 +1331,59 @@ class ClassesListView(LoginRequiredMixin, ListView):
         context['selected_grade'] = self.request.GET.get('grade', '')
         context['total_classes'] = self.get_queryset().count()
         
+        # --- Real Daily Attendance Data (School-wide) ---
+        today = timezone.now().date()
+        start_date = today - timedelta(days=15)
+        
+        # Get sessions in range, scoped to school if needed
+        att_sessions = AttendanceSession.objects.filter(date__gte=start_date, date__lte=today)
+        if not self.request.user.is_superuser:
+            try:
+                user_school = self.request.user.profile.school
+                att_sessions = att_sessions.filter(class_id__grade__school=user_school)
+            except AttributeError:
+                pass
+        
+        # Aggregate by day
+        from django.db.models import Count, Q
+        daily_stats = (
+            StudentAttendance.objects.filter(session__in=att_sessions)
+            .values('session__date')
+            .annotate(
+                present=Count('id', filter=Q(status='Present')),
+                absent=Count('id', filter=Q(status='Absent')),
+                late=Count('id', filter=Q(status='Late')),
+                half_day=Count('id', filter=Q(status='Half Day'))
+            ).order_by('session__date')
+        )
+        
+        # Map stats by date
+        stats_by_date = {s['session__date']: s for s in daily_stats}
+        
+        att_labels = []
+        att_present = []
+        att_absent = []
+        att_late = []
+        
+        # Fill in labels and data, including empty days
+        curr = start_date
+        while curr <= today:
+            label = curr.strftime('%d %b')
+            att_labels.append(label)
+            
+            day_data = stats_by_date.get(curr, {})
+            att_present.append(day_data.get('present', 0))
+            att_absent.append(day_data.get('absent', 0))
+            att_late.append(day_data.get('late', 0) + day_data.get('half_day', 0))
+            
+            curr += timedelta(days=1)
+            
+        context['school_attendance_labels'] = json.dumps(att_labels)
+        context['school_attendance_present'] = json.dumps(att_present)
+        context['school_attendance_absent'] = json.dumps(att_absent)
+        context['school_attendance_late'] = json.dumps(att_late)
+        # --- End Attendance Data ---
+
         from users.models import MyUser
         context['teachers'] = MyUser.objects.filter(role='Teacher', is_active=True).order_by('first_name', 'last_name')
         
@@ -1314,8 +1396,9 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'class_obj'
 
     def post(self, request, *args, **kwargs):
-        if not request.user.is_superuser and not (hasattr(request.user, 'role') and request.user.role == 'Admin'):
-            messages.error(request, "Only administrators can assign teachers.")
+        class_obj = self.get_object()
+        if not request.user.is_superuser and not (hasattr(request.user, 'role') and request.user.role == 'Admin') and request.user != class_obj.class_teacher:
+            messages.error(request, "Only administrators and class teachers can assign teachers.")
             return redirect('core:class-detail', pk=kwargs.get('pk'))
 
         action = request.POST.get('action')
@@ -1407,8 +1490,8 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
         context['active_exam'] = active_exam
         context['latest_exam'] = Exam.objects.order_by('-id').first()
 
-        # Admin View: Manage Teachers
-        if self.request.user.is_superuser or (hasattr(self.request.user, 'role') and self.request.user.role == 'Admin'):
+        # Admin/Class Teacher View: Manage Teachers
+        if self.request.user.is_superuser or (hasattr(self.request.user, 'role') and self.request.user.role == 'Admin') or self.request.user == self.object.class_teacher:
             # Fetch all subjects for this grade
             # Subject model has a 'grade' charfield (e.g. 'Grade 1', 'Grade 2')
             grade_name = self.object.grade.name
@@ -1443,8 +1526,11 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
         attendance_dates = []
         attendance_rates = []
         
-        # We'll reverse recent_attendance for chronolical chart plotting
-        for session in reversed(recent_attendance):
+        # We'll reverse recent_attendance for chronological chart plotting
+        # Convert to list first to avoid slicing/reversing issues with querysets
+        sessions_list = list(recent_attendance)
+        
+        for session in reversed(sessions_list):
             records = session.records.all()
             present_count = records.filter(status='Present').count()
             absent_count = records.filter(status='Absent').count()
@@ -1614,6 +1700,25 @@ def create_class(request):
             messages.success(request, 'Class created successfully!')
         else:
             messages.error(request, f'Error creating class: {form.errors}')
+    
+    return redirect('core:configurations')
+
+
+def update_class(request):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('core:configurations')
+    
+    if request.method == 'POST':
+        class_id = request.POST.get('class_id')
+        class_obj = get_object_or_404(Class, id=class_id)
+        
+        form = ClassForm(request.POST, instance=class_obj)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Class updated successfully!')
+        else:
+            messages.error(request, f'Error updating class: {form.errors}')
     
     return redirect('core:configurations')
 
@@ -3388,10 +3493,13 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        from datetime import datetime
         report_type = self.request.GET.get('type', 'students')
         school_id = self.request.GET.get('school')
         grade_id = self.request.GET.get('grade')
         class_id = self.request.GET.get('class')
+        date_from_str = self.request.GET.get('date_from')
+        date_to_str = self.request.GET.get('date_to')
         
         context['report_type'] = report_type
         context['schools'] = School.objects.all()
@@ -3399,6 +3507,18 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         context['selected_school'] = school_id
         context['selected_grade'] = grade_id
         context['selected_class'] = class_id
+        context['selected_date_from'] = date_from_str
+        context['selected_date_to'] = date_to_str
+
+        date_from = None
+        date_to = None
+        try:
+            if date_from_str:
+                date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
+            if date_to_str:
+                date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
 
         # Build classes queryset with cascading filters
         classes_qs = Class.objects.all().select_related('grade')
@@ -3416,6 +3536,10 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                 queryset = queryset.filter(class_id__grade_id=grade_id)
             if class_id:
                 queryset = queryset.filter(class_id_id=class_id)
+            if date_from:
+                queryset = queryset.filter(student__joined_date__gte=date_from)
+            if date_to:
+                queryset = queryset.filter(student__joined_date__lte=date_to)
             
             # Stat Cards Data
             context['total_students'] = queryset.count()
@@ -3451,6 +3575,10 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                 queryset = queryset.filter(student__studentprofile__class_id__grade_id=grade_id)
             if class_id:
                 queryset = queryset.filter(student__studentprofile__class_id_id=class_id)
+            if date_from:
+                queryset = queryset.filter(date_paid__gte=date_from)
+            if date_to:
+                queryset = queryset.filter(date_paid__lte=date_to)
             
             # Apply balance status filter to profiles if requested
             if balance_status == 'owing':
@@ -3503,6 +3631,10 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                 queryset = queryset.filter(student__studentprofile__school_id=school_id)
             if class_id:
                 queryset = queryset.filter(class_id_id=class_id)
+            if date_from:
+                queryset = queryset.filter(paper__exam_subject__exam__created_at__date__gte=date_from)
+            if date_to:
+                queryset = queryset.filter(paper__exam_subject__exam__created_at__date__lte=date_to)
             
             # Group by exam for a high level view
             context['report_data'] = queryset.values(

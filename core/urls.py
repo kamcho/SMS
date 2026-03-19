@@ -22,6 +22,7 @@ urlpatterns = [
     path('configurations/term/create/', views.create_term, name='create-term'),
     path('configurations/grade/create/', views.create_grade, name='create-grade'),
     path('configurations/class/create/', views.create_class, name='create-class'),
+    path('configurations/class/update/', views.update_class, name='update-class'),
     path('configurations/exam/create/', views.create_exam, name='create-exam'),
     path('configurations/fee-structure/create/', views.create_fee_structure, name='create-fee-structure'),
     path('configurations/exam-mode/<int:exam_mode_id>/update/', views.update_exam_mode, name='update-exam-mode'),

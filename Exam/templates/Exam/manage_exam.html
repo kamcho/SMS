@@ -96,12 +96,14 @@
             </div>
 
             <!-- Form Actions -->
+            {% if request.user.is_exam_officer %}
             <div class="flex gap-3 pt-4">
                 <button type="submit" class="flex-grow h-12 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
                     <i class="fas fa-save text-[10px]"></i>
                     Update Exam
                 </button>
             </div>
+            {% endif %}
         </form>
     </div>
 
@@ -121,22 +123,24 @@
                 {% endif %}
             </div>
             <div class="flex items-center flex-wrap gap-2">
-                {% if exam_is_active %}
-                <form method="post" onsubmit="return confirm('Are you sure you want to deactivate this exam? This will prevent teachers from uploading marks for this exam.');" class="mr-2">
-                    {% csrf_token %}
-                    <button type="submit" name="deactivate_exam" class="btn bg-orange-600 text-white hover:bg-orange-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap">
-                        <i class="fas fa-lock"></i>
-                        Deactivate
-                    </button>
-                </form>
-                {% else %}
-                <form method="post" onsubmit="return confirm('Are you sure you want to activate this exam? This will allow teachers to upload marks for this exam.');" class="mr-2">
-                    {% csrf_token %}
-                    <button type="submit" name="activate_exam" class="btn bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap">
-                        <i class="fas fa-unlock"></i>
-                        Activate for Teachers
-                    </button>
-                </form>
+                {% if request.user.is_exam_officer %}
+                    {% if exam_is_active %}
+                    <form method="post" onsubmit="return confirm('Are you sure you want to deactivate this exam? This will prevent teachers from uploading marks for this exam.');" class="mr-2">
+                        {% csrf_token %}
+                        <button type="submit" name="deactivate_exam" class="btn bg-orange-600 text-white hover:bg-orange-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap">
+                            <i class="fas fa-lock"></i>
+                            Deactivate
+                        </button>
+                    </form>
+                    {% else %}
+                    <form method="post" onsubmit="return confirm('Are you sure you want to activate this exam? This will allow teachers to upload marks for this exam.');" class="mr-2">
+                        {% csrf_token %}
+                        <button type="submit" name="activate_exam" class="btn bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap">
+                            <i class="fas fa-unlock"></i>
+                            Activate for Teachers
+                        </button>
+                    </form>
+                    {% endif %}
                 {% endif %}
                 <div class="flex items-center flex-wrap gap-2">
                     {% for grade in sorted_grades %}

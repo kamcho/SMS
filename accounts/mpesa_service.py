@@ -120,8 +120,7 @@ class MpesaService:
                 'PhoneNumber': phone_number,
                 'CallBackURL': callback_url or self.callback_url,
                 'AccountReference': account_reference,
-                'TransactionDesc': transaction_desc,
-                'CallBackURL': callback_url or self.callback_url
+                'TransactionDesc': transaction_desc
             }
             
             print(f"📦 DEBUG: STK Push payload:")
@@ -351,7 +350,7 @@ class MpesaService:
             print(f"💾 DEBUG: Callback data stored")
             
             # Update transaction based on result
-            if result_code == '0':
+            if result_code == 0 or result_code == '0':
                 print(f"💰 DEBUG: Transaction successful - processing payment details")
                 callback_metadata = stk_callback.get('CallbackMetadata', {})
                 items = callback_metadata.get('Item', [])
@@ -397,13 +396,33 @@ class MpesaService:
                 transaction.save()
                 print(f"✅ DEBUG: Transaction updated to completed")
                 
-                # Update student payment if linked via reverse relation
-                if hasattr(transaction, 'fee_payment'):
-                    payment = transaction.fee_payment
-                    payment.payment_method = 'Mpesa'
-                    payment.reference = transaction.mpesa_receipt_number
-                    payment.save()
-                    print(f"💳 DEBUG: Updated linked fee payment: {payment.id}")
+                # Update or create student payment
+                if hasattr(transaction, 'fee_payment') and hasattr(transaction.fee_payment, 'id'):
+                    # Legacy support: update existing payment
+                    try:
+                        payment = transaction.fee_payment
+                        payment.method = 'Mpesa'
+                        payment.reference = transaction.mpesa_receipt_number
+                        payment.save()
+                        print(f"💳 DEBUG: Updated existing linked fee payment: {payment.id}")
+                    except Exception as e:
+                        print(f"⚠️ DEBUG: Error updating existing payment: {str(e)}")
+                elif transaction.student:
+                    # New flow: create Payment object here to reduce fee balance ONLY on success
+                    from .models import Payment
+                    try:
+                        payment = Payment.objects.create(
+                            student=transaction.student,
+                            amount=transaction.amount,
+                            method='Mpesa',
+                            reference=transaction.mpesa_receipt_number,
+                            date_paid=timezone.now().date(),
+                            recorded_by=transaction.initiated_by,
+                            mpesa_transaction=transaction
+                        )
+                        print(f"💳 DEBUG: Created fee payment on success: {payment.id}")
+                    except Exception as e:
+                        print(f"⚠️ DEBUG: Error creating fee payment on success: {str(e)}")
                 
                 # Update staff payment if linked via reverse relation
                 if hasattr(transaction, 'salary_payment'):

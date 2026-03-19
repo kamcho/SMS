@@ -13,6 +13,7 @@ from django.contrib import messages
 from django.urls import reverse
 import json
 from datetime import datetime, timedelta
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 from decimal import Decimal
 from django.views.generic import DetailView
@@ -620,10 +621,17 @@ def payments_list_view(request):
         except:
             end_date = now_time.strftime('%Y-%m-%d %H:%M:%S')
 
-    # Call the service
+        # Call the service
+    from datetime import datetime, timedelta
+
+    # adjust for 3-hour difference (data source ahead of you)
+    now_adjusted = datetime.now() + timedelta(hours=3)
+    end_date = now_adjusted
+    start_date = now_adjusted - timedelta(hours=48)
+    
     result = mpesa_service.query_pull_transactions(
-        start_date=start_date,
-        end_date=end_date,
+        start_date=start_date.strftime('%Y-%m-%d %H:%M:%S'),
+        end_date=end_date.strftime('%Y-%m-%d %H:%M:%S'),
         offset=offset
     )
     
@@ -681,10 +689,23 @@ def payments_list_view(request):
                             processed = hasattr(txn, 'fee_payment') or hasattr(txn, 'salary_payment')
                             if created and date_str:
                                 try:
-                                    # Pull API date format is usually YYYY-MM-DD HH:MM:SS
-                                    txn.transaction_date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
-                                    txn.save()
-                                except:
+                                    # Pull API date format is usually YYYY-MM-DD HH:MM:SS or ISO 8601
+                                    try:
+                                        parsed_date = datetime.strptime(str(date_str), '%Y-%m-%d %H:%M:%S')
+                                    except ValueError:
+                                        parsed_date = parse_datetime(str(date_str))
+                                        if parsed_date:
+                                            # If it has tzinfo, make it naive or vice versa depending on settings
+                                            # For simplicity, we'll strip tz if it's there
+                                            if hasattr(parsed_date, 'replace'):
+                                                parsed_date = parsed_date.replace(tzinfo=None)
+                                    
+                                    if parsed_date:
+                                        # Add 3 hours to account for server time difference (EAT is UTC+3)
+                                        adjusted_date = parsed_date + timedelta(hours=3)
+                                        txn.transaction_date = adjusted_date
+                                        txn.save()
+                                except Exception:
                                     pass
 
                         transactions.append({
@@ -725,9 +746,19 @@ def payments_list_view(request):
                             processed = hasattr(txn, 'fee_payment') or hasattr(txn, 'salary_payment')
                             if created and date_str:
                                 try:
-                                    txn.transaction_date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
-                                    txn.save()
-                                except:
+                                    # from django.utils.dateparse import parse_datetime # Removed duplicate import
+                                    try:
+                                        parsed_date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+                                    except ValueError:
+                                        parsed_date = parse_datetime(str(date_str))
+                                        if parsed_date and hasattr(parsed_date, 'replace'):
+                                            parsed_date = parsed_date.replace(tzinfo=None)
+                                    
+                                    if parsed_date:
+                                        # Adjust for EAT (UTC+3)
+                                        txn.transaction_date = parsed_date + timedelta(hours=3)
+                                        txn.save()
+                                except Exception:
                                     pass
 
                         transactions.append({
@@ -768,9 +799,18 @@ def payments_list_view(request):
                 processed = hasattr(txn, 'fee_payment') or hasattr(txn, 'salary_payment')
                 if created and date_str:
                     try:
-                        txn.transaction_date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
-                        txn.save()
-                    except:
+                        try:
+                            parsed_date = datetime.strptime(str(date_str), '%Y-%m-%d %H:%M:%S')
+                        except ValueError:
+                            parsed_date = parse_datetime(str(date_str))
+                            if parsed_date and hasattr(parsed_date, 'replace'):
+                                parsed_date = parsed_date.replace(tzinfo=None)
+                        
+                        if parsed_date:
+                            # Adjust for EAT (UTC+3)
+                            txn.transaction_date = parsed_date + timedelta(hours=3)
+                            txn.save()
+                    except Exception:
                         pass
 
             transactions.append({
@@ -786,6 +826,26 @@ def payments_list_view(request):
                 'saved': True,
                 'processed': processed
             })
+
+    # Sort transactions by recent first
+    from django.utils.dateparse import parse_datetime
+    def get_sort_date(txn):
+        date_str = txn.get('transaction_date')
+        if date_str:
+            try:
+                dt = datetime.strptime(str(date_str), '%Y-%m-%d %H:%M:%S')
+                return dt
+            except ValueError:
+                parsed = parse_datetime(str(date_str))
+                if parsed:
+                    return parsed.replace(tzinfo=None)
+                try:
+                    return datetime.strptime(str(date_str), '%Y%m%d%H%M%S')
+                except ValueError:
+                    pass
+        return datetime.min
+
+    transactions.sort(key=get_sort_date, reverse=True)
 
     context = {
         'result': result,

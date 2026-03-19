@@ -1,6 +1,8 @@
 from django.contrib import admin
-from .models import FeeStructure, Invoice, Payment, AdmissionFee, AdditionalCharges
+from .models import FeeStructure, Invoice, Payment, AdmissionFee, AdditionalCharges, MpesaTransaction
 
+
+admin.site.register(MpesaTransaction)
 @admin.register(AdmissionFee)
 class AdmissionFeeAdmin(admin.ModelAdmin):
     list_display = ('amount', 'created_at')

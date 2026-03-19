@@ -152,6 +152,8 @@
                         <a href="{% url 'Exam:exam-list' %}" class="menu-item py-2 text-sm {% if 'exam-list' in request.path %}active{% endif %}">
                             Exams List
                         </a>
+                        {% endif %}
+                        {% if user.is_exam_officer %}
                         <a href="{% url 'Exam:create-exam' %}" class="menu-item py-2 text-sm {% if 'create-exam' in request.path %}active{% endif %}">
                             Create Exam
                         </a>
@@ -309,11 +311,15 @@
                 <!-- User Profile -->
                 <div class="flex items-center gap-3 pl-2">
                     <div class="text-right hidden sm:block">
-                        <p class="text-xs font-black text-slate-900 dark:text-slate-100 leading-none">{{ user.email|truncatechars:18 }}</p>
-                        <p class="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-[0.1em] mt-1.5">{{ user.role }}</p>
+                        <a href="{% url 'users:user-profile' request.user.id %}" class="text-xs font-black text-slate-900 dark:text-slate-100 leading-none hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">
+                            {{ request.user.email|truncatechars:18 }}
+                        </a>
+                        <p class="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-[0.1em] mt-1.5">{{ request.user.role }}</p>
                     </div>
                     <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-indigo-500/20 ring-4 ring-white dark:ring-slate-900/50">
-                        {{ user.email|slice:":1"|upper }}
+                        <a href="{% url 'users:user-profile' request.user.id %}" class="text-white hover:text-gray-100 transition-colors">
+                            {{ request.user.email|slice:":1"|upper }}
+                        </a>
                     </div>
                 </div>
             </div>

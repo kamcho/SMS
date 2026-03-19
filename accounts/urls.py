@@ -20,6 +20,7 @@ urlpatterns = [
     # M-Pesa Integration
     path('mpesa/test/', mpesa_views.mpesa_test_view, name='mpesa-test'),
     path('mpesa/stk-push/', mpesa_views.MpesaSTKPushView.as_view(), name='mpesa-stk-push'),
+    path('initiate-stk-push/', mpesa_views.MpesaSTKPushView.as_view(), name='initiate-stk-push'),
     path('mpesa/pull/', mpesa_views.MpesaB2CView.as_view(), name='mpesa-pull'),
     path('mpesa/callback/', mpesa_views.mpesa_callback, name='mpesa-callback'),
     path('mpesa/result/', mpesa_views.mpesa_result, name='mpesa-result'),

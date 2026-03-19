@@ -42,8 +42,9 @@ class MyUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_exam_manager = models.BooleanField(default=False)
     is_exam_officer = models.BooleanField(default=False)
+    is_headteacher = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
-
+    phone_number = models.CharField(max_length=15, blank=True, null=True, unique=True)
     objects = MyUserManager()
 
     USERNAME_FIELD = 'email'

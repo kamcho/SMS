@@ -142,45 +142,26 @@
     </div>
 
     <!-- Bar Chart -->
-    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm lg:col-span-2">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-[15px] font-bold text-slate-800">Monthly attendance summary</h3>
-            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            <h3 class="text-[15px] font-bold text-slate-800">School-wide Daily Attendance</h3>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-1.5">
+                    <div class="w-2.5 h-2.5 bg-indigo-500 rounded-sm"></div>
+                    <span class="text-[11px] font-medium text-slate-500">Present</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-2.5 h-2.5 bg-yellow-500 rounded-sm"></div>
+                    <span class="text-[11px] font-medium text-slate-500">Absent</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-2.5 h-2.5 bg-red-500 rounded-sm"></div>
+                    <span class="text-[11px] font-medium text-slate-500">Late/Excused</span>
+                </div>
+            </div>
         </div>
-        <div class="h-56 relative w-full">
+        <div class="h-64 relative w-full">
             <canvas id="attendanceChart"></canvas>
-        </div>
-        <div class="flex items-center gap-4 mt-4">
-            <div class="flex items-center gap-1.5">
-                <div class="w-2.5 h-2.5 bg-indigo-500 rounded-sm"></div>
-                <span class="text-[11px] font-medium text-slate-500">Present</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <div class="w-2.5 h-2.5 bg-yellow-500 rounded-sm"></div>
-                <span class="text-[11px] font-medium text-slate-500">Absent</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <div class="w-2.5 h-2.5 bg-red-500 rounded-sm"></div>
-                <span class="text-[11px] font-medium text-slate-500">Late</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Area Chart -->
-    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col">
-        <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[15px] font-bold text-slate-800">Total fees collected</h3>
-            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
-        </div>
-        <div class="mb-4">
-            <div class="text-[24px] font-extrabold text-slate-800 tracking-tight">$11,800,000.00</div>
-            <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1 mt-1">
-                <i class="fas fa-arrow-up text-[10px]"></i>
-                <span>21% vs last month</span>
-            </div>
-        </div>
-        <div class="h-44 relative flex-grow w-full">
-            <canvas id="revenueChart"></canvas>
         </div>
     </div>
 </div>
@@ -210,9 +191,17 @@
                         <td class="py-3 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ class_obj.name }}</td>
                         <td class="py-3 text-[12px] font-semibold text-slate-500">{{ class_obj.grade.name }}</td>
                         <td class="py-3 text-right">
-                            <button onclick="event.stopPropagation(); openAssignModal('{{ class_obj.id }}', '{{ class_obj.name|escapejs }}', '{% if class_obj.invigilator %}{{ class_obj.invigilator.id }}{% endif %}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-colors {% if class_obj.invigilator %}text-orange-600 hover:text-orange-800 bg-orange-50 border-orange-100 hover:bg-orange-100{% else %}text-indigo-600 hover:text-indigo-800 bg-indigo-50 border-indigo-100 hover:bg-indigo-100{% endif %}">
-                                Manage
-                            </button>
+                            {% if request.user.is_superuser or request.user.role == 'Admin' or request.user.is_exam_officer %}
+                                <button onclick="event.stopPropagation(); openAssignModal('{{ class_obj.id }}', '{{ class_obj.name|escapejs }}', '{% if class_obj.invigilator %}{{ class_obj.invigilator.id }}{% endif %}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-colors {% if class_obj.invigilator %}text-orange-600 hover:text-orange-800 bg-orange-50 border-orange-100 hover:bg-orange-100{% else %}text-indigo-600 hover:text-indigo-800 bg-indigo-50 border-indigo-100 hover:bg-indigo-100{% endif %}">
+                                    Assign Invigilator
+                                </button>
+                            {% elif request.user.is_headteacher %}
+                                <button onclick="event.stopPropagation(); openAssignTeacherModal('{{ class_obj.id }}', '{{ class_obj.name|escapejs }}', '{% if class_obj.class_teacher %}{{ class_obj.class_teacher.id }}{% endif %}')" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-colors {% if class_obj.class_teacher %}text-purple-600 hover:text-purple-800 bg-purple-50 border-purple-100 hover:bg-purple-100{% else %}text-green-600 hover:text-green-800 bg-green-50 border-green-100 hover:bg-green-100{% endif %}">
+                                    Assign Teacher
+                                </button>
+                            {% else %}
+                                <span class="text-[11px] text-slate-400">-</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -341,6 +330,57 @@
         </form>
     </div>
 </div>
+
+<!-- Assign Class Teacher Modal -->
+<div id="assignTeacherModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm overflow-y-auto w-full h-full flex items-center justify-center p-4">
+    <div class="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 animate-fade-in-up border border-slate-100">
+        <button onclick="closeAssignTeacherModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors">
+            <i class="fas fa-times"></i>
+        </button>
+        
+        <div class="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-500 text-2xl mb-6 ring-4 ring-white shadow-sm">
+            <i class="fas fa-chalkboard-teacher"></i>
+        </div>
+        
+        <h3 class="text-2xl font-black text-slate-800 mb-2 tracking-tight">Assign Class Teacher</h3>
+        <p class="text-[13px] text-slate-500 mb-6 font-medium">Select a teacher to assign as class teacher for <span id="modalTeacherClassName" class="font-bold text-slate-700"></span>.</p>
+        
+        <form method="post" action="{% url 'core:classes-list' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign_class_teacher">
+            <input type="hidden" name="class_id" id="modalTeacherClassId">
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Teacher</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-chalkboard-teacher text-slate-400 text-sm"></i>
+                        </div>
+                        <select name="teacher_id" id="modalTeacherTeacherId" required class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 transition-all appearance-none cursor-pointer">
+                            <option value="">Select a teacher...</option>
+                            {% for teacher in teachers %}
+                            <option value="{{ teacher.id }}">{{ teacher.first_name }} {{ teacher.last_name }} ({{ teacher.email }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                            <i class="fas fa-chevron-down text-slate-400 text-[10px]"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 flex gap-3">
+                <button type="button" onclick="closeAssignTeacherModal()" class="flex-1 py-3 px-4 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors border border-slate-200">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-purple-200 flex items-center justify-center gap-2">
+                    <i class="fas fa-check"></i> Assign
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -375,29 +415,36 @@
 
         // 2. Attendance Bar Chart
         const ctxAtt = document.getElementById('attendanceChart').getContext('2d');
+        const attLabels = {{ school_attendance_labels|safe|default:"[]" }};
+        const attPresent = {{ school_attendance_present|safe|default:"[]" }};
+        const attAbsent = {{ school_attendance_absent|safe|default:"[]" }};
+        const attLate = {{ school_attendance_late|safe|default:"[]" }};
+
         new Chart(ctxAtt, {
             type: 'bar',
             data: {
-                labels: ['00 Sep', '10 Oct', '20 Oct', '30 Oct', '10 Nov'],
+                labels: attLabels,
                 datasets: [
                     {
                         label: 'Present',
-                        data: [400, 380, 420, 350, 450],
+                        data: attPresent,
                         backgroundColor: '#6366f1',
-                        barThickness: 6,
-                        borderRadius: {topLeft: 4, topRight: 4}
+                        barThickness: 8,
+                        borderRadius: 4
                     },
                     {
                         label: 'Absent',
-                        data: [80, 60, 90, 120, 50],
+                        data: attAbsent,
                         backgroundColor: '#f59e0b',
-                        barThickness: 6,
+                        barThickness: 8,
+                        borderRadius: 4
                     },
                     {
-                        label: 'Late',
-                        data: [30, 40, 20, 50, 10],
+                        label: 'Late/Excused',
+                        data: attLate,
                         backgroundColor: '#ef4444',
-                        barThickness: 6,
+                        barThickness: 8,
+                        borderRadius: 4
                     }
                 ]
             },
@@ -411,47 +458,7 @@
                         grid: { color: '#f1f5f9', drawBorder: false }, 
                         ticks: { 
                             font: { size: 10 },
-                            callback: function(value) { return value + 'k'; }
-                        }
-                    }
-                }
-            }
-        });
-
-        // 3. Revenue Area Chart
-        const ctxRev = document.getElementById('revenueChart').getContext('2d');
-        const gradient = ctxRev.createLinearGradient(0, 0, 0, 150);
-        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.4)'); // Purple
-        gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
-
-        new Chart(ctxRev, {
-            type: 'line',
-            data: {
-                labels: ['30 Sep', '10 Oct', '20 Oct', '30 Oct', '10 Nov'],
-                datasets: [{
-                    label: 'Income',
-                    data: [1, 3, 5, 8, 14],
-                    backgroundColor: gradient,
-                    borderColor: '#8b5cf6',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: '#ef4444', // Red point
-                    pointBorderWidth: 2,
-                    pointRadius: function(ctx) { return ctx.dataIndex === 2 ? 5 : 0; }, // Show point only in middle
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                    y: { 
-                        grid: { color: '#f1f5f9', drawBorder: false }, 
-                        ticks: { 
-                            font: { size: 10 },
-                            callback: function(value) { return value + 'm'; }
+                            beginAtZero: true
                         }
                     }
                 }
@@ -502,6 +509,24 @@
 
     function closeAssignModal() {
         document.getElementById('assignInvigilatorModal').classList.add('hidden');
+    }
+
+    function openAssignTeacherModal(classId, className, teacherId) {
+        document.getElementById('modalTeacherClassId').value = classId;
+        document.getElementById('modalTeacherClassName').textContent = className;
+        
+        const teacherSelect = document.getElementById('modalTeacherTeacherId');
+        if (teacherId) {
+            teacherSelect.value = teacherId;
+        } else {
+            teacherSelect.value = '';
+        }
+        
+        document.getElementById('assignTeacherModal').classList.remove('hidden');
+    }
+
+    function closeAssignTeacherModal() {
+        document.getElementById('assignTeacherModal').classList.add('hidden');
     }
 </script>
 <style>

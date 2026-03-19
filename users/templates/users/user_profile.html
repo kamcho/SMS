@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block title %}User Profile | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center gap-4">
+    <div>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">User Profile</h1>
+        <p class="text-slate-500 mt-1 font-medium">View user details and information</p>
+    </div>
+    {% if can_edit %}
+        <a href="{% url 'users:update-user' user_profile.id %}" class="btn btn-primary text-sm">
+            <i class="fas fa-edit"></i>
+            Edit User
+        </a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- User Information Card -->
+        <div class="glass-card lg:col-span-2">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fas fa-user text-indigo-500"></i>
+                    User Information
+                </h3>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- Personal Details -->
+                <div class="bg-slate-50 rounded-xl p-6">
+                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Personal Details</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
+                            <div class="text-sm text-slate-900 font-medium">{{ user_profile.email }}</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
+                            <div class="text-sm text-slate-900 font-medium">{{ user_profile.get_full_name }}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Contact Details -->
+                <div class="bg-slate-50 rounded-xl p-6">
+                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Contact Details</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Phone Number</label>
+                            <div class="text-sm text-slate-900 font-medium">{{ user_profile.phone_number|default:"Not provided" }}</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">School</label>
+                            <div class="text-sm text-slate-900 font-medium">{{ user_profile.school.name|default:"Not assigned" }}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Account Details -->
+                <div class="bg-slate-50 rounded-xl p-6">
+                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Account Details</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Role</label>
+                            <div class="text-sm">
+                                <span class="px-3 py-1 {% if user_profile.role == 'Admin' %}bg-indigo-100 text-indigo-600{% elif User_profile.role == 'Teacher' %}bg-green-100 text-green-600{% elif User_profile.role == 'Accountant' %}bg-blue-100 text-blue-600{% else %}bg-purple-100 text-purple-600{% endif %} text-[10px] font-black uppercase tracking-widest rounded-full">
+                                    {{ User_profile.get_role_display }}
+                                </span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Account Status</label>
+                            <div class="text-sm">
+                                {% if user_profile.is_active %}
+                                    <span class="px-3 py-1 bg-green-100 text-green-600 text-[10px] font-black uppercase tracking-widest rounded-full">Active</span>
+                                {% else %}
+                                    <span class="px-3 py-1 bg-red-100 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-full">Inactive</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Permissions -->
+                <div class="bg-slate-50 rounded-xl p-6">
+                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Permissions</h4>
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Staff Status</label>
+                            <div class="text-sm">
+                                <span class="px-3 py-1 {% if user_profile.is_staff %}bg-indigo-100 text-indigo-600{% else %}bg-gray-100 text-gray-600{% endif %} text-[10px] font-black uppercase tracking-widest rounded-full">
+                                    {% if user_profile.is_staff %}Staff Member{% else %}Regular User{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Exam Manager</label>
+                            <div class="text-sm">
+                                <span class="px-3 py-1 {% if user_profile.is_exam_manager %}bg-green-100 text-green-600{% else %}bg-gray-100 text-gray-600{% endif %} text-[10px] font-black uppercase tracking-widest rounded-full">
+                                    {% if user_profile.is_exam_manager %}Yes{% else %}No{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Exam Officer</label>
+                            <div class="text-sm">
+                                <span class="px-3 py-1 {% if user_profile.is_exam_officer %}bg-green-100 text-green-600{% else %}bg-gray-100 text-gray-600{% endif %} text-[10px] font-black uppercase tracking-widest rounded-full">
+                                    {% if User_profile.is_exam_officer %}Yes{% else %}No{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- System Information -->
+                <div class="bg-slate-50 rounded-xl p-6">
+                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">System Information</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Date Joined</label>
+                            <div class="text-sm text-slate-900 font-medium">{{ user_profile.date_joined|date:"M d, Y H:i" }}</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Last Login</label>
+                            <div class="text-sm text-slate-900 font-medium">{{ user_profile.last_login|date:"M d, Y H:i"|default:"Never" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions Card -->
+        <div class="glass-card">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fas fa-cog text-indigo-500"></i>
+                    Actions
+                </h3>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Linked Students -->
+                <div class="bg-slate-50 rounded-xl p-6">
+                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Linked Students</h4>
+                    <div class="text-sm text-slate-600">
+                        {% if user_profile.students.all %}
+                            {% for student in user_profile.students.all %}
+                                <div class="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+                                    <div>
+                                        <span class="font-medium">{{ student.get_full_name }}</span>
+                                        <span class="text-xs text-slate-400 ml-2">{{ student.adm_no }}</span>
+                                    </div>
+                                    <a href="{% url 'core:student-detail' student.id %}" class="text-indigo-500 hover:text-indigo-700 text-sm">
+                                        View Details
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-slate-400 italic">No students linked to this user.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

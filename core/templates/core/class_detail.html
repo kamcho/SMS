@@ -157,8 +157,17 @@
             <h3 class="text-[15px] font-bold text-slate-800">Attendance Trends</h3>
             <a href="{% url 'core:mark-attendance' class_obj.id %}" class="text-[12px] text-indigo-600 font-bold hover:text-indigo-700">Detailed Report</a>
         </div>
-        <div class="h-56 relative w-full mb-2">
-            <canvas id="attendanceChart"></canvas>
+        <div class="h-56 relative w-full mb-2" id="attendanceChartContainer">
+            <canvas id="attendanceChart" class="w-full h-full {% if not recent_attendance %}hidden{% endif %}"></canvas>
+            {% if not recent_attendance %}
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+                <div class="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-chart-line text-slate-300"></i>
+                </div>
+                <p class="text-sm font-bold text-slate-400">No attendance data yet</p>
+                <p class="text-[11px] text-slate-400 mt-1">Register daily attendance to see trends</p>
+            </div>
+            {% endif %}
         </div>
         <div class="flex items-center gap-4 mt-2">
             <div class="flex items-center gap-1.5">
@@ -272,7 +281,7 @@
                     {% endfor %}
                 </div>
             </div>
-            <button class="w-full py-2 border border-slate-200 text-slate-700 rounded-lg font-bold text-[12px] hover:bg-slate-50 transition-colors">
+            <button onclick="openAssignTeacherModal()" class="w-full py-2 border border-slate-200 text-slate-700 rounded-lg font-bold text-[12px] hover:bg-slate-50 transition-colors">
                 Manage Teachers
             </button>
         </div>
@@ -307,6 +316,52 @@
         {% endif %}
     </div>
 
+    {% if is_admin_view %}
+    <!-- Assign Teacher Modal -->
+    <div id="assignTeacherModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 transform scale-95 opacity-0 transition-all duration-300" id="assignTeacherModalContent">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-black text-slate-800">Assign Teacher</h2>
+                <button onclick="closeAssignTeacherModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            
+            <form method="post" action="{% url 'core:class-detail' class_obj.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="assign_teacher">
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter mb-1">Subject</label>
+                        <select name="subject_id" required class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                            <option value="">Select a subject...</option>
+                            {% for item in subject_teacher_list %}
+                            <option value="{{ item.subject.id }}">{{ item.subject.name }} {% if item.teacher %}(Current: {{ item.teacher.get_full_name|default:item.teacher.email }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter mb-1">Teacher</label>
+                        <select name="teacher_id" required class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                            <option value="">Select a teacher...</option>
+                            {% for teacher in available_teachers %}
+                            <option value="{{ teacher.id }}">{{ teacher.get_full_name|default:teacher.email }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mt-8 flex justify-end gap-3">
+                    <button type="button" onclick="closeAssignTeacherModal()" class="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">Assign Teacher</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 
 {% endblock %}
@@ -318,89 +373,108 @@
         Chart.defaults.color = '#94a3b8';
 
         // Gender Donut Chart
-        const ctxGender = document.getElementById('genderChart').getContext('2d');
-        const genderData = [
-            parseInt('{{ gender_stats.male|default:"0" }}'), 
-            parseInt('{{ gender_stats.female|default:"0" }}')
-        ];
-        new Chart(ctxGender, {
-            type: 'doughnut',
-            data: {
-                labels: ['Male', 'Female'],
-                datasets: [{
-                    data: genderData,
-                    backgroundColor: ['#0ea5e9', '#f43f5e'],
-                    borderWidth: 0,
-                    spacing: 4,
-                    cutout: '80%'
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
-            }
-        });
+        const genderCanvas = document.getElementById('genderChart');
+        if (genderCanvas) {
+            const ctxGender = genderCanvas.getContext('2d');
+            const genderData = [
+                parseInt('{{ gender_stats.male|default:"0" }}'), 
+                parseInt('{{ gender_stats.female|default:"0" }}')
+            ];
+            new Chart(ctxGender, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Male', 'Female'],
+                    datasets: [{
+                        data: genderData,
+                        backgroundColor: ['#0ea5e9', '#f43f5e'],
+                        borderWidth: 0,
+                        spacing: 4,
+                        cutout: '80%'
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
 
         // Attendance Trends Chart
-        {% if recent_attendance %}
-        const ctxAttendance = document.getElementById('attendanceChart').getContext('2d');
-        const attDates = JSON.parse('{{ attendance_dates|escapejs }}' || '[]');
-    const attRates = JSON.parse('{{ attendance_rates|escapejs }}' || '[]');
-        
-        const gradient = ctxAttendance.createLinearGradient(0, 0, 0, 200);
-        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
-        gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
-        
-        new Chart(ctxAttendance, {
-            type: 'line',
-            data: {
-                labels: attDates,
-                datasets: [{
-                    label: 'Attendance Rate',
-                    data: attRates,
-                    borderColor: '#6366f1',
-                    backgroundColor: gradient,
-                    borderWidth: 2,
-                    tension: 0.4,
-                    fill: true,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: '#6366f1',
-                    pointBorderWidth: 2,
-                    pointRadius: 3,
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) { return context.parsed.y + '% Attendance'; }
+        try {
+            const attDates = {{ attendance_dates|safe|default:"[]" }};
+            const attRates = {{ attendance_rates|safe|default:"[]" }};
+            
+            console.log("Attendance Chart Debug:", { dates: attDates, rates: attRates });
+
+            if (attDates && attDates.length > 0) {
+                const attendanceCanvas = document.getElementById('attendanceChart');
+                if (attendanceCanvas) {
+                    const ctxAttendance = attendanceCanvas.getContext('2d');
+                    const gradient = ctxAttendance.createLinearGradient(0, 0, 0, 200);
+                    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+                    gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+                    
+                    new Chart(ctxAttendance, {
+                        type: 'line',
+                        data: {
+                            labels: attDates,
+                            datasets: [{
+                                label: 'Attendance Rate',
+                                data: attRates,
+                                borderColor: '#6366f1',
+                                backgroundColor: gradient,
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true,
+                                pointBackgroundColor: '#fff',
+                                pointBorderColor: '#6366f1',
+                                pointBorderWidth: 2,
+                                pointRadius: attDates.length === 1 ? 5 : 4,
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            maintainAspectRatio: false,
+                            responsive: true,
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return (context.raw !== undefined ? context.raw : context.parsed.y) + '% Attendance';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    ticks: {
+                                        callback: function(value) { return value + '%'; }
+                                    }
+                                },
+                                x: {
+                                    grid: { display: false }
+                                }
+                            }
                         }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: false,
-                        max: 100,
-                        min: 50,
-                        grid: { color: '#f1f5f9', drawBorder: false },
-                        ticks: { font: { size: 10 } }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { size: 10 } }
-                    }
+                    });
                 }
             }
-        });
-        {% endif %}
+        } catch (e) {
+            console.error("Attendance Chart Error:", e);
+        }
     });
 
     function toggleMoreStudents() {
         const extraRows = document.querySelectorAll('.extra-student-row');
         const card = document.getElementById('student-roster-card');
         const btn = document.getElementById('view-more-students-btn');
+        if (!extraRows.length) return;
+        
         const isHidden = extraRows[0].classList.contains('hidden');
 
         extraRows.forEach(row => {
@@ -412,15 +486,41 @@
         });
 
         if (isHidden) {
-            card.classList.remove('h-[500px]');
-            card.classList.add('h-auto');
-            btn.innerText = 'View Less';
+            if (card) {
+                card.classList.remove('h-[500px]');
+                card.classList.add('h-auto');
+            }
+            if (btn) btn.innerText = 'View Less';
         } else {
-            card.classList.add('h-[500px]');
-            card.classList.remove('h-auto');
-            btn.innerText = 'View All';
-            // Scroll back up if we're collapsing
-            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (card) {
+                card.classList.add('h-[500px]');
+                card.classList.remove('h-auto');
+                card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            if (btn) btn.innerText = 'View All';
+        }
+    }
+
+    function openAssignTeacherModal() {
+        const modal = document.getElementById('assignTeacherModal');
+        const content = document.getElementById('assignTeacherModalContent');
+        if(modal) {
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; // Trigger reflow
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }
+    }
+
+    function closeAssignTeacherModal() {
+        const modal = document.getElementById('assignTeacherModal');
+        const content = document.getElementById('assignTeacherModalContent');
+        if(modal) {
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
         }
     }
 </script>

@@ -217,11 +217,12 @@ class MpesaTransaction(models.Model):
     checkout_request_id = models.CharField(max_length=100, blank=True, null=True)
     response_code = models.CharField(max_length=10, blank=True, null=True)
     response_description = models.TextField(blank=True, null=True)
-    mpesa_receipt_number = models.CharField(max_length=50, unique=True)
+    mpesa_receipt_number = models.CharField(max_length=50, unique=True, blank=True, null=True)
     transaction_date = models.DateTimeField(blank=True, null=True)
     
     # System fields
-    # Links are now handled from the relevant models (Payment/StaffPayment)
+    student = models.ForeignKey('core.Student', on_delete=models.SET_NULL, null=True, blank=True, related_name='mpesa_transactions')
+    initiated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

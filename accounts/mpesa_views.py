@@ -32,34 +32,69 @@ class MpesaSTKPushView(LoginRequiredMixin, View):
     def post(self, request):
         print("🚀 DEBUG: STK Push view called!")
         print(f"🚀 DEBUG: Request method: {request.method}")
-        print(f"🚀 DEBUG: Request body: {request.body}")
+        print(f"🚀 DEBUG: Request POST data: {request.POST}")
         
         try:
-            data = json.loads(request.body)
-            print(f"📦 DEBUG: Parsed JSON data: {data}")
+            # Handle both JSON and form data
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+                print(f"📦 DEBUG: Parsed JSON data: {data}")
+            else:
+                # Handle form data
+                data = {
+                    'phone_number': request.POST.get('phone_number'),
+                    'amount': request.POST.get('amount'),
+                    'student_id': request.POST.get('student_id'),
+                    'account_reference': f"Student {request.POST.get('student_id')}",
+                    'transaction_desc': 'Student Fee Payment'
+                }
+                print(f"📦 DEBUG: Parsed form data: {data}")
             
             phone_number = data.get('phone_number')
             amount = data.get('amount')
+            student_id = data.get('student_id')
             account_reference = data.get('account_reference', '')
             transaction_desc = data.get('transaction_desc', 'Payment')
-            staff_id = data.get('staff_id')
-            payment_id = data.get('payment_id')
             
             print(f"📱 DEBUG: Extracted phone: {phone_number}")
             print(f"💰 DEBUG: Extracted amount: {amount}")
+            print(f"👤 DEBUG: Extracted student_id: {student_id}")
             print(f"📝 DEBUG: Extracted account_ref: {account_reference}")
-            print(f"📝 DEBUG: Extracted transaction_desc: {transaction_desc}")
-            print(f"👤 DEBUG: Extracted staff_id: {staff_id}")
-            print(f"💳 DEBUG: Extracted payment_id: {payment_id}")
             
             # Validate required fields
             if not phone_number or not amount:
                 print("❌ DEBUG: Missing required fields")
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Phone number and amount are required'
-                }, status=400)
+                if request.content_type == 'application/json':
+                    return JsonResponse({'error': 'Phone number and amount are required'}, status=400)
+                else:
+                    messages.error(request, 'Phone number and amount are required')
+                    return JsonResponse({'error': 'Phone number and amount are required'}, status=400)
             
+            # Convert amount to decimal
+            try:
+                amount = Decimal(str(amount))
+                print(f"� DEBUG: Converted amount to decimal: {amount}")
+            except (ValueError, TypeError):
+                print("❌ DEBUG: Invalid amount format")
+                if request.content_type == 'application/json':
+                    return JsonResponse({'error': 'Invalid amount format'}, status=400)
+                else:
+                    messages.error(request, 'Invalid amount format')
+                    return JsonResponse({'error': 'Invalid amount format'}, status=400)
+            
+            # Get student if student_id is provided
+            student = None
+            if student_id:
+                try:
+                    student = Student.objects.get(id=student_id)
+                    print(f"� DEBUG: Found student: {student.get_full_name()}")
+                except Student.DoesNotExist:
+                    print(f"❌ DEBUG: Student not found: {student_id}")
+                    if request.content_type == 'application/json':
+                        return JsonResponse({'error': 'Student not found'}, status=404)
+                    else:
+                        messages.error(request, 'Student not found')
+                        return JsonResponse({'error': 'Student not found'}, status=404)
             # Clean phone number (remove spaces, +, etc.)
             phone_number = phone_number.replace(' ', '').replace('+', '')
             if not phone_number.startswith('254'):
@@ -72,49 +107,29 @@ class MpesaSTKPushView(LoginRequiredMixin, View):
                 transaction_type='stk_push',
                 phone_number=phone_number,
                 amount=Decimal(str(amount)),
-                status='pending'
+                status='pending',
+                student=student,
+                initiated_by=request.user
             )
             
             print(f"💾 DEBUG: Created transaction: {mpesa_transaction.id}")
             
-            # Link from relevant models if provided
-            if staff_id:
-                try:
-                    from django.contrib.auth import get_user_model
-                    User = get_user_model()
-                    staff = User.objects.get(id=staff_id)
-                    # For B2C we usually link staff to txn, but for STK push 
-                    # we might not have a model yet unless it's a specific business flow.
-                    # If there's no model to link FROM, we might need a generic link or just rely on logs.
-                    # However, if this is a salary payment:
-                    staff_payment = StaffPayment.objects.filter(staff=staff, mpesa_transaction__isnull=True).first()
-                    if staff_payment:
-                        staff_payment.mpesa_transaction = mpesa_transaction
-                        staff_payment.save()
-                        print(f"👤 DEBUG: Linked to staff payment: {staff_payment.id}")
-                except Exception as e:
-                    print(f"⚠️ DEBUG: Error linking staff: {str(e)}")
-            
-            if payment_id:
-                try:
-                    payment = Payment.objects.get(id=payment_id)
-                    payment.mpesa_transaction = mpesa_transaction
-                    payment.save()
-                    print(f"💳 DEBUG: Linked from payment: {payment.id}")
-                except Payment.DoesNotExist:
-                    print(f"⚠️ DEBUG: Payment not found: {payment_id}")
+            # Defer Payment creation until M-Pesa confirms the STK Push via callback
+            print("⏳ DEBUG: Deferring Payment record creation until STK push callback confirms success")
             
             print(f"💾 DEBUG: Transaction saved")
             
             # Initiate STK push
             mpesa_service = MpesaService()
-            callback_url = request.build_absolute_uri('/accounts/mpesa/callback/')
-            print(f"🔗 DEBUG: Generated callback URL: {callback_url}")
+            # Use callback URL from environment
+            from django.conf import settings
+            callback_url = getattr(settings, 'MPESA_CALLBACK_URL', 'http://127.0.0.1:8000/accounts/mpesa/callback/')
+            print(f"🔗 DEBUG: Using callback URL from env: {callback_url}")
             
             result = mpesa_service.stk_push(
                 phone_number=phone_number,
                 amount=amount,
-                account_reference=account_reference or f"TXN-{mpesa_transaction.id}",
+                account_reference=account_reference or f"Student-{student_id}",
                 transaction_desc=transaction_desc,
                 callback_url=callback_url
             )
@@ -154,16 +169,23 @@ class MpesaSTKPushView(LoginRequiredMixin, View):
             print(f"❌ DEBUG: JSON decode error: {str(e)}")
             return JsonResponse({
                 'success': False,
-                'error': 'Invalid JSON data'
+                'error': 'Invalid request format'
             }, status=400)
         except Exception as e:
-            print(f"🚨 DEBUG: Unexpected error: {str(e)}")
+            print(f"❌ DEBUG: Unexpected error: {str(e)}")
             import traceback
             print(f"🚨 DEBUG: Traceback: {traceback.format_exc()}")
             return JsonResponse({
                 'success': False,
                 'error': 'An unexpected error occurred'
             }, status=500)
+    
+    def get(self, request):
+        """Handle GET requests - return form page or info"""
+        return JsonResponse({
+            'success': True,
+            'message': 'STK Push endpoint is ready. Use POST to initiate payment.'
+        })
 
 
 class MpesaB2CView(LoginRequiredMixin, View):
@@ -291,10 +313,18 @@ def mpesa_callback(request):
     print(f"🔔 DEBUG: Request method: {request.method}")
     print(f"🔔 DEBUG: Request headers: {dict(request.headers)}")
     print(f"🔔 DEBUG: Request body: {request.body}")
+    print(f"🔔 DEBUG: Content-Type: {request.content_type}")
     
     try:
-        callback_data = json.loads(request.body)
-        print(f"📦 DEBUG: Parsed callback JSON successfully")
+        # Try to parse as JSON first
+        try:
+            callback_data = json.loads(request.body)
+            print(f"📦 DEBUG: Parsed callback JSON successfully: {callback_data}")
+        except json.JSONDecodeError:
+            print("❌ DEBUG: Failed to parse as JSON, trying form data")
+            # Try to parse as form data
+            callback_data = dict(request.POST)
+            print(f"📦 DEBUG: Parsed callback form data: {callback_data}")
         
         # Process the callback
         mpesa_service = MpesaService()
@@ -332,8 +362,11 @@ def mpesa_callback(request):
         
         return JsonResponse({'result': result}, status=200)
         
-    except json.JSONDecodeError:
-        logger.error("Invalid JSON in M-Pesa callback")
+    except Exception as e:
+        print(f"❌ DEBUG: Callback processing error: {str(e)}")
+        import traceback
+        print(f"🚨 DEBUG: Traceback: {traceback.format_exc()}")
+        return JsonResponse({'error': str(e)}, status=400)
         print("❌ DEBUG: Invalid JSON in callback")
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:

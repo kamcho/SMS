@@ -78,9 +78,15 @@
                 </h3>
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Outstanding Balance</p>
                 </div>
-            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
-                <span class="text-xs font-black text-rose-500"><i class="fas fa-exclamation-circle mr-1"></i>Pending</span>
-                <span class="text-[10px] font-bold text-slate-400 italic">Total paid: KES {{ total_paid|floatformat:0 }}</span>
+            <div class="pt-3 border-t border-slate-50 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-black text-rose-500"><i class="fas fa-exclamation-circle mr-1"></i>Pending</span>
+                    <span class="text-[10px] font-bold text-slate-400 italic">Total paid: KES {{ total_paid|floatformat:0 }}</span>
+                </div>
+                <button onclick="openPaymentModal('{{ student.id }}', '{{ student.get_full_name }}', '{{ profile.fee_balance|default:"0" }}')" class="text-xs font-black px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors flex items-center gap-1">
+                    <i class="fas fa-credit-card"></i>
+                    Pay
+                </button>
             </div>
             </div>
 
@@ -436,5 +442,121 @@
     });
 
     document.documentElement.classList.remove('dark');
+</script>
+
+<!-- Payment Modal -->
+<div id="paymentModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm overflow-y-auto w-full h-full flex items-center justify-center p-4">
+    <div class="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 animate-fade-in-up border border-slate-100">
+        <button onclick="closePaymentModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors">
+            <i class="fas fa-times"></i>
+        </button>
+        
+        <div class="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 text-2xl mb-6 ring-4 ring-white shadow-sm">
+            <i class="fas fa-credit-card"></i>
+        </div>
+        
+        <h3 class="text-2xl font-black text-slate-800 mb-2 tracking-tight">Make Payment</h3>
+        <p class="text-[13px] text-slate-500 mb-6 font-medium">Process M-Pesa payment for <span id="paymentStudentName" class="font-bold text-slate-700"></span>.</p>
+        
+        <form method="post" action="{% url 'accounts:mpesa-stk-push' %}" id="paymentForm">
+            {% csrf_token %}
+            <input type="hidden" name="student_id" id="paymentStudentId">
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Phone Number</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-phone text-slate-400 text-sm"></i>
+                        </div>
+                        <input type="tel" name="phone_number" id="paymentPhone" required 
+                               placeholder="254712345678" 
+                               pattern="254[0-9]{9}" 
+                               class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all appearance-none">
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1">Format: 254712345678</p>
+                </div>
+                
+                <div>
+                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Amount (KES)</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-shilling-sign text-slate-400 text-sm"></i>
+                        </div>
+                        <input type="number" name="amount" id="paymentAmount" required 
+                               min="1" 
+                               step="0.01"
+                               class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all appearance-none">
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1">Outstanding balance: KES <span id="outstandingBalance">0</span></p>
+                </div>
+            </div>
+            
+            <div class="mt-8 flex gap-3">
+                <button type="button" onclick="closePaymentModal()" class="flex-1 py-3 px-4 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors border border-slate-200">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-200 flex items-center justify-center gap-2">
+                    <i class="fas fa-paper-plane"></i> Send STK Push
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openPaymentModal(studentId, studentName, outstandingBalance) {
+        document.getElementById('paymentStudentId').value = studentId;
+        document.getElementById('paymentStudentName').textContent = studentName;
+        document.getElementById('outstandingBalance').textContent = outstandingBalance;
+        document.getElementById('paymentAmount').value = outstandingBalance;
+        document.getElementById('paymentModal').classList.remove('hidden');
+    }
+
+    function closePaymentModal() {
+        document.getElementById('paymentModal').classList.add('hidden');
+    }
+
+    // Handle form submission with AJAX
+    document.getElementById('paymentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalText = submitButton.innerHTML;
+        
+        // Show loading state
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        submitButton.disabled = true;
+        
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Success - show success message and redirect
+                closePaymentModal();
+                alert('STK Push sent successfully! Please check your phone for the payment prompt.');
+                // Reload page to show updated status
+                window.location.reload();
+            } else {
+                // Error - show error message
+                alert('Payment failed: ' + (data.error || 'Unknown error occurred'));
+                submitButton.innerHTML = originalText;
+                submitButton.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while processing your payment. Please try again.');
+            submitButton.innerHTML = originalText;
+            submitButton.disabled = false;
+        });
+    });
 </script>
 {% endblock %}

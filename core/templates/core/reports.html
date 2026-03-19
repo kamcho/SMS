@@ -111,6 +111,20 @@
                 </div>
             </div>
 
+            <div class="space-y-2">
+                <label for="date_from" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Date From</label>
+                <div class="relative group">
+                    <input type="date" name="date_from" id="date_from" value="{{ selected_date_from|default_if_none:'' }}" onchange="this.form.submit()" class="w-full pl-6 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all cursor-pointer">
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label for="date_to" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Date To</label>
+                <div class="relative group">
+                    <input type="date" name="date_to" id="date_to" value="{{ selected_date_to|default_if_none:'' }}" onchange="this.form.submit()" class="w-full pl-6 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all cursor-pointer">
+                </div>
+            </div>
+
             {% if report_type == 'fees' %}
             <div class="space-y-2">
                 <label for="balance_status" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Debt Status</label>
@@ -132,7 +146,7 @@
             </div>
             {% endif %}
 
-            <div class="flex gap-4 {% if report_type != 'fees' %}lg:col-start-4{% endif %}">
+            <div class="flex gap-4 lg:col-start-4">
                 <button type="submit" class="flex-1 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
                     Apply Filter
                 </button>
