@@ -3646,3 +3646,138 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             ).order_by('-paper__exam_subject__exam__created_at')
 
         return context
+
+
+class AttendanceAnalyticsView(LoginRequiredMixin, TemplateView):
+    template_name = "core/attendance_analytics.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # 1. Handle Filtering
+        date_str = self.request.GET.get("date")
+        date_from_str = self.request.GET.get("date_from")
+        date_to_str = self.request.GET.get("date_to")
+        
+        today = timezone.now().date()
+        target_date = today
+        
+        if date_str:
+            try:
+                target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+        
+        date_from = target_date
+        date_to = target_date
+        
+        if date_from_str and date_to_str:
+            try:
+                date_from = datetime.strptime(date_from_str, "%Y-%m-%d").date()
+                date_to = datetime.strptime(date_to_str, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+        
+        context["target_date"] = target_date
+        context["date_from"] = date_from
+        context["date_to"] = date_to
+        
+        # 2. Scope by school if needed
+        school = None
+        if not self.request.user.is_superuser:
+            try:
+                school = self.request.user.profile.school
+            except AttributeError:
+                pass
+        
+        # 3. Analytics for the selected range
+        sessions = AttendanceSession.objects.filter(date__gte=date_from, date__lte=date_to)
+        if school:
+            sessions = sessions.filter(class_id__grade__school=school)
+            
+        stats = StudentAttendance.objects.filter(session__in=sessions).aggregate(
+            present=Count("id", filter=Q(status="Present")),
+            absent=Count("id", filter=Q(status="Absent")),
+            late=Count("id", filter=Q(status="Late")),
+            half_day=Count("id", filter=Q(status="Half Day"))
+        )
+        context["stats"] = stats
+        context["total_records"] = sum(v for v in stats.values() if v)
+        
+        # Calculate percentages
+        if context["total_records"] > 0:
+            context["present_perc"] = round((stats["present"] / context["total_records"]) * 100, 1)
+            context["absent_perc"] = round((stats["absent"] / context["total_records"]) * 100, 1)
+            context["late_perc"] = round(((stats["late"] + stats["half_day"]) / context["total_records"]) * 100, 1)
+        else:
+            context["present_perc"] = context["absent_perc"] = context["late_perc"] = 0
+
+        # 4. Table of non-present students
+        non_present_records = (
+            StudentAttendance.objects.filter(
+                session__in=sessions,
+                status__in=["Absent", "Late", "Half Day"]
+            )
+            .select_related("student", "session__class_id")
+            .order_by("-session__date", "student__first_name")
+        )
+        context["non_present_students"] = non_present_records
+        
+        # 5. Classes with missing attendance for target_date
+        all_classes = Class.objects.all().select_related("grade__school")
+        if school:
+            all_classes = all_classes.filter(grade__school=school)
+            
+        marked_classes_ids = sessions.filter(date=target_date).values_list("class_id_id", flat=True)
+        missing_attendance_classes = all_classes.exclude(id__in=marked_classes_ids)
+        context["missing_classes"] = missing_attendance_classes
+        
+        return context
+
+
+@login_required
+def link_student_view(request):
+    """View to link students to users (guardians)"""
+    from users.models import MyUser
+    
+    # Get all users who can be guardians
+    users = MyUser.objects.filter(
+        role__in=['Admin', 'Teacher', 'Accountant', 'Receptionist', 'Guardian']
+    ).prefetch_related('students')
+    
+    # Get all students
+    students = Student.objects.all().select_related('studentprofile__school')
+    
+    if request.method == 'POST':
+        user_id = request.POST.get('user_id')
+        student_ids = request.POST.getlist('student_ids')
+        
+        try:
+            user = MyUser.objects.get(id=user_id)
+            
+            # Clear existing student links for this user
+            user.students.clear()
+            
+            # Add new student links
+            if student_ids:
+                students_to_link = Student.objects.filter(id__in=student_ids)
+                user.students.add(*students_to_link)
+                
+                messages.success(request, f"Successfully linked {len(students_to_link)} students to {user.get_full_name() or user.email}")
+            else:
+                messages.info(request, f"Cleared all student links for {user.get_full_name() or user.email}")
+                
+        except MyUser.DoesNotExist:
+            messages.error(request, "User not found")
+        except Exception as e:
+            messages.error(request, f"Error linking students: {str(e)}")
+            
+        return redirect('core:link-student')
+    
+    context = {
+        'users': users,
+        'students': students,
+        'title': 'Link Students to Users'
+    }
+    
+    return render(request, 'core/link_student.html', context)

@@ -1,0 +1,479 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance Analytics | Excel SMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #e2e8f0;
+        border-radius: 10px;
+    }
+    @keyframes countUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-count { animation: countUp 0.5s ease-out forwards; }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+    <div>
+        <h1 class="text-[22px] font-bold text-slate-800">Attendance Analytics</h1>
+        <p class="text-[13px] text-slate-500 font-medium">Detailed insights across campus attendance records</p>
+    </div>
+
+    <div class="flex items-center gap-3 mt-4 md:mt-0">
+        <form method="GET" id="dateForm" class="flex items-center gap-2">
+            <div class="px-4 py-2 border border-slate-200 bg-white rounded-lg flex items-center gap-2 text-[13px] font-semibold text-slate-600 shadow-sm">
+                <i class="far fa-calendar-alt text-slate-400"></i>
+                <input type="date" name="date" value="{{ target_date|date:'Y-m-d' }}" class="text-[13px] font-semibold text-slate-600 outline-none border-none p-0 bg-transparent focus:ring-0 cursor-pointer" onchange="this.form.submit()">
+            </div>
+        </form>
+        <button type="button" onclick="document.getElementById('rangeModal').classList.remove('hidden')" class="px-4 py-2 border border-slate-200 bg-white rounded-lg flex items-center gap-2 text-[13px] font-semibold text-slate-600 cursor-pointer shadow-sm hover:bg-slate-50 transition-colors">
+            <i class="fas fa-calendar-week text-slate-400"></i>
+            <span>Date Range</span>
+        </button>
+        <a href="{% url 'core:classes-list' %}" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fas fa-arrow-left text-slate-400"></i> Back to Classes
+        </a>
+        <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-indigo-100">
+            <i class="fas fa-file-export text-indigo-200"></i> Export
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Top Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <!-- Card 1: Total Records -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                <i class="fas fa-clipboard-list text-blue-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800 animate-count">{{ total_records|default:0 }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Total records</p>
+        <div class="text-[12px] text-slate-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="far fa-calendar text-[10px]"></i>
+            <span>{{ target_date|date:"d M Y" }}</span>
+        </div>
+    </div>
+
+    <!-- Card 2: Present -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                <i class="fas fa-user-check text-emerald-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800 animate-count">{{ stats.present|default:0 }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Present students</p>
+        <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-arrow-up text-[10px]"></i>
+            <span>{{ present_perc }}% attendance rate</span>
+        </div>
+    </div>
+
+    <!-- Card 3: Absent -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center">
+                <i class="fas fa-user-times text-orange-500 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800 animate-count">{{ stats.absent|default:0 }}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Absent students</p>
+        <div class="text-[12px] text-orange-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-arrow-down text-[10px]"></i>
+            <span>{{ absent_perc }}% of total</span>
+        </div>
+    </div>
+
+    <!-- Card 4: Late / Half Day -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
+                <i class="fas fa-clock text-purple-600 text-sm"></i>
+            </div>
+            <div class="text-[28px] font-extrabold text-slate-800 animate-count">{% widthratio stats.late|default:0|add:stats.half_day|default:0 1 1 %}</div>
+        </div>
+        <p class="text-[13px] font-medium text-slate-500 mb-4">Late / Half day</p>
+        <div class="text-[12px] text-purple-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+            <i class="fas fa-exclamation-triangle text-[10px]"></i>
+            <span>{{ late_perc }}% of total</span>
+        </div>
+    </div>
+</div>
+
+<!-- Middle Section: Charts (3 Columns) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Donut Chart -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-[15px] font-bold text-slate-800">Attendance breakdown</h3>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="h-48 relative flex items-center justify-center">
+            <canvas id="statusDonut"></canvas>
+            <!-- Center Text for Donut -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+                <span class="text-[24px] font-bold text-slate-800">{{ total_records|default:0 }}</span>
+                <span class="text-[10px] text-slate-500 font-medium tracking-wide">Total records</span>
+            </div>
+        </div>
+        <div class="flex justify-between items-end mt-4">
+            <div>
+                <div class="text-[22px] font-bold text-indigo-500">{{ stats.present|default:0 }}</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <div class="w-2.5 h-2.5 bg-indigo-500 rounded-sm"></div>
+                    <span class="text-[12px] font-medium text-slate-800">Present</span>
+                </div>
+            </div>
+            <div>
+                <div class="text-[22px] font-bold text-orange-500">{{ stats.absent|default:0 }}</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <div class="w-2.5 h-2.5 bg-orange-500 rounded-sm"></div>
+                    <span class="text-[12px] font-medium text-slate-800">Absent</span>
+                </div>
+            </div>
+            <div>
+                <div class="text-[22px] font-bold text-red-500">{% widthratio stats.late|default:0|add:stats.half_day|default:0 1 1 %}</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <div class="w-2.5 h-2.5 bg-red-500 rounded-sm"></div>
+                    <span class="text-[12px] font-medium text-slate-800">Late</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bar Chart (Larger - Spans 2 Columns) -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-[15px] font-bold text-slate-800">Status distribution</h3>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-1.5">
+                    <div class="w-2.5 h-2.5 bg-indigo-500 rounded-sm"></div>
+                    <span class="text-[11px] font-medium text-slate-500">Present</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-2.5 h-2.5 bg-orange-500 rounded-sm"></div>
+                    <span class="text-[11px] font-medium text-slate-500">Absent</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-2.5 h-2.5 bg-red-500 rounded-sm"></div>
+                    <span class="text-[11px] font-medium text-slate-500">Late</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-2.5 h-2.5 bg-purple-500 rounded-sm"></div>
+                    <span class="text-[11px] font-medium text-slate-500">Half Day</span>
+                </div>
+            </div>
+        </div>
+        <div class="h-64 relative w-full">
+            <canvas id="statusBarChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Bottom Section: Tables (2 Columns) -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- List 1: Absent & Late Students -->
+    <div id="absent-list-card" class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col h-[420px] transition-all duration-300">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-[15px] font-bold text-slate-800">Absent & late students</h3>
+            <span class="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[11px] font-bold">{{ non_present_students|length }} students</span>
+        </div>
+        <div class="overflow-y-auto flex-grow pr-2 custom-scrollbar">
+            <table class="w-full text-left">
+                <thead class="sticky top-0 bg-white z-10">
+                    <tr>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter w-12 border-b border-slate-100">S/N</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Student</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Class</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Status</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Remarks</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for record in non_present_students %}
+                    <tr class="group cursor-pointer hover:bg-slate-50/50 {% if forloop.counter > 8 %}hidden extra-student-row{% endif %}">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800">{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td class="py-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-[10px] shrink-0">
+                                    {{ record.student.first_name|first }}{{ record.student.last_name|first }}
+                                </div>
+                                <div>
+                                    <p class="text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ record.student.first_name }} {{ record.student.last_name }}</p>
+                                    <p class="text-[10px] text-slate-400 font-medium">{{ record.session.date|date:"d M Y" }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3 text-[12px] font-semibold text-slate-500">{{ record.session.class_id.name }}</td>
+                        <td class="py-3">
+                            <span class="text-[11px] font-bold px-2.5 py-1 rounded-lg border
+                                {% if record.status == 'Absent' %}text-orange-600 bg-orange-50 border-orange-100
+                                {% elif record.status == 'Late' %}text-red-600 bg-red-50 border-red-100
+                                {% else %}text-purple-600 bg-purple-50 border-purple-100{% endif %}">
+                                {{ record.status }}
+                            </span>
+                        </td>
+                        <td class="py-3 text-[12px] font-medium text-slate-400 text-right italic">{% if record.remarks %}{{ record.remarks|truncatewords:5 }}{% else %}-{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-12 text-center">
+                            <div class="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i class="fas fa-check text-emerald-400 text-xl"></i>
+                            </div>
+                            <p class="text-[13px] font-bold text-slate-400">All students present</p>
+                            <p class="text-[11px] text-slate-300 font-medium mt-1">No absences or latecomers recorded</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if non_present_students|length > 8 %}
+        <div class="pt-4 mt-auto border-t border-slate-100 flex justify-center">
+            <button id="view-more-students-btn" onclick="toggleMoreStudents()" class="text-[12px] font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-lg px-4 py-2 hover:bg-slate-50 transition-colors">
+                View more
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- List 2: Unmarked Classes -->
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col h-[420px]">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-[15px] font-bold text-slate-800">Unmarked classes</h3>
+            <span class="text-[11px] font-bold px-3 py-1 rounded-lg
+                {% if missing_classes|length > 0 %}text-orange-600 bg-orange-50 border border-orange-100{% else %}text-emerald-600 bg-emerald-50 border border-emerald-100{% endif %}">
+                {% if missing_classes|length > 0 %}{{ missing_classes|length }} pending{% else %}All done{% endif %}
+            </span>
+        </div>
+        <div class="overflow-y-auto flex-grow pr-2 custom-scrollbar">
+            <table class="w-full text-left">
+                <thead class="sticky top-0 bg-white z-10">
+                    <tr>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter w-12 border-b border-slate-100">S/N</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Class</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Grade</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for class_obj in missing_classes %}
+                    <tr class="group cursor-pointer hover:bg-slate-50/50" onclick="window.location.href='{% url 'core:mark-attendance' class_obj.id %}'">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800">{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td class="py-3 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ class_obj.name }}</td>
+                        <td class="py-3 text-[12px] font-semibold text-slate-500">{{ class_obj.grade.name }}</td>
+                        <td class="py-3 text-right">
+                            <button onclick="event.stopPropagation(); window.location.href='{% url 'core:mark-attendance' class_obj.id %}'" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border text-indigo-600 hover:text-indigo-800 bg-indigo-50 border-indigo-100 hover:bg-indigo-100 transition-colors">
+                                Mark Now
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-12 text-center">
+                            <div class="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i class="fas fa-clipboard-check text-emerald-400 text-xl"></i>
+                            </div>
+                            <p class="text-[13px] font-bold text-slate-400">All classes marked</p>
+                            <p class="text-[11px] text-slate-300 font-medium mt-1">Attendance has been taken for all classes</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="pt-4 mt-auto border-t border-slate-100 flex justify-between items-center">
+            <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Quick Summary</div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-orange-400"></div>
+                    <span class="text-[12px] font-bold text-orange-500">{{ missing_classes|length }} pending</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                    <span class="text-[12px] font-bold text-emerald-500">{{ target_date|date:"d M" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Date Range Modal -->
+<div id="rangeModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm overflow-y-auto w-full h-full flex items-center justify-center p-4">
+    <div class="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 animate-fade-in-up border border-slate-100">
+        <button onclick="document.getElementById('rangeModal').classList.add('hidden')" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <div class="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500 text-2xl mb-6 ring-4 ring-white shadow-sm">
+            <i class="fas fa-calendar-week"></i>
+        </div>
+
+        <h3 class="text-2xl font-black text-slate-800 mb-2 tracking-tight">Select Date Range</h3>
+        <p class="text-[13px] text-slate-500 mb-6 font-medium">Filter attendance analytics for a specific period.</p>
+
+        <form method="GET" class="space-y-4">
+            <div>
+                <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">From</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="far fa-calendar text-slate-400 text-sm"></i>
+                    </div>
+                    <input type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}" class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer">
+                </div>
+            </div>
+            <div>
+                <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">To</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="far fa-calendar text-slate-400 text-sm"></i>
+                    </div>
+                    <input type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}" class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer">
+                </div>
+            </div>
+
+            <div class="mt-8 flex gap-3">
+                <button type="button" onclick="document.getElementById('rangeModal').classList.add('hidden')" class="flex-1 py-3 px-4 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors border border-slate-200">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                    <i class="fas fa-check"></i> Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set default font to match tailwind
+        Chart.defaults.font.family = "'Inter', 'Outfit', sans-serif";
+        Chart.defaults.color = '#94a3b8';
+
+        // 1. Attendance Donut Chart
+        const ctxDonut = document.getElementById('statusDonut').getContext('2d');
+        new Chart(ctxDonut, {
+            type: 'doughnut',
+            data: {
+                labels: ['Present', 'Absent', 'Late', 'Half Day'],
+                datasets: [{
+                    data: [{{ stats.present|default:0 }}, {{ stats.absent|default:0 }}, {{ stats.late|default:0 }}, {{ stats.half_day|default:0 }}],
+                    backgroundColor: ['#6366f1', '#f59e0b', '#ef4444', '#8b5cf6'],
+                    borderWidth: 6,
+                    borderColor: '#fff',
+                    hoverOffset: 4,
+                    cutout: '80%'
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // 2. Status Bar Chart
+        const ctxBar = document.getElementById('statusBarChart').getContext('2d');
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: ['Present', 'Absent', 'Late', 'Half Day'],
+                datasets: [{
+                    label: 'Count',
+                    data: [{{ stats.present|default:0 }}, {{ stats.absent|default:0 }}, {{ stats.late|default:0 }}, {{ stats.half_day|default:0 }}],
+                    backgroundColor: [
+                        'rgba(99, 102, 241, 0.85)',
+                        'rgba(245, 158, 11, 0.85)',
+                        'rgba(239, 68, 68, 0.85)',
+                        'rgba(139, 92, 246, 0.85)'
+                    ],
+                    borderRadius: 8,
+                    barThickness: 48,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 12,
+                        cornerRadius: 10,
+                        titleFont: { size: 12, weight: 'bold' },
+                        bodyFont: { size: 11 }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: '#f1f5f9', drawBorder: false },
+                        ticks: { font: { size: 10, weight: '600' }, beginAtZero: true }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11, weight: '700' } }
+                    }
+                }
+            }
+        });
+    });
+
+    function toggleMoreStudents() {
+        const extraRows = document.querySelectorAll('.extra-student-row');
+        const card = document.getElementById('absent-list-card');
+        const btn = document.getElementById('view-more-students-btn');
+        if (!extraRows.length) return;
+        const isHidden = extraRows[0].classList.contains('hidden');
+
+        extraRows.forEach(row => {
+            if (isHidden) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+
+        if (isHidden) {
+            card.classList.remove('h-[420px]');
+            card.classList.add('h-auto');
+            btn.innerText = 'View less';
+        } else {
+            card.classList.add('h-[420px]');
+            card.classList.remove('h-auto');
+            btn.innerText = 'View more';
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+</script>
+<style>
+    /* Custom thin scrollbar for lists */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #e2e8f0;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}

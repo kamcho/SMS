@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-link"></i>
+                        {{ title }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" id="linkStudentForm">
+                        {% csrf_token %}
+                        <div class="row">
+                            <!-- User Selection -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="user_id" class="form-label">
+                                        <i class="fas fa-user"></i> Select User
+                                    </label>
+                                    <select class="form-control" id="user_id" name="user_id" required>
+                                        <option value="">Choose a user...</option>
+                                        {% for user in users %}
+                                        <option value="{{ user.id }}" {% if request.POST.user_id == user.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ user.get_full_name|default:user.email }} ({{ user.role }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Student Selection -->
+                            <div class="col-md-8">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <i class="fas fa-graduation-cap"></i> Select Students to Link
+                                    </label>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleAllStudents()">
+                                                <label class="form-check-label" for="selectAll">
+                                                    <strong>Select All Students</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllStudents()">
+                                                <i class="fas fa-times"></i> Clear All
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="border rounded p-3 mt-2" style="max-height: 400px; overflow-y: auto;">
+                                        <div class="row">
+                                            {% for student in students %}
+                                            <div class="col-md-6 mb-2">
+                                                <div class="form-check">
+                                                    <input class="form-check-input student-checkbox" 
+                                                           type="checkbox" 
+                                                           name="student_ids" 
+                                                           value="{{ student.id }}"
+                                                           id="student_{{ student.id }}">
+                                                    <label class="form-check-label" for="student_{{ student.id }}">
+                                                        <strong>{{ student.adm_no }}</strong> - 
+                                                        {{ student.first_name }} {{ student.last_name }}
+                                                        {% if student.studentprofile.school %}
+                                                            <small class="text-muted">({{ student.studentprofile.school.name }})</small>
+                                                        {% endif %}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Linked Students Display -->
+                        <div class="row mt-3" id="currentLinks" style="display: none;">
+                            <div class="col-12">
+                                <h5><i class="fas fa-info-circle"></i> Currently Linked Students:</h5>
+                                <div id="linkedStudentsList" class="alert alert-info">
+                                    <!-- Will be populated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Link Selected Students
+                                </button>
+                                <a href="{% url 'core:students-list' %}" class="btn btn-secondary ml-2">
+                                    <i class="fas fa-arrow-left"></i> Back to Students
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleAllStudents() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+function clearAllStudents() {
+    document.getElementById('selectAll').checked = false;
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+}
+
+// Show currently linked students when user is selected
+document.getElementById('user_id').addEventListener('change', function() {
+    const userId = this.value;
+    const currentLinksDiv = document.getElementById('currentLinks');
+    const linkedStudentsList = document.getElementById('linkedStudentsList');
+    
+    if (userId) {
+        // Get current linked students for this user
+        const linkedStudents = [];
+        const checkboxes = document.querySelectorAll('.student-checkbox');
+        
+        checkboxes.forEach(checkbox => {
+            if (checkbox.hasAttribute('data-linked')) {
+                linkedStudents.push(checkbox.getAttribute('data-student-name'));
+            }
+        });
+        
+        if (linkedStudents.length > 0) {
+            linkedStudentsList.innerHTML = '<strong>' + linkedStudents.join(', ') + '</strong>';
+            currentLinksDiv.style.display = 'block';
+        } else {
+            currentLinksDiv.style.display = 'none';
+        }
+    } else {
+        currentLinksDiv.style.display = 'none';
+    }
+});
+
+// Form validation
+document.getElementById('linkStudentForm').addEventListener('submit', function(e) {
+    const userId = document.getElementById('user_id').value;
+    const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
+    
+    if (!userId) {
+        e.preventDefault();
+        alert('Please select a user to link students to.');
+        return false;
+    }
+    
+    if (checkedBoxes.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one student to link.');
+        return false;
+    }
+    
+    // Confirm the action
+    const confirmMessage = checkedBoxes.length > 0 
+        ? `Are you sure you want to link ${checkedBoxes.length} student(s) to the selected user?`
+        : 'Are you sure you want to clear all student links for this user?';
+    
+    if (!confirm(confirmMessage)) {
+        e.preventDefault();
+        return false;
+    }
+});
+</script>
+
+<style>
+.student-checkbox {
+    margin-right: 8px;
+}
+
+.form-check-label {
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.form-check-label:hover {
+    background-color: #f8f9fa;
+}
+
+.form-check-input:checked + .form-check-label {
+    background-color: #e3f2fd;
+    font-weight: 500;
+}
+
+.border {
+    border-color: #dee2e6 !important;
+}
+
+.card {
+    box-shadow: 0 0 1px rgba(0,0,0,.125);
+}
+
+.btn {
+    border-radius: 4px;
+}
+
+.alert {
+    border-radius: 4px;
+}
+</style>
+{% endblock %}

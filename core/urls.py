@@ -34,6 +34,7 @@ urlpatterns = [
     path('attendance/<int:class_id>/', views.mark_attendance, name='mark-attendance'),
     path('attendance/<int:class_id>/<str:date>/', views.attendance_detail, name='attendance-detail'),
     path('attendance/data/', views.get_attendance_data, name='get-attendance-data'),
+    path('attendance/analytics/', views.AttendanceAnalyticsView.as_view(), name='attendance-analytics'),
     path('ajax/get-school-classes/', views.get_school_classes, name='get-school-classes'),
     path('ajax/fee-structure-preview/', views.fee_structure_preview, name='fee-structure-preview'),
     path('schools-analytics/', views.schools_analytics, name='schools-analytics'),
@@ -41,4 +42,5 @@ urlpatterns = [
     path('configurations/academic-year/<int:year_id>/activate/', views.activate_academic_year, name='activate-academic-year'),
     path('configurations/term/<int:term_id>/activate/', views.activate_term, name='activate-term'),
     path('reports/', views.ReportDashboardView.as_view(), name='reports'),
+    path('link-student/', views.link_student_view, name='link-student'),
 ]

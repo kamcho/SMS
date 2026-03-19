@@ -9,7 +9,7 @@
         <p class="text-slate-500 mt-1 font-medium">Manage and view all examinations</p>
     </div>
     <div class="flex items-center gap-3">
-        {% if user.role == 'Admin' or user.is_superuser or user.role == 'Teacher' %}
+        {% if user.is_exam_officer or user.is_superuser %}
         <a href="{% url 'Exam:create-exam' %}" class="btn bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-xl text-xs font-black">
             <i class="fas fa-plus"></i>
             Create Exam
@@ -146,7 +146,7 @@
                                 <span class="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-[10px] font-black uppercase tracking-wider">
                                     <i class="fas fa-circle text-[6px] animate-pulse mr-1"></i>Running
                                 </span>
-                                {% if user.is_exam_manager or user.is_superuser %}
+                                {% if user.is_superuser or user.role == 'Admin' or user.is_exam_officer or user.is_exam_manager or user.is_headteacher %}
                                 <a href="{% url 'Exam:manage-exam' exam.id %}" class="btn bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-2 rounded-xl text-xs font-black">
                                     <i class="fas fa-cog"></i>
                                     Manage
@@ -156,7 +156,7 @@
                                 <span class="px-2 py-1 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
                                     <i class="fas fa-lock text-[8px] mr-1"></i>Closed
                                 </span>
-                                {% if user.is_exam_manager or user.is_superuser %}
+                                {% if user.is_superuser or user.role == 'Admin' or user.is_exam_officer or user.is_exam_manager or user.is_headteacher %}
                                 <span class="btn bg-slate-200 text-slate-400 px-3 py-2 rounded-xl text-xs font-black cursor-not-allowed" title="Exam is not running">
                                     <i class="fas fa-cog"></i>
                                     Manage
@@ -186,7 +186,7 @@
                 No exams have been created yet. Click "Create Exam" to get started.
                 {% endif %}
             </p>
-            {% if user.role == 'Admin' or user.is_superuser or user.role == 'Teacher' %}
+            {% if user.is_exam_officer or user.is_superuser %}
             <a href="{% url 'Exam:create-exam' %}" class="btn bg-indigo-600 text-white hover:bg-indigo-700 px-6 py-3 rounded-xl font-black text-sm">
                 <i class="fas fa-plus"></i>
                 Create First Exam

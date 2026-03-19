@@ -191,6 +191,10 @@
                             <i class="fas fa-money-bill-wave w-4 text-center"></i>
                             Paybill Transactions
                         </a>
+                        <a href="{% url 'core:link-student' %}" class="menu-item py-2 text-sm {% if 'link-student' in request.path %}active{% endif %}">
+                            <i class="fas fa-link w-4 text-center"></i>
+                            Link Student
+                        </a>
                     </div>
                 </div>
             </div>

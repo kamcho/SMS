@@ -177,8 +177,12 @@ class CreateExamView(LoginRequiredMixin, View):
 
 class ManageExamView(LoginRequiredMixin, View):
     def get(self, request, exam_id):
-        # Check permissions - exam officer and exam manager can view exams
-        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False) and not getattr(request.user, 'is_exam_manager', False):
+        # Check permissions - admin, head teacher, exam officer, and exam manager can view exams
+        if not (request.user.is_superuser or 
+                request.user.role == 'Admin' or 
+                getattr(request.user, 'is_exam_officer', False) or 
+                getattr(request.user, 'is_exam_manager', False) or 
+                getattr(request.user, 'is_headteacher', False)):
             messages.error(request, 'You do not have permission to view exams.')
             return redirect('core:dashboard')
         
@@ -365,8 +369,12 @@ class ManageExamView(LoginRequiredMixin, View):
 
 class ExamListView(LoginRequiredMixin, View):
     def get(self, request):
-        # Check permissions - exam officer and exam manager can view exams
-        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False) and not getattr(request.user, 'is_exam_manager', False):
+        # Check permissions - admin, head teacher, exam officer, and exam manager can view exams
+        if not (request.user.is_superuser or 
+                request.user.role == 'Admin' or 
+                getattr(request.user, 'is_exam_officer', False) or 
+                getattr(request.user, 'is_exam_manager', False) or 
+                getattr(request.user, 'is_headteacher', False)):
             messages.error(request, 'You do not have permission to view exams.')
             return redirect('core:dashboard')
         
@@ -403,8 +411,12 @@ class ExamListView(LoginRequiredMixin, View):
 
 class SubjectConfigurationView(LoginRequiredMixin, View):
     def get(self, request, grade, exam_id=None):
-        # Check permissions - exam officer and exam manager can view subject configurations
-        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False) and not getattr(request.user, 'is_exam_manager', False):
+        # Check permissions - admin, head teacher, exam officer, and exam manager can view subject configurations
+        if not (request.user.is_superuser or 
+                request.user.role == 'Admin' or 
+                getattr(request.user, 'is_exam_officer', False) or 
+                getattr(request.user, 'is_exam_manager', False) or 
+                getattr(request.user, 'is_headteacher', False)):
             messages.error(request, 'You do not have permission to view subject configurations.')
             return redirect('core:dashboard')
         
