@@ -45,7 +45,7 @@ ENVIRONMENT = (_env('ENVIRONMENT', 'dev') or 'dev').strip().lower()
 SECRET_KEY = _env('SECRET_KEY', 'django-insecure-change-me-in-env')  # set in .env in prod
 DEBUG = _env_bool('DEBUG', default=(ENVIRONMENT == 'dev'))
 
-_allowed_hosts = _env('ALLOWED_HOSTS', '127.0.0.1,localhost')
+_allowed_hosts = _env('ALLOWED_HOSTS', '127.0.0.1,localhost,bibletrivia.pythonanywhre.com')
 ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',') if h.strip()]
 
 
