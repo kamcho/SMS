@@ -35,21 +35,17 @@ class MpesaService:
     
     def get_access_token(self):
         """Get M-Pesa OAuth access token directly from Safaricom without using database cache"""
-        print(f"🔑 DEBUG: Generating new M-Pesa access token for {self.environment}...")
         
         # Verify credentials aren't empty
         if not self.consumer_key or not self.consumer_secret:
-            print(f"❌ DEBUG: Missing credentials! Key: '{self.consumer_key}', Secret: '{self.consumer_secret}'")
             raise Exception("M-Pesa Consumer Key or Secret is missing in settings.")
 
         # Show partial keys for verification by user
         key_show = f"{self.consumer_key[:4]}...{self.consumer_key[-4:]}" if len(self.consumer_key) > 8 else "****"
         secret_show = f"{self.consumer_secret[:4]}...{self.consumer_secret[-4:]}" if len(self.consumer_secret) > 8 else "****"
-        print(f"🔐 DEBUG: Using Key: {key_show}, Secret: {secret_show}")
         
         # Get new token from M-Pesa
         api_url = f"{self.base_url}/oauth/v1/generate?grant_type=client_credentials"
-        print(f"🌐 DEBUG: Requesting token from: {api_url}")
         
         try:
             # Use HTTPBasicAuth explicitly as requested
@@ -59,21 +55,15 @@ class MpesaService:
                 timeout=30
             )
             
-            print(f"📡 DEBUG: Token response status: {response.status_code}")
-            print(f"📡 DEBUG: Token response body: {response.text}")
-            
             if response.status_code == 200:
                 data = response.json()
                 access_token = data.get('access_token')
-                print(f"✅ DEBUG: Successfully generated access token")
                 return access_token
             else:
-                print(f"❌ DEBUG: Failed to generate access token. Status: {response.status_code}, Body: {response.text}")
                 # We raise an exception here; the view should handle it to show a nice error
                 raise Exception(f"M-Pesa Token generation failed with status {response.status_code}: {response.text}")
                 
         except requests.exceptions.RequestException as e:
-            print(f"🚨 DEBUG: Network error while generating access token: {str(e)}")
             raise Exception(f"Network error while generating access token: {str(e)}")
 
     
@@ -87,22 +77,14 @@ class MpesaService:
     
     def stk_push(self, phone_number, amount, account_reference, transaction_desc, callback_url=None):
         """Initiate STK push payment"""
-        print(f"🚀 DEBUG: Starting STK push...")
-        print(f"📱 DEBUG: Phone: {phone_number}")
-        print(f"💰 DEBUG: Amount: {amount}")
-        print(f"📝 DEBUG: Account Reference: {account_reference}")
-        print(f"📝 DEBUG: Transaction Desc: {transaction_desc}")
-        print(f"🔗 DEBUG: Callback URL: {callback_url}")
+   
         
         try:
             access_token = self.get_access_token()
             password, timestamp = self.generate_password()
             
-            print(f"🔐 DEBUG: Generated password: {password[:20]}...")
-            print(f"⏰ DEBUG: Timestamp: {timestamp}")
             
             api_url = f"{self.base_url}/mpesa/stkpush/v1/processrequest"
-            print(f"🌐 DEBUG: STK Push URL: {api_url}")
             
             headers = {
                 'Authorization': f'Bearer {access_token}',
@@ -123,7 +105,6 @@ class MpesaService:
                 'TransactionDesc': transaction_desc
             }
             
-            print(f"📦 DEBUG: STK Push payload:")
             for key, value in payload.items():
                 if 'Password' not in key:
                     print(f"   {key}: {value}")
@@ -137,12 +118,9 @@ class MpesaService:
                 timeout=30
             )
             
-            print(f"📡 DEBUG: STK Push response status: {response.status_code}")
-            print(f"📡 DEBUG: STK Push response body: {response.text}")
-            
+   
             if response.status_code == 200:
                 data = response.json()
-                print(f"✅ DEBUG: STK Push successful!")
                 return {
                     'success': True,
                     'data': data,
@@ -153,7 +131,6 @@ class MpesaService:
                     'customer_message': data.get('CustomerMessage')
                 }
             else:
-                print(f"❌ DEBUG: STK Push failed!")
                 return {
                     'success': False,
                     'error': response.text,
@@ -161,7 +138,6 @@ class MpesaService:
                 }
                 
         except requests.exceptions.RequestException as e:
-            print(f"🚨 DEBUG: Network error in STK push: {str(e)}")
             return {
                 'success': False,
                 'error': f"Network error: {str(e)}"
@@ -307,10 +283,7 @@ class MpesaService:
     
     def process_callback(self, callback_data, callback_type='success'):
         """Process M-Pesa callback data"""
-        print(f"📞 DEBUG: Processing M-Pesa callback...")
-        print(f"📞 DEBUG: Callback type: {callback_type}")
-        print(f"📞 DEBUG: Raw callback data: {json.dumps(callback_data, indent=2)}")
-        
+      
         try:
             # Extract relevant data from callback
             body = callback_data.get('Body', {})
@@ -320,12 +293,7 @@ class MpesaService:
             checkout_request_id = stk_callback.get('CheckoutRequestID')
             result_code = stk_callback.get('ResultCode')
             result_desc = stk_callback.get('ResultDesc')
-            
-            print(f"🔍 DEBUG: Merchant Request ID: {merchant_request_id}")
-            print(f"🔍 DEBUG: Checkout Request ID: {checkout_request_id}")
-            print(f"🔍 DEBUG: Result Code: {result_code}")
-            print(f"🔍 DEBUG: Result Description: {result_desc}")
-            
+ 
             # Find the transaction
             transaction = MpesaTransaction.objects.filter(
                 merchant_request_id=merchant_request_id,
@@ -333,13 +301,13 @@ class MpesaService:
             ).first()
             
             if not transaction:
-                print(f"❌ DEBUG: Transaction not found for IDs: {merchant_request_id}, {checkout_request_id}")
+                print(f" DEBUG: Transaction not found for IDs: {merchant_request_id}, {checkout_request_id}")
                 return {
                     'success': False,
                     'error': 'Transaction not found'
                 }
             
-            print(f"✅ DEBUG: Found transaction: {transaction.id}")
+            print(f"DEBUG: Found transaction: {transaction.id}")
             
             # Store callback data
             MpesaCallback.objects.create(
@@ -347,11 +315,11 @@ class MpesaService:
                 callback_type=callback_type,
                 raw_data=callback_data
             )
-            print(f"💾 DEBUG: Callback data stored")
+            print(f"DEBUG: Callback data stored")
             
             # Update transaction based on result
             if result_code == 0 or result_code == '0':
-                print(f"💰 DEBUG: Transaction successful - processing payment details")
+                print(f"DEBUG: Transaction successful - processing payment details")
                 callback_metadata = stk_callback.get('CallbackMetadata', {})
                 items = callback_metadata.get('Item', [])
                 
@@ -375,7 +343,7 @@ class MpesaService:
                     elif name == 'Amount':
                         amount = value
                 
-                print(f"💰 DEBUG: Extracted - Receipt: {mpesa_receipt}, Date: {transaction_date}, Phone: {phone_number}, Amount: {amount}")
+                print(f"DEBUG: Extracted - Receipt: {mpesa_receipt}, Date: {transaction_date}, Phone: {phone_number}, Amount: {amount}")
                 
                 # Update transaction
                 transaction.status = 'completed'
@@ -389,12 +357,12 @@ class MpesaService:
                     try:
                         dt = datetime.strptime(str(transaction_date), '%Y%m%d%H%M%S')
                         transaction.transaction_date = dt
-                        print(f"📅 DEBUG: Parsed transaction date: {dt}")
+                        print(f"DEBUG: Parsed transaction date: {dt}")
                     except ValueError:
-                        print(f"⚠️ DEBUG: Could not parse transaction date: {transaction_date}")
+                        print(f" DEBUG: Could not parse transaction date: {transaction_date}")
                 
                 transaction.save()
-                print(f"✅ DEBUG: Transaction updated to completed")
+                print(f"DEBUG: Transaction updated to completed")
                 
                 # Update or create student payment
                 if hasattr(transaction, 'fee_payment') and hasattr(transaction.fee_payment, 'id'):
@@ -404,9 +372,9 @@ class MpesaService:
                         payment.method = 'Mpesa'
                         payment.reference = transaction.mpesa_receipt_number
                         payment.save()
-                        print(f"💳 DEBUG: Updated existing linked fee payment: {payment.id}")
+                        print(f" DEBUG: Updated existing linked fee payment: {payment.id}")
                     except Exception as e:
-                        print(f"⚠️ DEBUG: Error updating existing payment: {str(e)}")
+                        print(f"DEBUG: Error updating existing payment: {str(e)}")
                 elif transaction.student:
                     # New flow: create Payment object here to reduce fee balance ONLY on success
                     from .models import Payment
@@ -420,9 +388,9 @@ class MpesaService:
                             recorded_by=transaction.initiated_by,
                             mpesa_transaction=transaction
                         )
-                        print(f"💳 DEBUG: Created fee payment on success: {payment.id}")
+                        print(f"DEBUG: Created fee payment on success: {payment.id}")
                     except Exception as e:
-                        print(f"⚠️ DEBUG: Error creating fee payment on success: {str(e)}")
+                        print(f" DEBUG: Error creating fee payment on success: {str(e)}")
                 
                 # Update staff payment if linked via reverse relation
                 if hasattr(transaction, 'salary_payment'):
@@ -430,7 +398,7 @@ class MpesaService:
                     staff_payment.payment_method = 'Mpesa'
                     staff_payment.reference = transaction.mpesa_receipt_number
                     staff_payment.save()
-                    print(f"💼 DEBUG: Updated linked staff payment: {staff_payment.id}")
+                    print(f"DEBUG: Updated linked staff payment: {staff_payment.id}")
                 
                 return {
                     'success': True,
@@ -439,13 +407,13 @@ class MpesaService:
                     'mpesa_receipt': mpesa_receipt
                 }
             else:
-                print(f"❌ DEBUG: Transaction failed - updating status")
+                print(f": Transaction failed - updating status")
                 transaction.status = 'failed'
                 transaction.response_code = result_code
                 transaction.response_description = result_desc
                 transaction.processed_at = timezone.now()
                 transaction.save()
-                print(f"❌ DEBUG: Transaction updated to failed")
+                print(f"DEBUG: Transaction updated to failed")
                 
                 return {
                     'success': False,
@@ -455,9 +423,9 @@ class MpesaService:
                 }
                 
         except Exception as e:
-            print(f"🚨 DEBUG: Error processing callback: {str(e)}")
+            print(f" DEBUG: Error processing callback: {str(e)}")
             import traceback
-            print(f"🚨 DEBUG: Traceback: {traceback.format_exc()}")
+            print(f" DEBUG: Traceback: {traceback.format_exc()}")
             return {
                 'success': False,
                 'error': f"Error processing callback: {str(e)}"
@@ -465,7 +433,7 @@ class MpesaService:
 
     def query_pull_transactions(self, start_date=None, end_date=None, offset=0):
         """Query Pull Transactions API for reconciliation"""
-        print(f"🔍 DEBUG: Querying Pull Transactions...")
+        print(f"DEBUG: Querying Pull Transactions...")
         
         try:
             access_token = self.get_access_token()
@@ -477,7 +445,7 @@ class MpesaService:
                 end_date = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
                 
             api_url = f"{self.base_url}/pulltransactions/v1/query"
-            print(f"🌐 DEBUG: Pull URL: {api_url}")
+            print(f" DEBUG: Pull URL: {api_url}")
             
             headers = {
                 'Authorization': f'Bearer {access_token}',
@@ -491,7 +459,6 @@ class MpesaService:
                 "OffSetValue": str(offset)
             }
             
-            print(f"📦 DEBUG: Payload: {payload}")
             
             # The documentation says GET but provides a body. 
             # Note: Safaricom's Production API often requires POST when a JSON body is sent.
@@ -502,8 +469,7 @@ class MpesaService:
                 timeout=30
             )
             
-            print(f"📡 DEBUG: Response status: {response.status_code}")
-            print(f"📡 DEBUG: Response body: {response.text}")
+            
             
             if response.status_code == 200:
                 data = response.json()

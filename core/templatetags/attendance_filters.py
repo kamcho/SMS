@@ -56,4 +56,12 @@ def should_be_checked(student_id, session):
     Determine if checkbox should be checked for a student.
     Returns True if student should be checked (not absent).
     """
-    return not is_attendance_absent(student_id, session)
+@register.filter
+def abs_val(value):
+    """
+    Returns the absolute value of the argument.
+    """
+    try:
+        return abs(value)
+    except (TypeError, ValueError):
+        return value

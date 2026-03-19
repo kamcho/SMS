@@ -1,237 +1,400 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}{{ title }} | Excel SMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .student-card.selected {
+        @apply ring-4 ring-indigo-500/20 border-indigo-500 bg-indigo-50/30;
+    }
+    .user-card.active {
+        @apply ring-4 ring-indigo-500/20 border-indigo-500 bg-indigo-50/50;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1;
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+    <div>
+        <h1 class="text-[22px] font-bold text-slate-800">{{ title }}</h1>
+        <p class="text-[13px] text-slate-500 font-medium">Link students to guardians and staff members for visibility and management</p>
+    </div>
+    
+    <div class="flex items-center gap-3">
+        <a href="{% url 'core:students-list' %}" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fas fa-arrow-left text-slate-400"></i> Back to Students
+        </a>
+        <button type="submit" form="linkStudentForm" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-indigo-100">
+            <i class="fas fa-save text-indigo-200"></i> Save Linking
+        </button>
+    </div>
+</div>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <i class="fas fa-link"></i>
-                        {{ title }}
+<form method="post" id="linkStudentForm" class="hidden">
+    {% csrf_token %}
+    <input type="hidden" name="user_id" id="hidden_user_id">
+</form>
+
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-220px)]">
+    <!-- Left Column: User Selection (4/12) -->
+    <div class="lg:col-span-4 flex flex-col gap-6">
+        <div class="bg-white rounded-[14px] border border-slate-200 shadow-sm flex flex-col h-full overflow-hidden">
+            <div class="p-5 border-b border-slate-100">
+                <h3 class="text-[15px] font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fas fa-user-friends text-indigo-500"></i>
+                    Select Target User
+                </h3>
+                <div class="relative">
+                    <input type="text" id="user_search" placeholder="Search by name, email or role..." 
+                           class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                </div>
+            </div>
+            
+            <div class="flex-grow overflow-y-auto custom-scrollbar p-2" id="user_list">
+                {% for user in users %}
+                <div class="user-card group p-4 rounded-xl border border-transparent hover:border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-all mb-1" 
+                     data-id="{{ user.id }}" data-name="{{ user.get_full_name|default:user.email }}" data-search="{{ user.get_full_name|lower }} {{ user.email|lower }} {{ user.role|lower }}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm uppercase">
+                            {{ user.first_name|first|default:user.email|first }}
+                        </div>
+                        <div class="flex-grow min-w-0">
+                            <div class="font-bold text-slate-800 text-[13px] truncate">{{ user.get_full_name|default:user.email }}</div>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <span class="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                    {{ user.role }}
+                                </span>
+                                {% if user.email %}
+                                <span class="text-[11px] text-slate-400 truncate">{{ user.email }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="active-indicator opacity-0 transition-opacity">
+                            <i class="fas fa-chevron-right text-indigo-400 text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Student Selection (8/12) -->
+    <div class="lg:col-span-8 flex flex-col gap-6">
+        <div class="relative bg-white rounded-[14px] border border-slate-200 shadow-sm flex flex-col h-full overflow-hidden">
+            <!-- Filter Bar -->
+            <div class="p-5 border-b border-slate-100 bg-slate-50/30">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                    <h3 class="text-[15px] font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-graduation-cap text-indigo-500"></i>
+                        Students to Link
+                        <span id="selection_count" class="hidden ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded-full text-[11px] font-black">0 selected</span>
                     </h3>
+                    
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="selectAll(true)" class="text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-wider">Select All</button>
+                        <span class="text-slate-300">|</span>
+                        <button type="button" onclick="selectAll(false)" class="text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-wider">Clear All</button>
+                    </div>
                 </div>
-                <div class="card-body">
-                    {% if messages %}
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-
-                    <form method="post" id="linkStudentForm">
-                        {% csrf_token %}
-                        <div class="row">
-                            <!-- User Selection -->
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="user_id" class="form-label">
-                                        <i class="fas fa-user"></i> Select User
-                                    </label>
-                                    <select class="form-control" id="user_id" name="user_id" required>
-                                        <option value="">Choose a user...</option>
-                                        {% for user in users %}
-                                        <option value="{{ user.id }}" {% if request.POST.user_id == user.id|stringformat:"s" %}selected{% endif %}>
-                                            {{ user.get_full_name|default:user.email }} ({{ user.role }})
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <!-- Student Selection -->
-                            <div class="col-md-8">
-                                <div class="form-group">
-                                    <label class="form-label">
-                                        <i class="fas fa-graduation-cap"></i> Select Students to Link
-                                    </label>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleAllStudents()">
-                                                <label class="form-check-label" for="selectAll">
-                                                    <strong>Select All Students</strong>
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllStudents()">
-                                                <i class="fas fa-times"></i> Clear All
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="border rounded p-3 mt-2" style="max-height: 400px; overflow-y: auto;">
-                                        <div class="row">
-                                            {% for student in students %}
-                                            <div class="col-md-6 mb-2">
-                                                <div class="form-check">
-                                                    <input class="form-check-input student-checkbox" 
-                                                           type="checkbox" 
-                                                           name="student_ids" 
-                                                           value="{{ student.id }}"
-                                                           id="student_{{ student.id }}">
-                                                    <label class="form-check-label" for="student_{{ student.id }}">
-                                                        <strong>{{ student.adm_no }}</strong> - 
-                                                        {{ student.first_name }} {{ student.last_name }}
-                                                        {% if student.studentprofile.school %}
-                                                            <small class="text-muted">({{ student.studentprofile.school.name }})</small>
-                                                        {% endif %}
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Current Linked Students Display -->
-                        <div class="row mt-3" id="currentLinks" style="display: none;">
-                            <div class="col-12">
-                                <h5><i class="fas fa-info-circle"></i> Currently Linked Students:</h5>
-                                <div id="linkedStudentsList" class="alert alert-info">
-                                    <!-- Will be populated by JavaScript -->
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Submit Button -->
-                        <div class="row mt-3">
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> Link Selected Students
-                                </button>
-                                <a href="{% url 'core:students-list' %}" class="btn btn-secondary ml-2">
-                                    <i class="fas fa-arrow-left"></i> Back to Students
-                                </a>
-                            </div>
-                        </div>
-                    </form>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="relative">
+                        <input type="text" id="student_search" placeholder="Search by name or admission number..." 
+                               class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="school_filter" class="flex-grow px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none">
+                            <option value="">Select Campus First</option>
+                            {% for school in schools %}
+                                <option value="{{ school.name }}">{{ school.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <select id="grade_filter" disabled class="flex-grow px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-400 outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all appearance-none cursor-not-allowed">
+                            <option value="">All Grades</option>
+                            {% for grade in grades %}
+                                <option value="{{ grade.name }}" data-school="{{ grade.school.name|default:'' }}">{{ grade.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Student Grid -->
+            <div class="flex-grow overflow-y-auto custom-scrollbar p-6 bg-slate-50/10" id="student_list">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4">
+                    {% for student in students %}
+                    <div class="student-card group bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-200 cursor-pointer transition-all relative" 
+                         data-id="{{ student.id }}" 
+                         data-grade="{{ student.studentprofile.class_id.grade.name|default:'' }}" 
+                         data-school="{{ student.studentprofile.school.name|default:'' }}"
+                         data-search="{{ student.first_name|lower }} {{ student.last_name|lower }} {{ student.adm_no|lower }}">
+                        
+                        <div class="flex items-center gap-4">
+                            <div class="checkbox-wrapper relative flex-shrink-0">
+                                <input type="checkbox" name="student_ids" value="{{ student.id }}" form="linkStudentForm" 
+                                       class="student-checkbox w-5 h-5 rounded-md border-slate-200 text-indigo-600 focus:ring-indigo-500/20 transition-all cursor-pointer">
+                            </div>
+                            
+                            <div class="flex-grow">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ student.adm_no }}</span>
+                                    {% if student.studentprofile.school %}
+                                    <span class="text-[9px] font-black px-2 py-0.5 bg-slate-50 text-slate-500 rounded-full border border-slate-100">{{ student.studentprofile.school.name }}</span>
+                                    {% endif %}
+                                </div>
+                                <h4 class="font-bold text-slate-800 text-[14px] leading-tight">{{ student.get_full_name }}</h4>
+                                <p class="text-[11px] text-slate-500 font-medium mt-1">
+                                    <i class="fas fa-layer-group text-slate-300 mr-1 text-[10px]"></i>
+                                    {{ student.studentprofile.class_id.grade.name|default:"No Grade" }} 
+                                    {% if student.studentprofile.class_id %}- {{ student.studentprofile.class_id.name }}{% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Already linked badge -->
+                        <div class="linked-badge absolute -top-1 -right-1 hidden">
+                            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm ring-2 ring-white">
+                                <i class="fas fa-check text-[10px]"></i>
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Selection Overlay (Mobile or when no user selected) -->
+            <div id="no_user_overlay" class="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-8 text-center transition-all duration-300">
+                <div class="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-400 text-2xl mb-4 shadow-sm ring-1 ring-indigo-100">
+                    <i class="fas fa-mouse-pointer animate-bounce"></i>
+                </div>
+                <h4 id="overlay_title" class="text-lg font-bold text-slate-800 mb-2">No Target User Selected</h4>
+                <p id="overlay_desc" class="text-slate-500 text-[13px] max-w-sm leading-relaxed">Please select a user from the left panel to manage their linked students.</p>
             </div>
         </div>
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
 <script>
-function toggleAllStudents() {
-    const selectAll = document.getElementById('selectAll');
-    const checkboxes = document.querySelectorAll('.student-checkbox');
-    
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = selectAll.checked;
-    });
-}
+    const userLinks = {{ user_links_json|safe }};
+    let currentUserId = null;
 
-function clearAllStudents() {
-    document.getElementById('selectAll').checked = false;
-    const checkboxes = document.querySelectorAll('.student-checkbox');
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = false;
+    document.addEventListener('DOMContentLoaded', function() {
+        initSearch();
+        initUserSelection();
+        initStudentInteraction();
+        updateOverlayState();
     });
-}
 
-// Show currently linked students when user is selected
-document.getElementById('user_id').addEventListener('change', function() {
-    const userId = this.value;
-    const currentLinksDiv = document.getElementById('currentLinks');
-    const linkedStudentsList = document.getElementById('linkedStudentsList');
-    
-    if (userId) {
-        // Get current linked students for this user
-        const linkedStudents = [];
-        const checkboxes = document.querySelectorAll('.student-checkbox');
+    function initSearch() {
+        // User Search
+        const userSearch = document.getElementById('user_search');
+        const userCards = document.querySelectorAll('.user-card');
         
-        checkboxes.forEach(checkbox => {
-            if (checkbox.hasAttribute('data-linked')) {
-                linkedStudents.push(checkbox.getAttribute('data-student-name'));
+        userSearch.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            userCards.forEach(card => {
+                const searchData = card.getAttribute('data-search');
+                card.style.display = searchData.includes(query) ? 'block' : 'none';
+            });
+        });
+
+        // Student Search & Filters
+        const studentSearch = document.getElementById('student_search');
+        const gradeFilter = document.getElementById('grade_filter');
+        const schoolFilter = document.getElementById('school_filter');
+        const studentCards = document.querySelectorAll('.student-card');
+
+        const filterStudents = () => {
+            const query = studentSearch.value.toLowerCase();
+            const grade = gradeFilter.value;
+            const school = schoolFilter.value;
+            
+            // Enable and filter grade dropdown only if school is selected
+            if (school) {
+                gradeFilter.disabled = false;
+                gradeFilter.classList.remove('bg-slate-50', 'text-slate-400', 'cursor-not-allowed');
+                gradeFilter.classList.add('bg-white', 'text-slate-600');
+                
+                // Filter the options in the grade dropdown
+                Array.from(gradeFilter.options).forEach(option => {
+                    if (option.value === "") return; // Skip "All Grades"
+                    const optionSchool = option.getAttribute('data-school');
+                    // Show option if it belongs to current school OR if it has no school (global)
+                    if (!optionSchool || optionSchool === school) {
+                        option.style.display = 'block';
+                    } else {
+                        option.style.display = 'none';
+                        if (gradeFilter.value === option.value) gradeFilter.value = "";
+                    }
+                });
+            } else {
+                gradeFilter.disabled = true;
+                gradeFilter.value = "";
+                gradeFilter.classList.add('bg-slate-50', 'text-slate-400', 'cursor-not-allowed');
+                gradeFilter.classList.remove('bg-white', 'text-slate-600');
+            }
+
+            studentCards.forEach(card => {
+                const searchData = card.getAttribute('data-search');
+                const studentGrade = card.getAttribute('data-grade');
+                const studentSchool = card.getAttribute('data-school');
+
+                const matchesSearch = searchData.includes(query);
+                const matchesGrade = !grade || studentGrade === grade;
+                const matchesSchool = !school || studentSchool === school;
+
+                // Only show student if school is selected (as per user requirement)
+                const shouldShow = matchesSearch && matchesGrade && matchesSchool && school;
+                card.style.display = shouldShow ? 'block' : 'none';
+            });
+            
+            updateOverlayState();
+        };
+
+        studentSearch.addEventListener('input', filterStudents);
+        gradeFilter.addEventListener('change', filterStudents);
+        schoolFilter.addEventListener('change', filterStudents);
+    }
+
+    function updateOverlayState() {
+        const noUserOverlay = document.getElementById('no_user_overlay');
+        const overlayTitle = document.getElementById('overlay_title');
+        const overlayDesc = document.getElementById('overlay_desc');
+        
+        if (!noUserOverlay) return;
+        
+        if (!currentUserId) {
+            noUserOverlay.classList.remove('opacity-0', 'pointer-events-none');
+            noUserOverlay.classList.add('opacity-100', 'pointer-events-auto');
+            if (overlayTitle) overlayTitle.innerText = "No Target User Selected";
+            if (overlayDesc) overlayDesc.innerText = "Please select a user from the left panel to manage their linked students.";
+        } else {
+            // Once user is selected, remove overlay even if campus isn't selected
+            // We handle the "campus first" part by the student filtering logic
+            noUserOverlay.classList.add('opacity-0', 'pointer-events-none');
+            noUserOverlay.classList.remove('opacity-100', 'pointer-events-auto');
+        }
+    }
+
+    function initUserSelection() {
+        const userCards = document.querySelectorAll('.user-card');
+        const hiddenUserId = document.getElementById('hidden_user_id');
+        
+        userCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const userId = card.getAttribute('data-id');
+                console.log("User card clicked. ID:", userId);
+                
+                // Toggle active state
+                userCards.forEach(c => {
+                    c.classList.remove('active', 'ring-4', 'ring-indigo-500/20', 'border-indigo-500', 'bg-indigo-50/50');
+                });
+                card.classList.add('active', 'ring-4', 'ring-indigo-500/20', 'border-indigo-500', 'bg-indigo-50/50');
+                
+                currentUserId = userId;
+                if (hiddenUserId) hiddenUserId.value = userId;
+                
+                // Load links and update overlay
+                loadUserLinks(userId);
+                updateOverlayState();
+            });
+        });
+    }
+
+    function initStudentInteraction() {
+        const studentCards = document.querySelectorAll('.student-card');
+        
+        studentCards.forEach(card => {
+            card.addEventListener('click', (e) => {
+                const checkbox = card.querySelector('.student-checkbox');
+                if (e.target !== checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                }
+                updateCardStyle(card, checkbox.checked);
+                updateSelectionCount();
+            });
+            
+            const checkbox = card.querySelector('.student-checkbox');
+            checkbox.addEventListener('change', () => {
+                updateCardStyle(card, checkbox.checked);
+                updateSelectionCount();
+            });
+        });
+    }
+
+    function loadUserLinks(userId) {
+        const linkedIds = userLinks[userId] || [];
+        const studentCards = document.querySelectorAll('.student-card');
+        
+        studentCards.forEach(card => {
+            const studentId = parseInt(card.getAttribute('data-id'));
+            const checkbox = card.querySelector('.student-checkbox');
+            const badge = card.querySelector('.linked-badge');
+            
+            const isLinked = linkedIds.includes(studentId);
+            checkbox.checked = isLinked;
+            updateCardStyle(card, isLinked);
+            
+            if (isLinked) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
             }
         });
         
-        if (linkedStudents.length > 0) {
-            linkedStudentsList.innerHTML = '<strong>' + linkedStudents.join(', ') + '</strong>';
-            currentLinksDiv.style.display = 'block';
+        updateSelectionCount();
+    }
+
+    function updateCardStyle(card, isSelected) {
+        if (isSelected) {
+            card.classList.add('selected', 'border-indigo-300');
         } else {
-            currentLinksDiv.style.display = 'none';
+            card.classList.remove('selected', 'border-indigo-300');
         }
-    } else {
-        currentLinksDiv.style.display = 'none';
     }
-});
 
-// Form validation
-document.getElementById('linkStudentForm').addEventListener('submit', function(e) {
-    const userId = document.getElementById('user_id').value;
-    const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
-    
-    if (!userId) {
-        e.preventDefault();
-        alert('Please select a user to link students to.');
-        return false;
+    function selectAll(check) {
+        const visibleCards = Array.from(document.querySelectorAll('.student-card')).filter(c => c.style.display !== 'none');
+        visibleCards.forEach(card => {
+            const checkbox = card.querySelector('.student-checkbox');
+            checkbox.checked = check;
+            updateCardStyle(card, check);
+        });
+        updateSelectionCount();
     }
-    
-    if (checkedBoxes.length === 0) {
-        e.preventDefault();
-        alert('Please select at least one student to link.');
-        return false;
+
+    function updateSelectionCount() {
+        const checkedCount = document.querySelectorAll('.student-checkbox:checked').length;
+        const selectionCountSpan = document.getElementById('selection_count');
+        
+        if (checkedCount > 0) {
+            selectionCountSpan.innerText = `${checkedCount} selected`;
+            selectionCountSpan.classList.remove('hidden');
+        } else {
+            selectionCountSpan.classList.add('hidden');
+        }
     }
-    
-    // Confirm the action
-    const confirmMessage = checkedBoxes.length > 0 
-        ? `Are you sure you want to link ${checkedBoxes.length} student(s) to the selected user?`
-        : 'Are you sure you want to clear all student links for this user?';
-    
-    if (!confirm(confirmMessage)) {
-        e.preventDefault();
-        return false;
-    }
-});
 </script>
-
-<style>
-.student-checkbox {
-    margin-right: 8px;
-}
-
-.form-check-label {
-    cursor: pointer;
-    padding: 5px;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-}
-
-.form-check-label:hover {
-    background-color: #f8f9fa;
-}
-
-.form-check-input:checked + .form-check-label {
-    background-color: #e3f2fd;
-    font-weight: 500;
-}
-
-.border {
-    border-color: #dee2e6 !important;
-}
-
-.card {
-    box-shadow: 0 0 1px rgba(0,0,0,.125);
-}
-
-.btn {
-    border-radius: 4px;
-}
-
-.alert {
-    border-radius: 4px;
-}
-</style>
 {% endblock %}

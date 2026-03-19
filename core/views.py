@@ -1025,11 +1025,24 @@ class StudentDetailView(DetailView):
                     score_diff = round(perc - p_perc, 1)
                     abs_score_diff = abs(score_diff)
                 
+                # Calculate Points (8-point scale for JSS, 4-point for others)
+                point_map = {
+                    'EE1': 8, 'EE2': 7, 
+                    'ME1': 6, 'ME2': 5, 
+                    'AE1': 4, 'AE2': 3, 
+                    'BE1': 2, 'BE2': 1,
+                    'EE': 4, 'ME': 3, 'AE': 2, 'BE': 1
+                }
+                points = point_map.get(grade, 1)
+
                 # Map back to namespace for template access (score.subject.name)
                 scores.append(SimpleNamespace(
                     subject=data['subject'],
-                    score=round(perc, 1),
+                    score=data['total_score'],
+                    max_score=data['max_score'],
+                    percentage=round(perc, 1),
                     grade=grade,
+                    points=points,
                     score_diff=score_diff,
                     abs_score_diff=abs_score_diff
                 ))
@@ -3740,6 +3753,11 @@ def link_student_view(request):
     """View to link students to users (guardians)"""
     from users.models import MyUser
     
+    # Check permissions - admin and superuser can link students
+    if not request.user.is_superuser and request.user.role != 'Admin':
+        messages.error(request, 'You do not have permission to link students.')
+        return redirect('core:dashboard')
+    
     # Get all users who can be guardians
     users = MyUser.objects.filter(
         role__in=['Admin', 'Teacher', 'Accountant', 'Receptionist', 'Guardian']
@@ -3751,6 +3769,10 @@ def link_student_view(request):
     if request.method == 'POST':
         user_id = request.POST.get('user_id')
         student_ids = request.POST.getlist('student_ids')
+        
+        if not user_id:
+            messages.error(request, "Please select a user first.")
+            return redirect('core:link-student')
         
         try:
             user = MyUser.objects.get(id=user_id)
@@ -3772,11 +3794,20 @@ def link_student_view(request):
         except Exception as e:
             messages.error(request, f"Error linking students: {str(e)}")
             
-        return redirect('core:link-student')
+    # Prepare current links mapping for JS
+    user_links = {user.id: list(user.students.values_list('id', flat=True)) for user in users}
+    
+    # Get unique schools and grades for filters
+    from .models import School, Grade
+    schools = School.objects.all().order_by('name')
+    grades = Grade.objects.all().order_by('name')
     
     context = {
         'users': users,
         'students': students,
+        'schools': schools,
+        'grades': grades,
+        'user_links_json': json.dumps(user_links),
         'title': 'Link Students to Users'
     }
     

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static attendance_filters %}
 
 {% block title %}{{ student.first_name }}'s Academic Dashboard | Excel SMS{% endblock %}
 
@@ -10,120 +11,123 @@
     .chart-container { background-color: white; padding: 2rem; border-radius: 2rem; border: 1px solid #edf2f7; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04); position: relative; }
     .table-container { background-color: white; border-radius: 2rem; border: 1px solid #edf2f7; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04); overflow: hidden; }
     .sn-cell { color: #cbd5e1; font-weight: 800; font-size: 14px; }
-    .badge-present { background-color: #f0fdf4; color: #16a34a; padding: 0.3rem 0.6rem; rounded-lg font-size: 10px; font-weight: 800; }
+    .badge-present { background-color: #f0fdf4; color: #16a34a; padding: 0.3rem 0.6rem; border-radius: 0.5rem; font-size: 10px; font-weight: 800; }
 </style>
 {% endblock %}
 
-{% block header %}
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-4">
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
     <div class="flex items-center gap-5">
         <div class="relative">
-            <div class="w-16 h-16 rounded-[1.5rem] bg-indigo-600 border border-indigo-400 p-1 shadow-indigo-100 shadow-xl flex items-center justify-center overflow-hidden">
-                <span class="text-white font-black text-xl uppercase tracking-tighter">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+            <div class="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-indigo-500 to-purple-600 border-4 border-white p-1 shadow-2xl flex items-center justify-center overflow-hidden">
+                <span class="text-white font-black text-2xl uppercase tracking-tighter">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
             </div>
-            <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-emerald-500 border-2 border-white shadow-sm flex items-center justify-center text-[10px] text-white">
+            <div class="absolute -bottom-1 -right-1 w-7 h-7 rounded-xl bg-emerald-500 border-4 border-white shadow-lg flex items-center justify-center text-[10px] text-white">
                 <i class="fas fa-check"></i>
             </div>
         </div>
         <div>
             <h1 class="text-3xl font-black text-slate-900 tracking-tight">{{ student.get_full_name }}</h1>
-            <p class="text-slate-400 font-bold text-sm tracking-tight">{{ profile.class_id.name }} • ADM No: {{ student.adm_no }}
-            </p>
+            <div class="flex items-center gap-3 mt-1">
+                <span class="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[10px] font-black uppercase tracking-widest">{{ profile.class_id.grade.name|default:"Grade N/A" }} • {{ profile.class_id.name }}</span>
+                <span class="text-slate-400 font-bold text-xs tracking-tight">ADM: {{ student.adm_no }}</span>
+            </div>
         </div>
     </div>
-    <div class="flex items-center gap-4">
-        <div
-            class="flex items-center bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm text-xs font-black text-slate-600">
-            <i class="far fa-calendar-alt mr-3 text-indigo-500 text-sm"></i>
-            {% now "M d, Y" %}
-        </div>
+    <div class="flex items-center gap-3">
         <a href="{% url 'core:student-report' student.id selected_exam.id %}" target="_blank"
-            class="h-12 px-6 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-3">
-            <i class="fas fa-file-pdf"></i> View Transcript
+            class="h-12 px-6 bg-white border border-slate-200 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm flex items-center gap-3">
+            <i class="fas fa-print text-indigo-500"></i> Print Transcript
         </a>
-        </div>
-        </div>
+        <button onclick="window.history.back()" class="h-12 w-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center hover:bg-slate-200 transition-all group">
+            <i class="fas fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+        </button>
+    </div>
+</div>
 {% endblock %}
 
 {% block content %}
 <div class="space-y-8 pb-12">
     <!-- Row 1: Top Metrics -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="stat-card">
-            <div class="flex items-center justify-between">
-                <div class="stat-icon bg-orange-50 text-orange-500">
-                    <i class="fas fa-graduation-cap"></i>
+        <!-- Academic Summary -->
+        <div class="bg-white rounded-[22px] p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center">
+                    <i class="fas fa-graduation-cap text-orange-500 text-lg"></i>
                 </div>
-                <button class="text-slate-200"><i class="fas fa-ellipsis-h"></i></button>
+                <div class="text-right">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mean Score</p>
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tighter">{{ student_average|default:"0" }}%</h3>
+                </div>
             </div>
-            <div>
-                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">{{ student_average|default:"0" }}%</h3>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Mean Academic Score</p>
-                </div>
-                <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
-                    <span class="text-xs font-black text-emerald-500"><i class="fas fa-arrow-up mr-1"></i>0.2% more</span>
-                    <span class="text-[10px] font-bold text-slate-400 italic">than last exam</span>
-                </div>
-                </div>
+            <div class="pt-4 border-t border-slate-50 flex items-center justify-between">
+                <span class="text-[10px] font-bold text-slate-400 uppercase italic">Latest Exam</span>
+                <span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[9px] font-black uppercase">{{ selected_exam.name|default:"N/A"|truncatechars:10 }}</span>
+            </div>
+        </div>
 
-        <div class="stat-card">
-            <div class="flex items-center justify-between">
-                <div class="stat-icon bg-red-50 text-red-500">
-                    <i class="fas fa-wallet"></i>
+        <!-- Financial Status -->
+        <div class="bg-white rounded-[22px] p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 rounded-2xl {% if profile.fee_balance > 0 %}bg-rose-50{% else %}bg-emerald-50{% endif %} flex items-center justify-center">
+                    <i class="fas fa-wallet {% if profile.fee_balance > 0 %}text-rose-500{% else %}text-emerald-500{% endif %} text-lg"></i>
                 </div>
-                <button class="text-slate-200"><i class="fas fa-ellipsis-h"></i></button>
+                <div class="text-right">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {% if profile.fee_balance < 0 %}Overpayment{% else %}Outstanding Balance{% endif %}
+                    </p>
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tighter">KES {{ profile.fee_balance|default:"0"|abs_val|floatformat:0 }}</h3>
+                </div>
             </div>
-            <div>
-                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">KES {{ profile.fee_balance|default:"0"|floatformat:0 }}
-                </h3>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Outstanding Balance</p>
-                </div>
-            <div class="pt-3 border-t border-slate-50 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-black text-rose-500"><i class="fas fa-exclamation-circle mr-1"></i>Pending</span>
-                    <span class="text-[10px] font-bold text-slate-400 italic">Total paid: KES {{ total_paid|floatformat:0 }}</span>
-                </div>
-                <button onclick="openPaymentModal('{{ student.id }}', '{{ student.get_full_name }}', '{{ profile.fee_balance|default:"0" }}')" class="text-xs font-black px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors flex items-center gap-1">
-                    <i class="fas fa-credit-card"></i>
-                    Pay
+            <div class="pt-4 border-t border-slate-50 flex items-center justify-between">
+                <button onclick="openPaymentModal('{{ student.id }}', '{{ student.get_full_name }}', '{{ profile.fee_balance|default:"0" }}')" class="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-widest flex items-center gap-1.5">
+                    <i class="fas fa-plus-circle"></i> Add Payment
                 </button>
-            </div>
-            </div>
-
-        <div class="stat-card">
-            <div class="flex items-center justify-between">
-                <div class="stat-icon bg-indigo-50 text-indigo-500">
-                    <i class="fas fa-calendar-check"></i>
-                </div>
-                <button class="text-slate-200"><i class="fas fa-ellipsis-h"></i></button>
-            </div>
-            <div>
-                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">{{ attendance_percentage }}%</h3>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attendance Trend</p>
-            </div>
-            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
-                <span class="text-xs font-black text-indigo-500"><i class="fas fa-sync mr-1"></i>Tracked</span>
-                <span class="text-[10px] font-bold text-slate-400 italic">For {{ current_month }}</span>
+                {% if profile.fee_balance > 0 %}
+                <span class="px-2 py-0.5 bg-rose-50 text-rose-600 rounded text-[9px] font-black uppercase italic tracking-tighter">Due</span>
+                {% elif profile.fee_balance < 0 %}
+                <span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[9px] font-black uppercase tracking-tighter">Credit</span>
+                {% else %}
+                <span class="px-2 py-0.5 bg-slate-50 text-slate-600 rounded text-[9px] font-black uppercase tracking-tighter">Clear</span>
+                {% endif %}
             </div>
         </div>
 
-        <div class="stat-card">
-            <div class="flex items-center justify-between">
-                <div class="stat-icon bg-blue-50 text-blue-500">
-                    <i class="fas fa-shield-heart"></i>
+        <!-- Attendance Summary -->
+        <div class="bg-white rounded-[22px] p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
+                    <i class="fas fa-calendar-check text-indigo-500 text-lg"></i>
                 </div>
-                <button class="text-slate-200"><i class="fas fa-ellipsis-h"></i></button>
+                <div class="text-right">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Attendance</p>
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tighter">{{ attendance_percentage }}%</h3>
                 </div>
-            <div>
-                <h3 class="text-3xl font-black text-slate-800 tracking-tighter">{{ profile.discipline }}</h3>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Discipline Points</p>
             </div>
-            <div class="pt-3 border-t border-slate-50 flex items-center gap-2">
-                <span class="text-xs font-black text-emerald-500"><i class="fas fa-check-circle mr-1"></i>Good</span>
-                <span class="text-[10px] font-bold text-slate-400 italic">Without changes</span>
+            <div class="pt-4 border-t border-slate-50 flex items-center justify-between">
+                <span class="text-[10px] font-bold text-slate-400 uppercase italic">Current Month</span>
+                <span class="text-[10px] font-black text-indigo-600 uppercase">{{ current_month|truncatechars:12 }}</span>
             </div>
         </div>
-    </div>
+
+        <!-- Discipline / Conduct -->
+        <div class="bg-white rounded-[22px] p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
+                    <i class="fas fa-award text-blue-500 text-lg"></i>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Discipline</p>
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tighter">{{ profile.discipline }}</h3>
+                </div>
+            </div>
+            <div class="pt-4 border-t border-slate-50 flex items-center justify-between">
+                <span class="text-[10px] font-bold text-slate-400 uppercase italic">Status</span>
+                <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase">Exemplary</span>
+            </div>
+        </div>
+    </div>v>
     
     <!-- Student Info Grid -->
     <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
@@ -215,34 +219,58 @@
 
     <!-- Row 2: Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <!-- Performance Donut/Radar -->
-        <div class="lg:col-span-4 chart-container h-[450px]">
-            <div class="flex items-center justify-between mb-10">
-                <h3 class="text-xl font-black text-slate-800">Performance Index</h3>
-                <button class="text-slate-300"><i class="fas fa-ellipsis-v"></i></button>
+        <!-- Report Card Style Subject Performance -->
+        <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden h-fit flex flex-col">
+            <div class="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+                <h3 class="text-lg font-black text-slate-800 tracking-tight">Subject Performance</h3>
+                <span class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest">Report Style</span>
             </div>
-            <div class="relative w-full h-52 mb-10 flex items-center justify-center">
-                <canvas id="performanceRadarChart"></canvas>
-                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-6">
-                    <h4 class="text-4xl font-black text-slate-800">{{ student_average }}</h4>
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Agg. Score</p>
+            <div class="p-2 overflow-y-auto max-h-[500px]">
+                <table class="w-full text-left text-[11px]">
+                    <thead class="sticky top-0 bg-white z-10">
+                        <tr class="border-b border-slate-50">
+                            <th class="px-4 py-3 font-black text-slate-400 uppercase tracking-widest">Subject</th>
+                            <th class="px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-center">Marks</th>
+                            <th class="px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-center">Pts</th>
+                            <th class="px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-right">Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {% for score in exam_scores %}
+                        <tr class="hover:bg-slate-50/50 transition-all">
+                            <td class="px-4 py-4 font-bold text-slate-700 uppercase leading-tight">{{ score.subject.name|truncatechars:15 }}</td>
+                            <td class="px-4 py-4 text-center font-black text-slate-900">
+                                {{ score.score|floatformat:0 }}<span class="text-slate-300 font-medium">/{{ score.max_score }}</span>
+                                <div class="text-[9px] text-slate-400 font-bold mt-0.5">{{ score.percentage }}%</div>
+                            </td>
+                            <td class="px-4 py-4 text-center">
+                                <span class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center mx-auto font-black text-slate-600 text-[10px]">{{ score.points }}</span>
+                            </td>
+                            <td class="px-4 py-4 text-right">
+                                <span class="px-2 py-1 rounded-md text-[9px] font-black
+                                    {% if 'EE' in score.grade %}bg-emerald-50 text-emerald-600
+                                    {% elif 'ME' in score.grade %}bg-blue-50 text-blue-600
+                                    {% elif 'AE' in score.grade %}bg-amber-50 text-amber-600
+                                    {% else %}bg-rose-50 text-rose-600{% endif %}">
+                                    {{ score.grade }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-auto p-6 bg-indigo-50/50 border-t border-indigo-100/50 flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Mean Average</p>
+                    <h4 class="text-xl font-black text-indigo-700">{{ student_average }}%</h4>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ranked</p>
+                    <h4 class="text-xl font-black text-slate-800">#1<span class="text-xs text-slate-400 ml-0.5">/{{ exam_scores|length }}</span></h4>
                 </div>
             </div>
-            <div class="grid grid-cols-3 gap-6 pt-8 border-t border-slate-50">
-                <div class="text-center group">
-                    <h5 class="text-2xl font-black text-indigo-500">{{ exam_scores.count }}</h5>
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Subjects</p>
-                </div>
-                <div class="text-center group">
-                    <h5 class="text-2xl font-black text-orange-500">{{ discipline_records.count }}</h5>
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Incidents</p>
-                </div>
-                <div class="text-center group">
-                    <h5 class="text-2xl font-black text-purple-600">A</h5>
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Grade</p>
-                </div>
-                </div>
-                </div>
+        </div>
 
         <!-- Subject Scores Bar Chart -->
         <div class="lg:col-span-12 xl:col-span-8 chart-container h-[450px]">
@@ -264,65 +292,57 @@
             </div>
             </div>
             </div>
-<!-- Row 3: Tables & Calendar -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-    <!-- Transactions Table -->
-    <div class="table-container">
-        <div class="p-8 border-b border-slate-50 flex items-center justify-between">
-            <h3 class="text-xl font-black text-slate-800 tracking-tight">Recent financial log</h3>
-            <button class="text-slate-300"><i class="fas fa-ellipsis-v"></i></button>
-        </div>
-            <div class="p-4">
+    <!-- Row 3: Tables & Calendar -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Transactions Table -->
+        <div class="bg-white rounded-[22px] border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+                <h3 class="text-lg font-black text-slate-800 tracking-tight">Financial Log</h3>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Activity</span>
+            </div>
+            <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead class="bg-slate-50/50">
                         <tr>
-                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">S/N</th>
-                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Description</th>
-                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
-                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Before</th>
-                            <th class="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">After</th>
+                            <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</th>
+                            <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                            <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Balance</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-50">
+                    <tbody class="divide-y divide-slate-100">
                         {% for entry in financial_log %}
-                        <tr class="hover:bg-slate-50 transition-all">
-                            <td class="px-6 py-6 sn-cell">{{ forloop.counter }}</td>
-                            <td class="px-6 py-6">
+                        <tr class="hover:bg-slate-50/50 transition-all">
+                            <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs
                                         {% if entry.type == 'payment' %}bg-emerald-50 text-emerald-600{% else %}bg-amber-50 text-amber-600{% endif %}">
                                         <i class="fas {% if entry.type == 'payment' %}fa-check-circle{% else %}fa-file-invoice-dollar{% endif %}"></i>
                                     </div>
                                     <div>
-                                        <p class="text-xs font-black text-slate-700 leading-tight">{{ entry.description }}</p>
-                                        <div class="flex items-center gap-2 mt-0.5">
-                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-tight">{{ entry.date|date:"d M Y" }}</span>
-                                            {% if entry.method %}
-                                            <span class="w-0.5 h-0.5 rounded-full bg-slate-200"></span>
-                                            <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{{ entry.method }}</span>
-                                            {% endif %}
-                                        </div>
+                                        <p class="text-xs font-bold text-slate-700 leading-tight">{{ entry.description }}</p>
+                                        <p class="text-[10px] text-slate-400 font-medium mt-0.5">{{ entry.date|date:"d M Y" }}</p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-6 text-right font-black {% if entry.type == 'payment' %}text-emerald-600{% else %}text-slate-800{% endif %}">
-                                {% if entry.type == 'payment' %}-{% endif %}KES {{ entry.amount|floatformat:2 }}
+                            <td class="px-6 py-4 text-right font-black {% if entry.type == 'payment' %}text-emerald-600{% else %}text-slate-800{% endif %} text-xs">
+                                {% if entry.type == 'payment' %}-{% endif %}KES {{ entry.amount|floatformat:0 }}
                             </td>
-                            <td class="px-6 py-6 text-right font-bold text-slate-400 text-xs">
-                                {{ entry.balance_before|floatformat:0|default:"-" }}
-                            </td>
-                            <td class="px-6 py-6 text-right font-black text-slate-700 text-xs">
-                                {{ entry.balance_after|floatformat:0|default:"-" }}
+                            <td class="px-6 py-4 text-right">
+                                <span class="text-xs font-black {% if entry.balance_after > 0 %}text-rose-500{% elif entry.balance_after < 0 %}text-emerald-600{% else %}text-slate-400{% endif %}">
+                                    KES {{ entry.balance_after|default:"0"|abs_val|floatformat:0 }}
+                                </span>
+                                {% if entry.balance_after < 0 %}
+                                <div class="text-[8px] font-bold text-emerald-500 uppercase tracking-tighter">Overpayment</div>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="px-4 py-16 text-center text-slate-300 italic font-black text-xs uppercase tracking-widest">No
-                                financial activities recorded</td>
+                            <td colspan="3" class="px-6 py-12 text-center text-slate-400 italic text-xs">No financial records found</td>
                         </tr>
                         {% endfor %}
                     </tbody>
-                    </table>
+                </table>
             </div>
         </div>
 
@@ -379,40 +399,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // PERFORMANCE RADAR
-    const radarCtx = document.getElementById('performanceRadarChart').getContext('2d');
-    new Chart(radarCtx, {
-        type: 'radar',
-        data: {
-            labels: JSON.parse('{{ subject_names_json|safe }}'),
-            datasets: [{
-                data: JSON.parse('{{ subject_values_json|safe }}'),
-                backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                borderColor: '#6366f1',
-                borderWidth: 3,
-                pointBackgroundColor: '#6366f1',
-                pointRadius: 3
-            }]
-        },
-        options: {
-            maintainAspectRatio: false,
-            scales: {
-                r: {
-                    angleLines: { color: '#f1f5f9' },
-                    grid: { color: '#f1f5f9' },
-                    suggestedMin: 0,
-                    suggestedMax: 100,
-                    ticks: { display: false },
-                    pointLabels: {
-                        font: { size: 9, family: "'Outfit', sans-serif", weight: '900' },
-                        color: '#94a3b8'
-                    }
-                }
-            },
-            plugins: { legend: { display: false } }
-        }
-    });
-
     // SUBJECT BAR CHART
     const barCtx = document.getElementById('subjectBarChart').getContext('2d');
     new Chart(barCtx, {

@@ -587,7 +587,7 @@ class MigrateTermView(LoginRequiredMixin, TemplateView):
 @login_required
 def payments_list_view(request):
     """View that calls M-Pesa Pull Transactions API for reconciliation"""
-    print("🎯 DEBUG: Payments list view (Pull API) called!")
+    print("DEBUG Payments list view (Pull API) called!")
     
     from django.utils import timezone
     from datetime import datetime, timedelta
