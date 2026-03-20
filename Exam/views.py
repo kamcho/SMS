@@ -128,9 +128,16 @@ class TeacherScoreEntryView(LoginRequiredMixin, View):
 
 class CreateExamView(LoginRequiredMixin, View):
     def get(self, request):
-        # Check permissions - only exam officer can create exams
-        if not getattr(request.user, 'is_exam_officer', False):
-            messages.error(request, 'You do not have permission to create exams. Only the Exam Officer can perform this action.')
+        # Check permissions - admin, exam officer, and exam manager can create exams
+        is_allowed = (
+            request.user.is_superuser or 
+            request.user.role == 'Admin' or 
+            getattr(request.user, 'is_exam_officer', False) or 
+            getattr(request.user, 'is_exam_manager', False)
+        )
+        
+        if not is_allowed:
+            messages.error(request, 'You do not have permission to create exams. Only authorized staff can perform this action.')
             return redirect('core:dashboard')
         
         form = ExamForm()
@@ -237,9 +244,16 @@ class ManageExamView(LoginRequiredMixin, View):
         return render(request, 'Exam/manage_exam.html', context)
     
     def post(self, request, exam_id):
-        # Check permissions - only exam officer can manage exams via POST (update, activate, deactivate)
-        if not getattr(request.user, 'is_exam_officer', False):
-            messages.error(request, 'You do not have permission to update or manage exams. Only the Exam Officer can perform this action.')
+        # Check permissions - admin, exam officer, exam manager and superuser can manage exams
+        is_allowed = (
+            request.user.is_superuser or 
+            request.user.role == 'Admin' or 
+            getattr(request.user, 'is_exam_officer', False) or 
+            getattr(request.user, 'is_exam_manager', False)
+        )
+        
+        if not is_allowed:
+            messages.error(request, 'You do not have permission to update or manage exams. Only authorized staff can perform this action.')
             return redirect('core:dashboard')
         
         exam = get_object_or_404(Exam, id=exam_id)
@@ -468,9 +482,16 @@ class SubjectConfigurationView(LoginRequiredMixin, View):
         return render(request, 'Exam/subject_configurations.html', context)
     
     def post(self, request, grade, exam_id=None):
-        # Check permissions - only exam officer can manage subject configurations
-        if not request.user.is_superuser and not getattr(request.user, 'is_exam_officer', False):
-            messages.error(request, 'You do not have permission to manage subject configurations. Only the Exam Officer can perform this action.')
+        # Check permissions - admin, exam officer, and exam manager can manage subject configurations
+        is_allowed = (
+            request.user.is_superuser or 
+            request.user.role == 'Admin' or 
+            getattr(request.user, 'is_exam_officer', False) or 
+            getattr(request.user, 'is_exam_manager', False)
+        )
+        
+        if not is_allowed:
+            messages.error(request, 'You do not have permission to manage subject configurations. Only authorized staff can perform this action.')
             return redirect('core:dashboard')
         
         # Handle different form actions
