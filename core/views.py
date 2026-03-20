@@ -1689,8 +1689,11 @@ def configurations(request):
     context['exam_form'] = ExamForm()
     context['exam_mode_form'] = ExamModeForm()
     
-    from accounts.forms import FeeStructureForm
+    from accounts.forms import FeeStructureForm, AdditionalChargesForm
+    from accounts.models import AdditionalCharges
     context['fee_structure_form'] = FeeStructureForm()
+    context['additional_charge_form'] = AdditionalChargesForm()
+    context['additional_charges'] = AdditionalCharges.objects.all().select_related('school').prefetch_related('grades')
     
     return render(request, 'core/configurations.html', context)
 
@@ -1707,6 +1710,23 @@ def create_fee_structure(request):
             messages.success(request, 'Fee structure created successfully!')
         else:
             messages.error(request, 'Error creating fee structure.')
+            
+    return redirect('core:configurations')
+
+
+def create_additional_charge(request):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'Permission denied.')
+        return redirect('core:configurations')
+    
+    if request.method == 'POST':
+        from accounts.forms import AdditionalChargesForm
+        form = AdditionalChargesForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Additional charge created successfully!')
+        else:
+            messages.error(request, 'Error creating additional charge.')
             
     return redirect('core:configurations')
 
@@ -1895,6 +1915,11 @@ def delete_item(request, model_type, item_id):
             item = get_object_or_404(FeeStructure, id=item_id)
             item.delete()
             messages.success(request, 'Fee structure deleted successfully!')
+        elif model_type == 'additional_charge':
+            from accounts.models import AdditionalCharges
+            item = get_object_or_404(AdditionalCharges, id=item_id)
+            item.delete()
+            messages.success(request, 'Additional charge deleted successfully!')
         elif model_type == 'exam_mode':
             messages.warning(request, 'Exam mode cannot be deleted. Use the exam management page to activate/deactivate exams.')
     
@@ -2964,15 +2989,60 @@ def student_report(request, student_id, exam_id):
 
     student_average = round(sum(total_percentages) / len(total_percentages), 1) if total_percentages else 0
     
+    # Summary Calculations
+    total_marks = sum(d['score'] for d in subject_data.values())
+    total_out_of = sum(d['max'] for d in subject_data.values())
+    total_points = sum(d['points'] for d in subject_data.values())
+    max_pts_per_subj = 8 if is_junior_secondary else 4
+    total_max_points = len(subject_data) * max_pts_per_subj
+    
+    # Overall Performance Level based on points percentage
+    pts_perc = (total_points / total_max_points) * 100 if total_max_points > 0 else 0
+    if is_junior_secondary:
+        if pts_perc >= 87.5: overall_grade = 'EE1'
+        elif pts_perc >= 75: overall_grade = 'EE2'
+        elif pts_perc >= 62.5: overall_grade = 'ME1'
+        elif pts_perc >= 50: overall_grade = 'ME2'
+        elif pts_perc >= 37.5: overall_grade = 'AE1'
+        elif pts_perc >= 25: overall_grade = 'AE2'
+        elif pts_perc >= 12.5: overall_grade = 'BE1'
+        else: overall_grade = 'BE2'
+    else:
+        if pts_perc >= 75: overall_grade = 'EE'
+        elif pts_perc >= 50: overall_grade = 'ME'
+        elif pts_perc >= 25: overall_grade = 'AE'
+        else: overall_grade = 'BE'
+
+    # Grade Category
+    grade_name = profile.class_id.grade.name if profile and profile.class_id.grade else ""
+    if grade_name in ['Play Group', 'PP1', 'PP2']:
+        grade_category = "ECDE"
+    elif grade_name in ['Grade 1', 'Grade 2', 'Grade 3']:
+        grade_category = "Lower Primary"
+    elif grade_name in ['Grade 4', 'Grade 5', 'Grade 6']:
+        grade_category = "Upper Primary"
+    elif grade_name in ['Grade 7', 'Grade 8', 'Grade 9']:
+        grade_category = "Junior Secondary"
+    else:
+        grade_category = "ASSESSMENT"
+
     context = {
         'student': student,
         'exam': exam,
         'profile': profile,
         'class_obj': profile.class_id if profile else None,
-        'subject_results': subject_data.values(),
+        'subject_results': sorted(subject_data.values(), key=lambda x: x['name']),
         'student_average': student_average,
         'today': datetime.now().date(),
-        'is_junior_secondary': is_junior_secondary
+        'is_junior_secondary': is_junior_secondary,
+        'grade_category': grade_category,
+        'totals': {
+            'marks': total_marks,
+            'out_of': total_out_of,
+            'points': total_points,
+            'max_points': total_max_points,
+            'grade': overall_grade
+        }
     }
     return render(request, 'core/student_report.html', context)
 
@@ -3076,12 +3146,57 @@ def bulk_class_reports(request, class_id, exam_id):
 
         student_average = round(sum(total_percentages) / len(total_percentages), 1) if total_percentages else 0
         
+        # Summary Calculations
+        total_marks = sum(d['score'] for d in subject_data.values())
+        total_out_of = sum(d['max'] for d in subject_data.values())
+        total_points = sum(d['points'] for d in subject_data.values())
+        max_pts_per_subj = 8 if is_junior_secondary else 4
+        total_max_points = len(subject_data) * max_pts_per_subj
+        
+        # Overall Performance Level based on points percentage
+        pts_perc = (total_points / total_max_points) * 100 if total_max_points > 0 else 0
+        if is_junior_secondary:
+            if pts_perc >= 87.5: overall_grade = 'EE1'
+            elif pts_perc >= 75: overall_grade = 'EE2'
+            elif pts_perc >= 62.5: overall_grade = 'ME1'
+            elif pts_perc >= 50: overall_grade = 'ME2'
+            elif pts_perc >= 37.5: overall_grade = 'AE1'
+            elif pts_perc >= 25: overall_grade = 'AE2'
+            elif pts_perc >= 12.5: overall_grade = 'BE1'
+            else: overall_grade = 'BE2'
+        else:
+            if pts_perc >= 75: overall_grade = 'EE'
+            elif pts_perc >= 50: overall_grade = 'ME'
+            elif pts_perc >= 25: overall_grade = 'AE'
+            else: overall_grade = 'BE'
+
+        # Grade Category
+        grade_name = profile.class_id.grade.name if profile and profile.class_id.grade else ""
+        if grade_name in ['Play Group', 'PP1', 'PP2']:
+            grade_category = "ECDE"
+        elif grade_name in ['Grade 1', 'Grade 2', 'Grade 3']:
+            grade_category = "Lower Primary"
+        elif grade_name in ['Grade 4', 'Grade 5', 'Grade 6']:
+            grade_category = "Upper Primary"
+        elif grade_name in ['Grade 7', 'Grade 8', 'Grade 9']:
+            grade_category = "Junior Secondary"
+        else:
+            grade_category = "ASSESSMENT"
+
         reports.append({
             'student': student,
             'profile': profile,
-            'subject_results': subject_data.values(),
+            'subject_results': sorted(subject_data.values(), key=lambda x: x['name']),
             'student_average': student_average,
-            'is_junior_secondary': is_junior_secondary
+            'is_junior_secondary': is_junior_secondary,
+            'grade_category': grade_category,
+            'totals': {
+                'marks': total_marks,
+                'out_of': total_out_of,
+                'points': total_points,
+                'max_points': total_max_points,
+                'grade': overall_grade
+            }
         })
     
     context = {
@@ -4043,6 +4158,19 @@ def migrate_year(request):
                                                 description=f"First Term Fees - Academic Year {target_year}"
                                             )
                                             stats['invoices'] += 1
+
+                                        # 3. Invoice Additional Charges
+                                        from accounts.models import AdditionalCharges
+                                        add_charges = AdditionalCharges.objects.filter(school=profile.school, grades=next_cl.grade)
+                                        for ac in add_charges:
+                                            # Guard against duplicate invoicing for additional charges
+                                            if not Invoice.objects.filter(student=profile.student, description__icontains=ac.name, created_at__year=target_cal_year).exists():
+                                                Invoice.objects.create(
+                                                    student=profile.student,
+                                                    amount=ac.amount,
+                                                    description=f"{ac.name} for {next_cl.grade.name} - Academic Year {target_year}"
+                                                )
+                                                stats['invoices'] += 1
                             else:
                                 old_cl = profile.class_id
                                 profile.class_id = None

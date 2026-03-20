@@ -83,21 +83,26 @@
 
     <div class="report-container">
         <!-- School Logo & Header -->
-        <div class="text-center mb-8">
-            <div class="inline-block mb-4">
-                <div class="w-32 h-32 border-4 border-slate-900 rounded-full flex items-center justify-center overflow-hidden bg-slate-50">
-                    {% if profile.school.logo %}
-                        <img src="{{ profile.school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
-                    {% else %}
-                        <span class="text-4xl font-black">EX</span>
-                    {% endif %}
+        <div class="mb-8">
+            <div class="text-center mb-6">
+                <div class="inline-block mb-4">
+                    <div class="w-32 h-32 border-4 border-slate-900 rounded-full flex items-center justify-center overflow-hidden bg-slate-50">
+                        {% if profile.school.logo %}
+                            <img src="{{ profile.school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
+                        {% else %}
+                            <span class="text-4xl font-black">EX</span>
+                        {% endif %}
+                    </div>
                 </div>
+                <h1 class="text-2xl font-black uppercase">{{ profile.school.name|default:"EXCEL ACADEMY" }}</h1>
             </div>
-            <h1 class="text-2xl font-black uppercase mb-1">{{ profile.school.name|default:"EXCEL ACADEMY" }}</h1>
-            <h2 class="text-lg font-bold uppercase underline mb-1">
-                {{ exam.name|upper }} ({{ exam.period|upper }}) ASSESSMENT REPORT {{ exam.year.start_date.year }}
-            </h2>
-            <h3 class="text-md font-bold uppercase underline">{{ class_obj.grade.name|default:"UPPER PRIMARY"|upper }}</h3>
+            
+            <div class="text-left border-l-4 border-slate-900 pl-4 py-2 bg-slate-50/50">
+                <h2 class="text-lg font-bold uppercase mb-1">
+                    {{ grade_category }} ({{ exam.term.name|upper }} - {{ exam.period|upper }}) ASSESSMENT REPORT {{ exam.year.start_date.year }}
+                </h2>
+                <h3 class="text-md font-black uppercase text-slate-700 tracking-tight">{{ class_obj.grade.name|upper }}</h3>
+            </div>
         </div>
 
         <!-- Learner Details -->
@@ -108,7 +113,7 @@
             </div>
             <div>
                 <span class="uppercase font-bold">Grade:</span>
-                <span class="line-field">{{ profile.class_id.name }}</span>
+                <span class="line-field">{{ class_obj.grade.name }} ({{ class_obj.name }})</span>
             </div>
             <div>
                 <span class="uppercase font-bold">Class-Manager:</span>
@@ -182,6 +187,19 @@
                 </tr>
                 {% endfor %}
             </tbody>
+            <tfoot>
+                <tr class="font-black bg-slate-50">
+                    <td class="subject-column">TOTAL SUMMARY</td>
+                    <td>{{ totals.marks }}</td>
+                    <td>{{ totals.out_of }}</td>
+                    <td>{{ totals.points }}</td>
+                    <td>
+                        <span class="underline {% if 'EE' in totals.grade %}text-emerald-700{% elif 'ME' in totals.grade %}text-blue-700{% elif 'AE' in totals.grade %}text-amber-700{% else %}text-rose-700{% endif %}">
+                            OVERALL: {{ totals.grade }}
+                        </span>
+                    </td>
+                </tr>
+            </tfoot>
         </table>
 
         <!-- Footer Remarks -->

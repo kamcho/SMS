@@ -19,3 +19,22 @@ class FeeStructureForm(forms.ModelForm):
         self.fields['term'].queryset = Term.objects.all()
         self.fields['grade'].queryset = Grade.objects.all()
         self.fields['school'].queryset = School.objects.all()
+
+
+from .models import AdditionalCharges
+
+class AdditionalChargesForm(forms.ModelForm):
+    class Meta:
+        model = AdditionalCharges
+        fields = ['name', 'amount', 'school', 'grades']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-400 shadow-sm', 'placeholder': 'e.g. Lab Fees'}),
+            'amount': forms.NumberInput(attrs={'class': 'w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-400 shadow-sm', 'min': 0}),
+            'school': forms.Select(attrs={'class': 'w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-400 shadow-sm'}),
+            'grades': forms.CheckboxSelectMultiple(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['school'].queryset = School.objects.all()
+        self.fields['grades'].queryset = Grade.objects.all()

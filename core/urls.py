@@ -25,6 +25,7 @@ urlpatterns = [
     path('configurations/class/update/', views.update_class, name='update-class'),
     path('configurations/exam/create/', views.create_exam, name='create-exam'),
     path('configurations/fee-structure/create/', views.create_fee_structure, name='create-fee-structure'),
+    path('configurations/additional-charge/create/', views.create_additional_charge, name='create-additional-charge'),
     path('configurations/exam-mode/<int:exam_mode_id>/update/', views.update_exam_mode, name='update-exam-mode'),
     path('configurations/delete/<str:model_type>/<int:item_id>/', views.delete_item, name='delete-item'),
     path('student/<int:student_id>/report/<int:exam_id>/', views.student_report, name='student-report'),

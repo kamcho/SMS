@@ -297,6 +297,101 @@
         </div>
     </div>
 
+    <!-- Additional Charges Section -->
+    <div class="glass-card lg:col-span-2">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-plus-circle text-amber-500"></i>
+                Additional Charges
+            </h3>
+            <button class="btn btn-primary text-sm" onclick="toggleForm('additional-charge-form-container')">
+                <i class="fas fa-plus"></i> Add Charge
+            </button>
+        </div>
+        
+        <div id="additional-charge-form-container" class="hidden mb-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
+            <form method="post" action="{% url 'core:create-additional-charge' %}">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Charge Name</label>
+                        {{ additional_charge_form.name }}
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Amount (KSh)</label>
+                        {{ additional_charge_form.amount }}
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">School</label>
+                        {{ additional_charge_form.school }}
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Applicable Grades</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                            {% for checkbox in additional_charge_form.grades %}
+                            <label class="relative flex flex-col items-center justify-center p-4 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-indigo-300 transition-all group has-[:checked]:bg-indigo-50/50 has-[:checked]:border-indigo-500 has-[:checked]:ring-4 has-[:checked]:ring-indigo-500/10">
+                                <div class="absolute top-2 right-2 flex items-center justify-center w-5 h-5 rounded-full border border-slate-200 group-hover:border-indigo-300 transition-colors bg-white group-has-[:checked]:bg-indigo-600 group-has-[:checked]:border-indigo-600">
+                                    <i class="fas fa-check text-[8px] text-white opacity-0 group-has-[:checked]:opacity-100 transition-opacity"></i>
+                                </div>
+                                <div class="hidden">
+                                    {{ checkbox.tag }}
+                                </div>
+                                <div class="text-center mt-2">
+                                    <p class="text-sm font-bold text-slate-700 group-has-[:checked]:text-indigo-700 transition-colors">{{ checkbox.choice_label }}</p>
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider group-has-[:checked]:text-indigo-400">Select Grade</p>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-6">
+                    <button type="submit" class="btn btn-primary">Create Charge</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleForm('additional-charge-form-container')">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for charge in additional_charges %}
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 hover:border-indigo-300 transition-all shadow-sm group">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h4 class="font-bold text-slate-800 leading-none mb-1">{{ charge.name }}</h4>
+                        <p class="text-[11px] text-slate-500 font-bold uppercase tracking-tight">{{ charge.school.name }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[15px] font-black text-amber-600">KSh {{ charge.amount }}</p>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Applicable to:</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        {% for grade in charge.grades.all %}
+                        <span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md border border-slate-200">{{ grade.name }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex justify-end">
+                    <form method="post" action="{% url 'core:delete-item' 'additional_charge' charge.id %}" onsubmit="return confirm('Delete this charge?')">
+                        {% csrf_token %}
+                        <button type="submit" class="text-[11px] font-bold text-rose-400 hover:text-rose-600 transition-colors flex items-center gap-1.5">
+                            <i class="fas fa-trash-alt text-[10px]"></i> Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                <i class="fas fa-plus-circle text-2xl mb-2 opacity-20"></i>
+                <p class="font-medium">No additional charges configured yet.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Empty column to maintain layout if needed, or just let the grid handle it -->
 
 

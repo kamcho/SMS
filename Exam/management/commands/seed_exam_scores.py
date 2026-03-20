@@ -1,55 +1,64 @@
 import random
 from django.core.management.base import BaseCommand
-from core.models import Student, StudentProfile, AcademicYear, Term, Class, Grade
-from Exam.models import Exam, Subject, ExamSUbjectScore
+from core.models import StudentProfile
+from Exam.models import Exam, ExamSubjectConfiguration, ExamSubjectPaper, ExamSUbjectScore
 
 class Command(BaseCommand):
-    help = 'Seeds random exam score data for students based on their grade and CBC subjects'
+    help = 'Seeds random exam score data for a specific exam based on subject configurations'
 
-    def handle(self, *args, **kwargs):
-        academic_year = AcademicYear.objects.first()
-        term = Term.objects.first()
+    def add_arguments(self, parser):
+        parser.add_argument('exam_id', type=int, help='The ID of the exam to seed scores for')
+        parser.add_argument('--clear', action='store_true', help='Clear existing scores for this exam before seeding')
 
-        if not academic_year or not term:
-            self.stdout.write(self.style.ERROR('Please ensure AcademicYear and Term exist before seeding scores.'))
+    def handle(self, *args, **options):
+        exam_id = options['exam_id']
+        try:
+            exam = Exam.objects.get(id=exam_id)
+        except Exam.DoesNotExist:
+            self.stdout.write(self.style.ERROR(f"Exam with ID {exam_id} does not exist."))
+            return
+        
+        if options['clear']:
+            self.stdout.write(f"Clearing existing scores for {exam.name}...")
+            ExamSUbjectScore.objects.filter(paper__exam_subject__exam=exam).delete()
+
+        # Get all configurations for this exam
+        configs = ExamSubjectConfiguration.objects.filter(exam=exam).select_related('subject')
+        if not configs.exists():
+            self.stdout.write(self.style.WARNING(f"No subject configurations found for exam {exam.name}. Please configure subjects first."))
             return
 
-        # Create an Exam
-        exam, _ = Exam.objects.get_or_create(
-            name='End Term',
-            year=academic_year,
-            term=term
-        )
+        total_scores = 0
+        total_configs = configs.count()
+        
+        self.stdout.write(f"Seeding scores for exam: {exam.name} ({exam.year}, {exam.term})")
 
-        students = StudentProfile.objects.all().select_related('student', 'class_id__grade')
-        total_students = students.count()
-        score_count = 0
-
-        self.stdout.write(f"Seeding scores for {total_students} students...")
-
-        for i, profile in enumerate(students, 1):
-            if not profile.class_id:
+        for idx, config in enumerate(configs, 1):
+            grade_name = config.subject.grade
+            # Get students in this grade across all schools (or filter as needed)
+            student_profiles = StudentProfile.objects.filter(class_id__grade__name=grade_name).select_related('student')
+            papers = config.examsubjectpaper_set.all()
+            
+            if not papers.exists():
+                self.stdout.write(self.style.WARNING(f"  - No papers found for {config.subject.name} in {grade_name}. Skipping."))
                 continue
 
-            grade_name = profile.class_id.grade.name
-            subjects = Subject.objects.filter(grade=grade_name)
-
-            for subject in subjects:
-                # Random score between 40 and 100
-                score = random.randint(40, 100)
-                
-                ExamSUbjectScore.objects.get_or_create(
-                    exam=exam,
-                    student=profile.student,
-                    subject=subject,
-                    defaults={'score': score}
-                )
-                score_count += 1
+            self.stdout.write(f"[{idx}/{total_configs}] Seeding {config.subject.name} for {grade_name} ({student_profiles.count()} students)...")
             
-            # Show progress
-            percent = (i / total_students) * 100
-            self.stdout.write(f"Progress: [{i}/{total_students}] {percent:.1f}% complete...", ending='\r')
-            self.stdout.flush()
+            for profile in student_profiles:
+                for paper in papers:
+                    # Random score between 40% and 100% of out_of
+                    min_score = int(paper.out_of * 0.3)
+                    score = random.randint(min_score, paper.out_of)
+                    
+                    ExamSUbjectScore.objects.update_or_create(
+                        paper=paper,
+                        student=profile.student,
+                        defaults={
+                            'score': score,
+                            'class_id': profile.class_id
+                        }
+                    )
+                    total_scores += 1
 
-        self.stdout.write("") # New line after the progress bar
-        self.stdout.write(self.style.SUCCESS(f'Successfully seeded {score_count} subject scores across {total_students} students.'))
+        self.stdout.write(self.style.SUCCESS(f'Successfully seeded {total_scores} scores for exam "{exam.name}".'))
