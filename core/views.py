@@ -3602,8 +3602,12 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         date_to_str = self.request.GET.get('date_to')
         
         context['report_type'] = report_type
-        context['schools'] = School.objects.all()
-        context['grades'] = Grade.objects.all()
+        context['schools'] = School.objects.all().order_by('name')
+        
+        grades_qs = Grade.objects.all().order_by('name')
+        if school_id:
+            grades_qs = grades_qs.filter(school_id=school_id)
+        context['grades'] = grades_qs
         context['selected_school'] = school_id
         context['selected_grade'] = grade_id
         context['selected_class'] = class_id

@@ -53,7 +53,7 @@ class Command(BaseCommand):
             # 3. Create Classes for this school
             classes = []
             for g in grades:
-                # Define streams based on grade level
+                # Define streams based on grade level as requested
                 if g.name in ['Play Group', 'PP1', 'PP2']:
                     streams = ["Indigo"]
                 elif g.name.startswith('Grade'):
@@ -62,7 +62,7 @@ class Command(BaseCommand):
                         if num <= 6:
                             streams = ["Indigo", "Amber"]
                         else:
-                            streams = ["Tiger", "Lion"]
+                            streams = ["Tiger", "Cheetah"]
                     except (ValueError, IndexError):
                         streams = ["Indigo", "Amber"]
                 else:
@@ -72,7 +72,7 @@ class Command(BaseCommand):
                     c, _ = Class.objects.get_or_create(name=s_name, grade=g, school=school)
                     classes.append(c)
 
-            # 4. Create 100 Students (60:40 ratio)
+            # 4. Create Students (460 males, 545 females as currently typed)
             males_to_create = 460
             females_to_create = 545
             
@@ -84,10 +84,11 @@ class Command(BaseCommand):
             
             random.shuffle(students_data)
 
-            for i, (gender, first_name) in enumerate(students_data):
+            for i, (gender, first_name) in enumerate(students_data, 1):
                 middle_name = random.choice(kenyan_male_names + kenyan_female_names)
                 last_name = random.choice(kenyan_surnames)
-                adm_no = f"{prefix}-{2000 + i}" # Start from 2000 to differentiate from school 1
+                # Admission number: SchoolPrefix-0001 (incremental)
+                adm_no = f"{prefix}-{i:04d}" 
                 
                 # Random DOB between 4 and 15 years ago
                 birth_year = current_year - random.randint(4, 15)
