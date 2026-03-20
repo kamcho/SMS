@@ -47,7 +47,7 @@ class MyUser(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(max_length=15, blank=True, null=True, unique=True)
     objects = MyUserManager()
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = 'phone_number'
     REQUIRED_FIELDS = []
 
     def get_full_name(self):

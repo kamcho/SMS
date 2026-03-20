@@ -184,3 +184,6 @@ MPESA_SECURITY_CREDENTIAL = (_env('MPESA_SECURITY_CREDENTIAL') or '').strip()
 MPESA_CALLBACK_URL = (_env('MPESA_CALLBACK_URL') or '').strip()
 MPESA_RESULT_URL = (_env('MPESA_RESULT_URL') or '').strip()
 MPESA_QUEUE_TIMEOUT_URL = (_env('MPESA_QUEUE_TIMEOUT_URL') or '').strip()
+
+# Security settings for large forms (like multi-student admin pages)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000

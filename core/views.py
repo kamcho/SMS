@@ -10,10 +10,11 @@ from django.db.models.functions import TruncMonth
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
-from .models import Student, StudentProfile, School,StudentDiscipline, Class, Grade, AcademicYear, Term, ExamMode, TeacherClassProfile, AttendanceSession, StudentAttendance
+from .models import Student, StudentProfile, School,StudentDiscipline, Class, Grade, AcademicYear, Term, ExamMode, TeacherClassProfile, AttendanceSession, StudentAttendance, PromotionHistory
 from .forms import StudentForm, StudentProfileForm, AcademicYearForm, TermForm, GradeForm, ClassForm, ExamForm, ExamModeForm, PaymentForm, AttendanceSessionForm, StudentAttendanceForm
 from Exam.models import ExamSUbjectScore, Exam, Subject, ExamSubjectConfiguration, ScoreRanking
-from accounts.models import Payment, FeeStructure
+from decimal import Decimal
+from accounts.models import Payment, FeeStructure, Invoice
 from communication.models import Notification, PaymentNotification
 from django.views.generic import TemplateView
 
@@ -380,20 +381,16 @@ class StudentsListView(LoginRequiredMixin, ListView):
                 Q(adm_no__icontains=query)
             )
         
-        # Filter by school if user is not admin
-        if not self.request.user.is_superuser:
-            # Assuming user has a school field or profile with school
-            # This is a placeholder - adjust based on your user model
-            try:
-                user_school = self.request.user.profile.school
-                queryset = queryset.filter(studentprofile__school=user_school)
-            except AttributeError:
-                # If user doesn't have school, show all (or handle as needed)
-                pass
+        # Filter by school if user is linked to one and is not a superuser
+        if not self.request.user.is_superuser and self.request.user.school:
+            queryset = queryset.filter(studentprofile__school=self.request.user.school)
         
-        # Filter by school if specified
+        # Filter by school if specified (and allowed)
         school_id = self.request.GET.get('school')
         if school_id:
+            # If user is linked to a school, ignore requested school_id if it's different
+            if not self.request.user.is_superuser and self.request.user.school:
+                school_id = self.request.user.school.id
             queryset = queryset.filter(studentprofile__school_id=school_id)
             
         # Filter by grade (class) if specified
@@ -423,9 +420,16 @@ class StudentsListView(LoginRequiredMixin, ListView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
         context['search_query'] = self.request.GET.get('q', '')
-        context['schools'] = School.objects.all()
-        context['selected_school'] = self.request.GET.get('school', '')
+        
+        if not user.is_superuser and user.school:
+            context['schools'] = School.objects.filter(id=user.school.id)
+            context['selected_school'] = str(user.school.id)
+        else:
+            context['schools'] = School.objects.all()
+            context['selected_school'] = self.request.GET.get('school', '')
         
         context['selected_class'] = self.request.GET.get('class', '')
         context['date_from'] = self.request.GET.get('date_from', '')
@@ -433,14 +437,15 @@ class StudentsListView(LoginRequiredMixin, ListView):
         
         context['selected_status'] = self.request.GET.get('status', 'Active')
         
-        selected_school_id = self.request.GET.get('school')
+        # Use either the user's school or the selected school from GET
+        selected_school_id = user.school.id if (not user.is_superuser and user.school) else self.request.GET.get('school')
         selected_grade_id = self.request.GET.get('grade')
         context['selected_grade'] = selected_grade_id
         
         if selected_school_id:
             from .models import Class, Grade
             from django.db.models import Q
-            # Get grades that either belong to this school or are global (no school assigned)
+            # Get grades that contextually belong to this school
             context['grades'] = Grade.objects.filter(Q(school_id=selected_school_id) | Q(school__isnull=True))
             
             if selected_grade_id:
@@ -566,22 +571,33 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             summary = []
             school_classes = Class.objects.filter(school_id=school_id).select_related('grade')
             
-            # Map of students promoted INTO classes this year
-            promoted_into_stats = {}
+            # Get all students promoted OUT of any class this year
+            all_promoted_out = []
             if selected_year_id:
-                into_counts = PromotionHistory.objects.filter(
+                all_promoted_out = list(PromotionHistory.objects.filter(
+                    academic_year_id=selected_year_id,
+                    from_class__isnull=False
+                ).values_list('student_id', flat=True))
+
+            # Get all students promoted INTO any class this year
+            all_promoted_into = []
+            if selected_year_id:
+                all_promoted_into = list(PromotionHistory.objects.filter(
                     academic_year_id=selected_year_id,
                     to_class__isnull=False
-                ).values('to_class').annotate(count=Count('id'))
-                for entry in into_counts:
-                    promoted_into_stats[entry['to_class']] = entry['count']
+                ).values_list('student_id', flat=True))
 
             for c in school_classes:
                 # 1. Total active currently in class
                 total_active = StudentProfile.objects.filter(class_id=c, status='Active').count()
                 
-                # 2. How many of these were just promoted INTO here?
-                just_arrived = promoted_into_stats.get(c.id, 0)
+                # 2. How many of these were just promoted INTO here? 
+                # Crucial: Only count those STILL in this class.
+                just_arrived = StudentProfile.objects.filter(
+                    class_id=c, 
+                    status='Active',
+                    student_id__in=all_promoted_into
+                ).count()
                 
                 # 3. How many have we moved OUT of here?
                 promoted_away = 0
@@ -591,22 +607,27 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                         from_class=c
                     ).count()
                 
-                # The 'Total' we are responsible for is: 
-                # (Current Active - Arrivals From Other Grades) + Those already moved out
-                real_total = (total_active - just_arrived) + promoted_away
-                remaining = total_active - just_arrived
+                # The 'Original Total' for this class is:
+                # (Students who started the year here and haven't moved yet) + (Students who were here and moved out)
+                # Original Still Here = Current Active - Arrivals from elsewhere
+                remaining = max(0, total_active - just_arrived)
+                real_total = remaining + promoted_away
                 
                 percentage = 0.0
                 if real_total > 0:
-                    percentage = float(round(float(promoted_away) / float(real_total) * 100, 1))
+                    percentage = round((float(promoted_away) / float(real_total)) * 100, 1)
+                
+                # Reshuffling points: PP2 -> Grade 1, Grade 6 -> Grade 7
+                is_reshuffling_grade = c.grade.name in ['PP2', 'Grade 6']
                 
                 summary.append({
                     'class_name': f"{c.grade.name} {c.name}",
                     'promoted': promoted_away,
                     'remaining': remaining,
                     'total': real_total,
-                    'percentage': percentage,
-                    'is_complete': real_total > 0 and remaining == 0
+                    'percentage': min(100.0, percentage),
+                    'is_complete': real_total > 0 and remaining == 0,
+                    'needs_shuffling': is_reshuffling_grade,
                 })
             
             context['promotion_summary'] = summary
@@ -614,22 +635,32 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
         return context
 
     def post(self, request, *args, **kwargs):
-        from .models import StudentProfile, Class, AcademicYear, PromotionHistory
         student_ids = request.POST.getlist('student_ids')
-        action = request.POST.get('action') 
+        action = request.POST.get('action')
         target_class_id = request.POST.get('target_class')
         
         if not student_ids:
-            messages.warning(request, "No students selected.")
+            messages.warning(request, 'No students selected.')
             return redirect(request.get_full_path())
             
         active_year = AcademicYear.objects.filter(is_active=True).first()
         if not active_year:
-            messages.error(request, "No active academic year found. Please activate an academic year first.")
+            messages.error(request, 'No active academic year found. Please activate an academic year first.')
             return redirect(request.get_full_path())
-
-        profiles = StudentProfile.objects.filter(student_id__in=student_ids)
+        
+        active_term = Term.objects.filter(is_active=True).first()
+        
+        # Pre-fetch fee structures for the active term to avoid N+1 queries
+        fee_map = {}
+        if active_term:
+            f_structures = FeeStructure.objects.filter(term=active_term).prefetch_related('grade')
+            for fs in f_structures:
+                for grade in fs.grade.all():
+                    fee_map[(fs.school_id, grade.id, fs.student_type)] = fs
+        
+        profiles = StudentProfile.objects.filter(student_id__in=student_ids).select_related('student', 'school')
         success_count = 0
+        invoice_count = 0
         
         for profile in profiles:
             old_class = profile.class_id
@@ -648,6 +679,26 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 )
                 success_count += 1
                 
+                # Invoicing Logic
+                if active_term:
+                    fee_type = profile.student.get_fee_student_type()
+                    fs = fee_map.get((profile.school_id, target_class.grade_id, fee_type))
+                    
+                    if fs:
+                        # Guard against duplicate invoicing for the same fee structure and calendar year
+                        target_cal_year = active_year.start_date.year
+                        if not Invoice.objects.filter(student=profile.student, fee_structure=fs, created_at__year=target_cal_year).exists():
+                            multiplier = profile.student.get_fee_multiplier()
+                            final_amount = fs.amount * Decimal(str(multiplier))
+                            
+                            Invoice.objects.create(
+                                student=profile.student,
+                                fee_structure=fs,
+                                amount=final_amount,
+                                description=f'First Term Fees - Academic Year {active_year}'
+                            )
+                            invoice_count += 1
+                
             elif action == 'graduate':
                 profile.status = 'Graduated'
                 profile.class_id = None
@@ -661,11 +712,14 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                     is_graduation=True
                 )
                 success_count += 1
-
+        
         if success_count > 0:
-            messages.success(request, f"Successfully processed {success_count} students.")
+            msg = f'Successfully processed {success_count} students.'
+            if invoice_count > 0:
+                msg += f' {invoice_count} invoices generated.'
+            messages.success(request, msg)
         else:
-            messages.error(request, "Invalid action or target class selected.")
+            messages.error(request, 'Invalid action or target class selected.')
             
         return redirect(request.get_full_path())
 
@@ -1289,14 +1343,13 @@ class ClassesListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         queryset = Class.objects.all().select_related('grade', 'grade__school')
         
-        # Filter by school if user is not admin
-        if not self.request.user.is_superuser:
-            try:
-                user_school = self.request.user.profile.school
-                queryset = queryset.filter(grade__school=user_school)
-            except AttributeError:
-                # If user doesn't have school, show all (or handle as needed)
-                pass
+        # Filter by school if user is linked to one
+        if self.request.user.school:
+            queryset = queryset.filter(grade__school=self.request.user.school)
+        elif not self.request.user.is_superuser:
+            # Non-admins without a linked school might see nothing or get an error
+            # For now, let's keep them scoped to empty if no school is found
+            queryset = queryset.none()
         
         # Filter by school if specified (admin only)
         if self.request.user.is_superuser:
@@ -1331,19 +1384,54 @@ class ClassesListView(LoginRequiredMixin, ListView):
         selected_school_id = self.request.GET.get('school')
         if selected_school_id:
             context['grades'] = Grade.objects.filter(school_id=selected_school_id)
-        elif not self.request.user.is_superuser:
-            # For non-admin users, show grades from their school
-            try:
-                user_school = self.request.user.profile.school
-                context['grades'] = Grade.objects.filter(school=user_school)
-            except AttributeError:
-                context['grades'] = []
+        elif self.request.user.school:
+            # Filter grades by user's linked school
+            context['grades'] = Grade.objects.filter(school=self.request.user.school)
         else:
             context['grades'] = []
         
         context['selected_grade'] = self.request.GET.get('grade', '')
-        context['total_classes'] = self.get_queryset().count()
         
+        # --- Real stats for cards ---
+        queryset = self.get_queryset()
+        context['total_classes'] = queryset.count()
+        
+        # Total Enrollments (Active Students)
+        context['total_enrollments'] = StudentProfile.objects.filter(
+            class_id__in=queryset,
+            status='Active'
+        ).count()
+        
+        # Total Teachers assigned to these classes
+        teacher_ids = set()
+        teacher_ids.update(queryset.filter(invigilator__isnull=False).values_list('invigilator_id', flat=True))
+        teacher_ids.update(queryset.filter(class_teacher__isnull=False).values_list('class_teacher_id', flat=True))
+        teacher_ids.update(TeacherClassProfile.objects.filter(class_id__in=queryset).values_list('user_id', flat=True))
+        context['total_teachers_count'] = len(teacher_ids)
+        
+        # Total Campuses
+        if self.request.user.is_superuser:
+            context['total_campuses'] = School.objects.count()
+        else:
+            context['total_campuses'] = 1
+
+        # Capacity Stats for Donut Chart (Under < 15, Optimal 15-35, Over > 35)
+        under_count = 0
+        optimal_count = 0
+        over_count = 0
+        
+        for c in queryset.annotate(count=Count('studentprofile', filter=Q(studentprofile__status='Active'))):
+            if c.count < 15:
+                under_count += 1
+            elif c.count <= 35:
+                optimal_count += 1
+            else:
+                over_count += 1
+        
+        context['capacity_under'] = under_count
+        context['capacity_optimal'] = optimal_count
+        context['capacity_over'] = over_count
+
         # --- Real Daily Attendance Data (School-wide) ---
         today = timezone.now().date()
         start_date = today - timedelta(days=15)
@@ -1358,7 +1446,6 @@ class ClassesListView(LoginRequiredMixin, ListView):
                 pass
         
         # Aggregate by day
-        from django.db.models import Count, Q
         daily_stats = (
             StudentAttendance.objects.filter(session__in=att_sessions)
             .values('session__date')
@@ -1781,7 +1868,7 @@ def delete_item(request, model_type, item_id):
     if request.method == 'POST':
         if model_type == 'academic_year':
             item = get_object_or_404(AcademicYear, id=item_id)
-            item_name = item.name
+            item_name = str(item)
             item.delete()
             messages.success(request, f'Academic year "{item_name}" deleted successfully!')
         elif model_type == 'term':
@@ -3566,7 +3653,7 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             # Distribution by Grade (for Chart)
             context['grade_distribution'] = list(queryset.values('class_id__grade__name').annotate(count=Count('id')).order_by('-count'))
             
-            context['report_data'] = queryset[:100] # Limit for preview
+            context['report_data'] = queryset.order_by('?')[:100]
             
         elif report_type == 'fees':
             balance_status = self.request.GET.get('balance_status')
@@ -3812,3 +3899,173 @@ def link_student_view(request):
     }
     
     return render(request, 'core/link_student.html', context)
+
+@login_required
+def migrate_year(request):
+    """
+    Promotes students to the next grade and activates the selected academic year.
+    Exceptions (PP2 -> Grade 1, Grade 6 -> Grade 7) are cleared from classes 
+    for manual reshuffling. Supports AJAX chunked processing.
+    """
+    if not request.user.is_superuser and getattr(request.user, 'role', '') != 'Admin':
+        messages.error(request, "Permission denied.")
+        return redirect('core:configurations')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        year_id = request.POST.get('target_year') or request.POST.get('year_id')
+        
+        if not year_id:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'message': 'Target year not specified.'})
+            messages.error(request, "Target year not specified.")
+            return redirect('core:migrate-year')
+
+        try:
+            target_year = AcademicYear.objects.get(id=year_id)
+        except AcademicYear.DoesNotExist:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'message': 'Target year does not exist.'})
+            messages.error(request, "Target year does not exist.")
+            return redirect('core:migrate-year')
+
+        if action == 'prepare':
+            # 1. Activate Year & Term
+            AcademicYear.objects.all().update(is_active=False)
+            target_year.is_active = True
+            target_year.save()
+
+            Term.objects.all().update(is_active=False)
+            target_term = Term.objects.filter(name__icontains='1').first()
+            if not target_term:
+                target_term = Term.objects.first()
+            
+            if target_term:
+                target_term.is_active = True
+                target_term.save()
+
+            # 2. Get Student IDs for chunks
+            student_ids = list(StudentProfile.objects.filter(status='Active').values_list('id', flat=True))
+            
+            return JsonResponse({
+                'status': 'ok',
+                'total': len(student_ids),
+                'student_ids': student_ids,
+                'year_name': str(target_year)
+            })
+
+        elif action == 'migrate_chunk':
+            student_ids = request.POST.getlist('student_ids[]')
+            if not student_ids:
+                return JsonResponse({'status': 'error', 'message': 'No students specified.'})
+
+            target_term = Term.objects.filter(is_active=True).first()
+            
+            # Pre-fetch fee structures for the active term to avoid N+1 queries
+            # Key: (school_id, grade_id, student_type) -> FeeStructure object
+            fee_map = {}
+            if target_term:
+                f_structures = FeeStructure.objects.filter(term=target_term).prefetch_related('grade')
+                for fs in f_structures:
+                    for grade in fs.grade.all():
+                        fee_map[(fs.school_id, grade.id, fs.student_type)] = fs
+
+            grade_sequence = [
+                'Play Group', 'PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 
+                'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'
+            ]
+            
+            profiles = StudentProfile.objects.filter(id__in=student_ids).select_related('class_id', 'class_id__grade', 'school', 'student')
+            stats = {'success': 0, 'manual': 0, 'skipped': 0, 'invoices': 0}
+            
+            from django.db import transaction
+            with transaction.atomic():
+                for profile in profiles:
+                    # 1. Guard against duplicate promotion in the same year
+                    if PromotionHistory.objects.filter(student=profile.student, academic_year=target_year).exists():
+                        stats['skipped'] += 1
+                        continue
+
+                    current_cl = profile.class_id
+                    if not current_cl:
+                        stats['skipped'] += 1
+                        continue
+                    
+                    curr_gr_name = current_cl.grade.name
+                    
+                    if curr_gr_name == 'PP2' or curr_gr_name == 'Grade 6':
+                        old_cl = profile.class_id
+                        profile.class_id = None
+                        profile.save()
+                        PromotionHistory.objects.create(
+                            student=profile.student, from_class=old_cl, to_class=None, academic_year=target_year
+                        )
+                        stats['manual'] += 1
+                        continue
+                    
+                    try:
+                        curr_idx = grade_sequence.index(curr_gr_name)
+                        if curr_idx < len(grade_sequence) - 1:
+                            next_gr_name = grade_sequence[curr_idx + 1]
+                            next_cl = Class.objects.filter(
+                                grade__name=next_gr_name, name=current_cl.name, school=profile.school
+                            ).first()
+                            
+                            if next_cl:
+                                old_cl = profile.class_id
+                                profile.class_id = next_cl
+                                profile.save()
+                                PromotionHistory.objects.create(
+                                    student=profile.student, from_class=old_cl, to_class=next_cl, academic_year=target_year
+                                )
+                                stats['success'] += 1
+                                
+                                # Billing Logic
+                                if target_term:
+                                    fee_type = profile.student.get_fee_student_type()
+                                    fs = fee_map.get((profile.school_id, next_cl.grade_id, fee_type))
+                                    
+                                    if fs:
+                                        # 2. Guard against duplicate invoicing for the same fee structure and calendar year
+                                        target_cal_year = target_year.start_date.year
+                                        if not Invoice.objects.filter(student=profile.student, fee_structure=fs, created_at__year=target_cal_year).exists():
+                                            multiplier = profile.student.get_fee_multiplier()
+                                            final_amount = fs.amount * Decimal(str(multiplier))
+                                            
+                                            Invoice.objects.create(
+                                                student=profile.student,
+                                                fee_structure=fs,
+                                                amount=final_amount,
+                                                description=f"First Term Fees - Academic Year {target_year}"
+                                            )
+                                            stats['invoices'] += 1
+                            else:
+                                old_cl = profile.class_id
+                                profile.class_id = None
+                                profile.save()
+                                PromotionHistory.objects.create(
+                                    student=profile.student, from_class=old_cl, to_class=None, academic_year=target_year
+                                )
+                                stats['skipped'] += 1
+                        else:
+                            # Graduation for last grade
+                            old_cl = profile.class_id
+                            profile.class_id = None
+                            profile.status = 'Graduated'
+                            profile.save()
+                            PromotionHistory.objects.create(
+                                student=profile.student, from_class=old_cl, to_class=None, academic_year=target_year, is_graduation=True
+                            )
+                            stats['success'] += 1
+                    except ValueError:
+                        stats['skipped'] += 1
+            
+            return JsonResponse({'status': 'ok', 'stats': stats})
+
+    current_year = AcademicYear.objects.filter(is_active=True).first()
+    academic_years = AcademicYear.objects.all().order_by('-start_date')
+    
+    return render(request, 'core/migrate_year.html', {
+        'current_year': current_year,
+        'academic_years': academic_years
+    })

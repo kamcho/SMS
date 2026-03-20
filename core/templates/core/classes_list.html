@@ -58,12 +58,12 @@
     </div>
     
     <!-- Card 2 -->
-    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
-        <div class="flex items-center gap-3 mb-2">
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow text-center">
+        <div class="flex items-center justify-center gap-3 mb-2">
             <div class="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
                 <i class="fas fa-user-graduate text-red-500 text-sm"></i>
             </div>
-            <div class="text-[28px] font-extrabold text-slate-800">1,240</div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ total_enrollments|default:"0" }}</div>
         </div>
         <p class="text-[13px] font-medium text-slate-500 mb-4">Total enrollments</p>
         <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
@@ -73,12 +73,12 @@
     </div>
 
     <!-- Card 3 -->
-    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
-        <div class="flex items-center gap-3 mb-2">
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow text-center">
+        <div class="flex items-center justify-center gap-3 mb-2">
             <div class="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
                 <i class="fas fa-chalkboard-teacher text-purple-600 text-sm"></i>
             </div>
-            <div class="text-[28px] font-extrabold text-slate-800">45</div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ total_teachers_count|default:"0" }}</div>
         </div>
         <p class="text-[13px] font-medium text-slate-500 mb-4">Total teachers</p>
         <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
@@ -88,12 +88,12 @@
     </div>
 
     <!-- Card 4 -->
-    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
-        <div class="flex items-center gap-3 mb-2">
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow text-center">
+        <div class="flex items-center justify-center gap-3 mb-2">
             <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
                 <i class="fas fa-city text-blue-500 text-sm"></i>
             </div>
-            <div class="text-[28px] font-extrabold text-slate-800">{{ schools|length|default:"3" }}</div>
+            <div class="text-[28px] font-extrabold text-slate-800">{{ total_campuses|default:"1" }}</div>
         </div>
         <p class="text-[13px] font-medium text-slate-500 mb-4">Total campuses</p>
         <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
@@ -121,21 +121,21 @@
         </div>
         <div class="flex justify-between items-end mt-4">
             <div>
-                <div class="text-[22px] font-bold text-indigo-500">20</div>
+                <div class="text-[22px] font-bold text-indigo-500">{{ capacity_optimal|default:"0" }}</div>
                 <div class="flex items-center gap-1.5 mt-1">
                     <div class="w-2.5 h-2.5 bg-indigo-500 rounded-sm"></div>
                     <span class="text-[12px] font-medium text-slate-800">Optimal</span>
                 </div>
             </div>
             <div>
-                <div class="text-[22px] font-bold text-red-500">12</div>
+                <div class="text-[22px] font-bold text-red-500">{{ capacity_over|default:"0" }}</div>
                 <div class="flex items-center gap-1.5 mt-1">
                     <div class="w-2.5 h-2.5 bg-red-500 rounded-sm"></div>
                     <span class="text-[12px] font-medium text-slate-800">Over</span>
                 </div>
             </div>
             <div>
-                <div class="text-[22px] font-bold text-yellow-500">8</div>
+                <div class="text-[22px] font-bold text-yellow-500">{{ capacity_under|default:"0" }}</div>
                 <div class="flex items-center gap-1.5 mt-1">
                     <div class="w-2.5 h-2.5 bg-yellow-500 rounded-sm"></div>
                     <span class="text-[12px] font-medium text-slate-800">Under</span>
@@ -402,7 +402,11 @@
             data: {
                 labels: ['Optimal', 'Over', 'Under'],
                 datasets: [{
-                    data: [60, 25, 15],
+                    data: [
+                        {{ capacity_optimal|default:"0" }}, 
+                        {{ capacity_over|default:"0" }}, 
+                        {{ capacity_under|default:"0" }}
+                    ],
                     backgroundColor: ['#6366f1', '#ef4444', '#f59e0b'],
                     borderWidth: 6,
                     borderColor: '#fff',

@@ -53,8 +53,24 @@ class Command(BaseCommand):
             # 3. Create Classes for this school
             classes = []
             for g in grades:
-                c, _ = Class.objects.get_or_create(name=f"{g.name} Alpha", grade=g, school=school)
-                classes.append(c)
+                # Define streams based on grade level
+                if g.name in ['Play Group', 'PP1', 'PP2']:
+                    streams = ["Indigo"]
+                elif g.name.startswith('Grade'):
+                    try:
+                        num = int(g.name.split()[-1])
+                        if num <= 6:
+                            streams = ["Indigo", "Amber"]
+                        else:
+                            streams = ["Tiger", "Lion"]
+                    except (ValueError, IndexError):
+                        streams = ["Indigo", "Amber"]
+                else:
+                    streams = ["Indigo", "Amber"]
+
+                for s_name in streams:
+                    c, _ = Class.objects.get_or_create(name=s_name, grade=g, school=school)
+                    classes.append(c)
 
             # 4. Create 100 Students (60:40 ratio)
             males_to_create = 460

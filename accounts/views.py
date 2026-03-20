@@ -433,9 +433,8 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
         def get_structure_for_student(profile):
             # Map student status to student_type
             s_type = 'boarder' if profile.student.is_boarder else 'day'
-            # Find structure for this student's school, type, grade, year, and term
+            # Find structure for this student's school, type, grade, and term
             return FeeStructure.objects.filter(
-                academic_year=active_year,
                 term=active_term,
                 school=profile.school,
                 student_type=s_type,

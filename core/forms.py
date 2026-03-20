@@ -41,6 +41,9 @@ class StudentProfileForm(BaseStyledForm):
         self.fields['school'].queryset = School.objects.all()
         self.fields['school'].empty_label = "Select School"
         self.fields['fee_balance'].label = "Opening Balance"
+        # Show grade alongside class name in the dropdown, e.g. "East A (Grade 4)"
+        self.fields['class_id'].queryset = Class.objects.all().select_related('grade')
+        self.fields['class_id'].label_from_instance = lambda obj: f"{obj.name} ({obj.grade.name})"
 
 
 class AcademicYearForm(BaseStyledForm):

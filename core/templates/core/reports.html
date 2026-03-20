@@ -2,458 +2,619 @@
 
 {% block title %}Reports Dashboard | Excel SMS{% endblock %}
 
+
+
 {% block page_header %}
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-4">
-    <div class="space-y-2">
-        <h1 class="text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
-            <div class="w-3 h-12 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200"></div>
-            System Reports
-        </h1>
-        <p class="text-slate-500 font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
-            Data Insights & Analytics
-        </p>
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+    <div>
+        <h1 class="text-[22px] font-bold text-slate-800">System Reports</h1>
+        <p class="text-[13px] text-slate-500 font-medium">Data insights, analytics & exportable reports</p>
+    </div>
+
+    <div class="flex items-center gap-3">
+        <button type="button" onclick="window.print()" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fas fa-print text-slate-400"></i> Print
+        </button>
+        <button type="button" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fas fa-file-export text-slate-400"></i> Export
+        </button>
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-8">
-    <!-- Report Type Selection -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <a href="?type=students" class="group relative overflow-hidden bg-white p-8 rounded-[2.5rem] border-2 {% if report_type == 'students' %}border-indigo-600 shadow-xl shadow-indigo-100{% else %}border-transparent shadow-sm hover:border-slate-200{% endif %} transition-all duration-500">
-            <div class="relative z-10 flex flex-col gap-4">
-                <div class="w-14 h-14 {% if report_type == 'students' %}bg-indigo-600 text-white shadow-lg shadow-indigo-200{% else %}bg-slate-50 text-slate-400{% endif %} rounded-2xl flex items-center justify-center text-xl transition-colors duration-500">
-                    <i class="fas fa-user-graduate"></i>
-                </div>
-                <div>
-                    <h3 class="font-black text-slate-900 text-lg">Student Directory</h3>
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mt-1">Enrollment & Status</p>
-                </div>
+<!-- Report Type Tabs -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <a href="?type=students" class="bg-white rounded-[14px] p-6 border {% if report_type == 'students' %}border-indigo-500 shadow-md{% else %}border-slate-200 shadow-sm hover:shadow-md{% endif %} transition-shadow cursor-pointer">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full {% if report_type == 'students' %}bg-indigo-500 text-white{% else %}bg-indigo-50 text-indigo-500{% endif %} flex items-center justify-center">
+                <i class="fas fa-user-graduate text-sm"></i>
             </div>
-            {% if report_type == 'students' %}
-            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-50 rounded-full opacity-50"></div>
-            {% endif %}
-        </a>
+            <div class="text-[16px] font-extrabold text-slate-800">Student Directory</div>
+        </div>
+        <p class="text-[12px] font-medium text-slate-500">Enrollment & Status</p>
+    </a>
 
-        <a href="?type=fees" class="group relative overflow-hidden bg-white p-8 rounded-[2.5rem] border-2 {% if report_type == 'fees' %}border-emerald-600 shadow-xl shadow-emerald-100{% else %}border-transparent shadow-sm hover:border-slate-200{% endif %} transition-all duration-500">
-            <div class="relative z-10 flex flex-col gap-4">
-                <div class="w-14 h-14 {% if report_type == 'fees' %}bg-emerald-600 text-white shadow-lg shadow-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %} rounded-2xl flex items-center justify-center text-xl transition-colors duration-500">
-                    <i class="fas fa-hand-holding-usd"></i>
-                </div>
-                <div>
-                    <h3 class="font-black text-slate-900 text-lg">Fee Payments</h3>
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mt-1">Financial Overview</p>
-                </div>
+    <a href="?type=fees" class="bg-white rounded-[14px] p-6 border {% if report_type == 'fees' %}border-emerald-500 shadow-md{% else %}border-slate-200 shadow-sm hover:shadow-md{% endif %} transition-shadow cursor-pointer">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full {% if report_type == 'fees' %}bg-emerald-500 text-white{% else %}bg-emerald-50 text-emerald-500{% endif %} flex items-center justify-center">
+                <i class="fas fa-hand-holding-usd text-sm"></i>
             </div>
-            {% if report_type == 'fees' %}
-            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-50 rounded-full opacity-50"></div>
-            {% endif %}
-        </a>
+            <div class="text-[16px] font-extrabold text-slate-800">Fee Payments</div>
+        </div>
+        <p class="text-[12px] font-medium text-slate-500">Financial Overview</p>
+    </a>
 
-        <a href="?type=performance" class="group relative overflow-hidden bg-white p-8 rounded-[2.5rem] border-2 {% if report_type == 'performance' %}border-amber-600 shadow-xl shadow-amber-100{% else %}border-transparent shadow-sm hover:border-slate-200{% endif %} transition-all duration-500">
-            <div class="relative z-10 flex flex-col gap-4">
-                <div class="w-14 h-14 {% if report_type == 'performance' %}bg-amber-600 text-white shadow-lg shadow-amber-200{% else %}bg-slate-50 text-slate-400{% endif %} rounded-2xl flex items-center justify-center text-xl transition-colors duration-500">
-                    <i class="fas fa-chart-bar"></i>
-                </div>
-                <div>
-                    <h3 class="font-black text-slate-900 text-lg">Student Performance</h3>
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mt-1">Examination Results</p>
-                </div>
+    <a href="?type=performance" class="bg-white rounded-[14px] p-6 border {% if report_type == 'performance' %}border-amber-500 shadow-md{% else %}border-slate-200 shadow-sm hover:shadow-md{% endif %} transition-shadow cursor-pointer">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="w-8 h-8 rounded-full {% if report_type == 'performance' %}bg-amber-500 text-white{% else %}bg-amber-50 text-amber-500{% endif %} flex items-center justify-center">
+                <i class="fas fa-chart-bar text-sm"></i>
             </div>
-            {% if report_type == 'performance' %}
-            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-50 rounded-full opacity-50"></div>
-            {% endif %}
-        </a>
-    </div>
-
-    <!-- Filters Section -->
-    <div class="bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white shadow-2xl shadow-indigo-950/5">
-        <form method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
-            <input type="hidden" name="type" value="{{ report_type }}">
-            
-            <div class="space-y-2">
-                <label for="school" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Filter School</label>
-                <div class="relative group">
-                    <select name="school" id="school" onchange="this.form.submit()" class="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer">
-                        <option value="">All Schools</option>
-                        {% for school in schools %}
-                            <option value="{{ school.id }}" {% if school.id|stringformat:"s" == selected_school %}selected{% endif %}>{{ school.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <i class="fas fa-university absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label for="grade" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Filter Grade</label>
-                <div class="relative group">
-                    <select name="grade" id="grade" onchange="this.form.submit()" class="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer">
-                        <option value="">All Grades</option>
-                        {% for g in grades %}
-                            <option value="{{ g.id }}" {% if g.id|stringformat:"s" == selected_grade %}selected{% endif %}>{{ g.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <i class="fas fa-graduation-cap absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label for="class" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Filter Stream</label>
-                <div class="relative group">
-                    <select name="class" id="class" onchange="this.form.submit()" class="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer">
-                        <option value="">All Streams</option>
-                        {% for c in classes %}
-                            <option value="{{ c.id }}" {% if c.id|stringformat:"s" == selected_class %}selected{% endif %}>{{ c.grade.name }} {{ c.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <i class="fas fa-layer-group absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label for="date_from" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Date From</label>
-                <div class="relative group">
-                    <input type="date" name="date_from" id="date_from" value="{{ selected_date_from|default_if_none:'' }}" onchange="this.form.submit()" class="w-full pl-6 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all cursor-pointer">
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label for="date_to" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Date To</label>
-                <div class="relative group">
-                    <input type="date" name="date_to" id="date_to" value="{{ selected_date_to|default_if_none:'' }}" onchange="this.form.submit()" class="w-full pl-6 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all cursor-pointer">
-                </div>
-            </div>
-
-            {% if report_type == 'fees' %}
-            <div class="space-y-2">
-                <label for="balance_status" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Debt Status</label>
-                <div class="relative group">
-                    <select name="balance_status" id="balance_status" onchange="this.form.submit()" class="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer">
-                        <option value="">Full Audit</option>
-                        <option value="owing" {% if selected_balance_status == 'owing' %}selected{% endif %}>Owing ({{ owing_count }})</option>
-                        <option value="overpaid" {% if selected_balance_status == 'overpaid' %}selected{% endif %}>Overpaid / Credit</option>
-                        <option value="cleared" {% if selected_balance_status == 'cleared' %}selected{% endif %}>Fully Cleared</option>
-                    </select>
-                    <i class="fas fa-filter absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
-                    {% if selected_balance_status == 'owing' %}
-                    <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-                    </span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-
-            <div class="flex gap-4 lg:col-start-4">
-                <button type="submit" class="flex-1 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
-                    Apply Filter
-                </button>
-                <button type="button" onclick="window.print()" class="w-12 h-12 flex items-center justify-center bg-white border-2 border-slate-100 text-slate-900 rounded-2xl hover:border-slate-200 transition-all shadow-sm">
-                    <i class="fas fa-print"></i>
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Data Table / Charts Layer -->
-    <div class="animate-in fade-in slide-in-from-bottom-8 duration-700">
-        {% if report_type == 'students' %}
-            <!-- Stat Cards for Students -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-2">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Enrollment</p>
-                    <p class="text-3xl font-black text-slate-900">{{ total_students }}</p>
-                    <div class="flex items-center gap-2 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg w-fit">
-                        <i class="fas fa-users"></i> All Time
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-2">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Students</p>
-                    <p class="text-3xl font-black text-emerald-600">{{ active_students }}</p>
-                    <div class="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg w-fit">
-                        <i class="fas fa-check-circle"></i> Currently In School
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-2">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Graduated</p>
-                    <p class="text-3xl font-black text-indigo-600">{{ graduated_students }}</p>
-                    <div class="flex items-center gap-2 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg w-fit">
-                        <i class="fas fa-graduation-cap"></i> Alumni
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-2">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inactive/Left</p>
-                    <p class="text-3xl font-black text-rose-600">{{ inactive_students }}</p>
-                    <div class="flex items-center gap-2 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-lg w-fit">
-                        <i class="fas fa-user-slash"></i> External
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- School Distribution Chart -->
-                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                    <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider mb-6">Distribution by School</h3>
-                    <div class="h-64 relative">
-                        <canvas id="schoolChart"></canvas>
-                    </div>
-                </div>
-                <!-- Grade Distribution Chart -->
-                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                    <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider mb-6">Distribution by Grade</h3>
-                    <div class="h-64 relative">
-                        <canvas id="gradeChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-        {% elif report_type == 'fees' %}
-            <!-- Stat Cards for Fees -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-2">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Collected</p>
-                    <p class="text-3xl font-black text-emerald-600">KES {{ total_collected|floatformat:2 }}</p>
-                    <div class="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg w-fit">
-                        <i class="fas fa-wallet"></i> Recorded Revenue
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-2">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Balances</p>
-                    <p class="text-3xl font-black text-rose-600">KES {{ total_debt|floatformat:2 }}</p>
-                    <div class="flex items-center gap-2 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-lg w-fit">
-                        <i class="fas fa-exclamation-triangle"></i> What Students Owe
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-2">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overpayments</p>
-                    <p class="text-3xl font-black text-indigo-600">KES {{ total_overpaid|floatformat:2 }}</p>
-                    <div class="flex items-center gap-2 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg w-fit">
-                        <i class="fas fa-plus-circle"></i> Credit Balances
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-2">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Average Paid</p>
-                    <p class="text-3xl font-black text-amber-600">KES {{ avg_payment|floatformat:0 }}</p>
-                    <div class="flex items-center gap-2 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg w-fit">
-                        <i class="fas fa-calculator"></i> Per Transaction
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                <!-- Fee Trend Chart -->
-                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                    <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider mb-6">Revenue Trend (Last 6 Months)</h3>
-                    <div class="h-64 relative">
-                        <canvas id="feeTrendChart"></canvas>
-                    </div>
-                </div>
-                <!-- Fee School Distribution Chart -->
-                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                    <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider mb-6">Revenue by School</h3>
-                    <div class="h-64 relative">
-                        <canvas id="feeSchoolChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Transaction Table -->
-            <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-                <div class="p-8 border-b border-slate-50">
-                    <h2 class="text-xl font-black text-slate-900 tracking-tight">Recent Transactions</h2>
-                    <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Detailed Payment Audit Log</p>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="bg-slate-50/50">
-                                <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                                <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
-                                <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Stream</th>
-                                <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            {% for item in report_data %}
-                            <tr class="hover:bg-slate-50/50 transition-colors group">
-                                <td class="py-5 px-8">
-                                    <span class="text-xs font-bold text-slate-600">{{ item.date_paid|date:"M j, Y" }}</span>
-                                </td>
-                                <td class="py-5 px-8 text-sm font-bold text-slate-900">{{ item.student.get_full_name }}</td>
-                                <td class="py-5 px-8">
-                                    <span class="text-xs font-bold text-slate-600">{{ item.student.studentprofile.class_id.grade.name }} {{ item.student.studentprofile.class_id.name }}</span>
-                                </td>
-                                <td class="py-5 px-8 text-right font-black text-slate-900">KES {{ item.amount|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="4" class="py-20 text-center text-slate-400 font-black text-xs uppercase tracking-widest">No transactions recorded</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        {% else %}
-            <!-- Original Table View for Performance -->
-            <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-                <div class="p-8 border-b border-slate-50">
-                    <h2 class="text-xl font-black text-slate-900 tracking-tight">Examination Performance Overview</h2>
-                    <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Generated on {% now "F j, Y, g:i a" %}</p>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="bg-slate-50/50">
-                                <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Examination</th>
-                                <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Year</th>
-                                <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">No. of Entries</th>
-                                <th class="py-4 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Average Performance</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            {% for item in report_data %}
-                            <tr class="hover:bg-slate-50/50 transition-colors group">
-                                <td class="py-5 px-8">
-                                    <p class="text-sm font-bold text-slate-900">{{ item.paper__exam_subject__exam__name }}</p>
-                                </td>
-                                <td class="py-5 px-8">
-                                    <span class="text-xs font-bold text-slate-600">{{ item.paper__exam_subject__exam__year__start_date__year }}</span>
-                                </td>
-                                <td class="py-5 px-8 text-center text-xs font-black text-slate-400">
-                                    {{ item.total_entries }}
-                                </td>
-                                <td class="py-5 px-8 text-right">
-                                    <div class="flex flex-col items-end">
-                                        <span class="text-sm font-black {% if item.avg_score >= 50 %}text-emerald-600{% else %}text-rose-600{% endif %}">
-                                            {{ item.avg_score|floatformat:1 }}%
-                                        </span>
-                                        <div class="w-16 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                                            <div class="h-full {% if item.avg_score >= 50 %}bg-emerald-500{% else %}bg-rose-500{% endif %}" style="width: {{ item.avg_score }}%"></div>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="4" class="py-20 text-center">
-                                    <p class="text-slate-400 font-black text-xs uppercase tracking-widest">No examination records found matching filters</p>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        {% endif %}
-    </div>
+            <div class="text-[16px] font-extrabold text-slate-800">Student Performance</div>
+        </div>
+        <p class="text-[12px] font-medium text-slate-500">Examination Results</p>
+    </a>
 </div>
+
+<!-- Filters Section -->
+<div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-end">
+        <input type="hidden" name="type" value="{{ report_type }}">
+
+        <div class="space-y-1.5">
+            <label for="school" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Filter School</label>
+            <div class="relative group">
+                <select name="school" id="school" onchange="this.form.submit()" class="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                    <option value="">All Schools</option>
+                    {% for school in schools %}
+                        <option value="{{ school.id }}" {% if school.id|stringformat:"s" == selected_school %}selected{% endif %}>{{ school.name }}</option>
+                    {% endfor %}
+                </select>
+                <i class="fas fa-university absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+            </div>
+        </div>
+
+        <div class="space-y-1.5">
+            <label for="grade" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Filter Grade</label>
+            <div class="relative group">
+                <select name="grade" id="grade" onchange="this.form.submit()" class="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                    <option value="">All Grades</option>
+                    {% for g in grades %}
+                        <option value="{{ g.id }}" {% if g.id|stringformat:"s" == selected_grade %}selected{% endif %}>{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+                <i class="fas fa-graduation-cap absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+            </div>
+        </div>
+
+        <div class="space-y-1.5">
+            <label for="class" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Filter Stream</label>
+            <div class="relative group">
+                <select name="class" id="class" onchange="this.form.submit()" class="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                    <option value="">All Streams</option>
+                    {% for c in classes %}
+                        <option value="{{ c.id }}" {% if c.id|stringformat:"s" == selected_class %}selected{% endif %}>{{ c.grade.name }} {{ c.name }}</option>
+                    {% endfor %}
+                </select>
+                <i class="fas fa-layer-group absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+            </div>
+        </div>
+
+        <div class="space-y-1.5">
+            <label for="date_from" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Date From</label>
+            <input type="date" name="date_from" id="date_from" value="{{ selected_date_from|default_if_none:'' }}" onchange="this.form.submit()" class="w-full pl-4 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer">
+        </div>
+
+        <div class="space-y-1.5">
+            <label for="date_to" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Date To</label>
+            <input type="date" name="date_to" id="date_to" value="{{ selected_date_to|default_if_none:'' }}" onchange="this.form.submit()" class="w-full pl-4 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer">
+        </div>
+
+        {% if report_type == 'fees' %}
+        <div class="space-y-1.5">
+            <label for="balance_status" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Debt Status</label>
+            <div class="relative group">
+                <select name="balance_status" id="balance_status" onchange="this.form.submit()" class="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                    <option value="">Full Audit</option>
+                    <option value="owing" {% if selected_balance_status == 'owing' %}selected{% endif %}>Owing ({{ owing_count }})</option>
+                    <option value="overpaid" {% if selected_balance_status == 'overpaid' %}selected{% endif %}>Overpaid / Credit</option>
+                    <option value="cleared" {% if selected_balance_status == 'cleared' %}selected{% endif %}>Fully Cleared</option>
+                </select>
+                <i class="fas fa-filter absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+                {% if selected_balance_status == 'owing' %}
+                <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="flex gap-3">
+            <button type="submit" class="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-100">
+                <i class="fas fa-search text-indigo-200"></i> Apply Filter
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Data Section -->
+{% if report_type == 'students' %}
+    <!-- Stat Cards for Students -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center">
+                    <i class="fas fa-users text-orange-500 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-slate-800">{{ total_students }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Total enrollment</p>
+            <div class="text-[12px] text-indigo-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+                <i class="fas fa-users text-[10px]"></i>
+                <span>All time records</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                    <i class="fas fa-check-circle text-emerald-500 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-emerald-600">{{ active_students }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Active students</p>
+            <div class="text-[12px] text-emerald-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+                <i class="fas fa-check text-[10px]"></i>
+                <span>Currently in school</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
+                    <i class="fas fa-graduation-cap text-purple-600 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-purple-600">{{ graduated_students }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Graduated</p>
+            <div class="text-[12px] text-purple-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+                <i class="fas fa-graduation-cap text-[10px]"></i>
+                <span>Alumni</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
+                    <i class="fas fa-user-slash text-red-500 text-sm"></i>
+                </div>
+                <div class="text-[28px] font-extrabold text-red-500">{{ inactive_students }}</div>
+            </div>
+            <p class="text-[13px] font-medium text-slate-500 mb-4">Inactive / Left</p>
+            <div class="text-[12px] text-red-500 font-semibold flex items-center gap-1.5 pt-4 border-t border-slate-100">
+                <i class="fas fa-user-slash text-[10px]"></i>
+                <span>External</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-[15px] font-bold text-slate-800">Distribution by School</h3>
+                <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+            <div class="h-64 relative">
+                <canvas id="schoolChart"></canvas>
+            </div>
+        </div>
+        <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-[15px] font-bold text-slate-800">Distribution by Grade</h3>
+                <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+            <div class="h-64 relative">
+                <canvas id="gradeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Directory Table -->
+    <div class="bg-white rounded-[14px] border border-slate-200 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between p-6 border-b border-slate-100">
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800">Student Directory</h3>
+                <p class="text-[12px] font-medium text-slate-500 mt-0.5">Showing {{ report_data|length }} of {{ total_students }} students (randomised)</p>
+            </div>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-white">
+                    <tr>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 w-12">S/N</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Student Name</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Adm No</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Gender</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Grade</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Stream</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">School</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for profile in report_data %}
+                    <tr class="hover:bg-slate-50/50 transition-colors group cursor-pointer" onclick="window.location.href='{% url 'core:student-detail' profile.student.pk %}'">
+                        <td class="py-3 px-6 text-[12px] font-semibold text-slate-800">{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td class="py-3 px-6 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ profile.student.get_full_name }}</td>
+                        <td class="py-3 px-6 text-[12px] font-semibold text-slate-500">{{ profile.student.adm_no }}</td>
+                        <td class="py-3 px-6 text-[12px] font-semibold text-slate-500 capitalize">{{ profile.student.gender }}</td>
+                        <td class="py-3 px-6 text-[12px] font-semibold text-slate-500">{% if profile.class_id %}{{ profile.class_id.grade.name }}{% else %}—{% endif %}</td>
+                        <td class="py-3 px-6 text-[12px] font-semibold text-slate-500">{% if profile.class_id %}{{ profile.class_id.name }}{% else %}—{% endif %}</td>
+                        <td class="py-3 px-6 text-[12px] font-semibold text-slate-500">{{ profile.school.name }}</td>
+                        <td class="py-3 px-6 text-right">
+                            {% if profile.status == 'Active' %}
+                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                                </span>
+                            {% elif profile.status == 'Graduated' %}
+                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-lg">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Graduated
+                                </span>
+                            {% elif profile.status == 'Transferred' %}
+                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Transferred
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-lg">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Inactive
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="py-8 text-center text-slate-400 text-sm">No students found matching filters</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+{% elif report_type == 'fees' %}
+{% elif report_type == 'fees' %}
+    <!-- Stat Cards for Fees -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+        <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
+            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-50/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div class="flex items-center justify-between mb-6 relative">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
+                    <i class="fas fa-wallet text-lg"></i>
+                </div>
+                <div class="text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-50/50 px-3 py-1 rounded-full">Collected</div>
+            </div>
+            <div class="relative">
+                <h4 class="text-3xl font-black text-slate-900 tracking-tighter mb-1">KES {{ total_collected|floatformat:0 }}</h4>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Revenue</p>
+            </div>
+        </div>
+
+        <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
+            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-50/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div class="flex items-center justify-between mb-6 relative">
+                <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-inner">
+                    <i class="fas fa-exclamation-triangle text-lg"></i>
+                </div>
+                <div class="text-[10px] font-black text-rose-400 uppercase tracking-widest bg-rose-50/50 px-3 py-1 rounded-full">Outstandng</div>
+            </div>
+            <div class="relative">
+                <h4 class="text-3xl font-black text-rose-600 tracking-tighter mb-1">KES {{ total_debt|floatformat:0 }}</h4>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Arrears</p>
+            </div>
+        </div>
+
+        <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
+            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-sky-50/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div class="flex items-center justify-between mb-6 relative">
+                <div class="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center shadow-inner">
+                    <i class="fas fa-plus-circle text-lg"></i>
+                </div>
+                <div class="text-[10px] font-black text-sky-400 uppercase tracking-widest bg-sky-50/50 px-3 py-1 rounded-full">Credit</div>
+            </div>
+            <div class="relative">
+                <h4 class="text-3xl font-black text-sky-600 tracking-tighter mb-1">KES {{ total_overpaid|floatformat:0 }}</h4>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Overpayments</p>
+            </div>
+        </div>
+
+        <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
+            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-50/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div class="flex items-center justify-between mb-6 relative">
+                <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-inner">
+                    <i class="fas fa-calculator text-lg"></i>
+                </div>
+                <div class="text-[10px] font-black text-amber-400 uppercase tracking-widest bg-amber-50/50 px-3 py-1 rounded-full">Average</div>
+            </div>
+            <div class="relative">
+                <h4 class="text-3xl font-black text-amber-600 tracking-tighter mb-1">KES {{ avg_payment|floatformat:0 }}</h4>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Per Transaction</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-10">
+        <div class="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100 flex flex-col items-center">
+            <div class="w-full flex items-center justify-between mb-8">
+                <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Revenue trend</h3>
+                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            </div>
+            <div class="h-80 w-full relative">
+                <canvas id="feeTrendChart"></canvas>
+            </div>
+        </div>
+        <div class="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100 flex flex-col items-center">
+            <div class="w-full flex items-center justify-between mb-8">
+                <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Collection by School</h3>
+                <div class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+            </div>
+            <div class="h-80 w-full relative">
+                <canvas id="feeSchoolChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaction Table -->
+    <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+        <div class="flex items-center justify-between p-8 border-b border-slate-50">
+            <div>
+                <h3 class="text-lg font-black text-slate-900 tracking-tight">Recent Transactions</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Detailed Payment Audit Log</p>
+            </div>
+            <div class="bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100">
+                <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">{{ report_data|length }} Recent Payments</p>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50/50 border-b border-slate-100">
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest w-16">Date</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Info</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Stream</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for item in report_data %}
+                    <tr class="hover:bg-slate-50/50 transition-colors group">
+                        <td class="py-5 px-8 whitespace-nowrap">
+                            <span class="text-xs font-black text-slate-500">{{ item.date_paid|date:"M j, Y" }}</span>
+                        </td>
+                        <td class="py-5 px-8">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-[10px] font-black text-emerald-600 border border-emerald-100">
+                                    {{ item.student.first_name|first }}{{ item.student.last_name|first }}
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">{{ item.student.get_full_name }}</p>
+                                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{{ item.student.adm_no }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-5 px-8">
+                            <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl uppercase tracking-tight">
+                                {{ item.student.studentprofile.class_id.grade.name }} {{ item.student.studentprofile.class_id.name }}
+                            </span>
+                        </td>
+                        <td class="py-5 px-8 text-right">
+                            <span class="text-xs font-black text-slate-900">KES {{ item.amount|floatformat:2 }}</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-12 text-center">
+                            <div class="flex flex-col items-center gap-2 opacity-20">
+                                <i class="fas fa-search-dollar text-4xl"></i>
+                                <p class="text-xs font-black uppercase tracking-widest">No transactions found</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+{% else %}
+    <!-- Performance Table -->
+    <div class="bg-white rounded-[14px] border border-slate-200 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between p-6 border-b border-slate-100">
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800">Examination Performance Overview</h3>
+                <p class="text-[12px] font-medium text-slate-500 mt-0.5">Generated on {% now "F j, Y, g:i a" %}</p>
+            </div>
+            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-white">
+                    <tr>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Examination</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Year</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-center">No. of Entries</th>
+                        <th class="py-3 px-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Average Performance</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for item in report_data %}
+                    <tr class="hover:bg-slate-50/50 transition-colors group cursor-pointer">
+                        <td class="py-3 px-6 text-[13px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ item.paper__exam_subject__exam__name }}</td>
+                        <td class="py-3 px-6 text-[12px] font-semibold text-slate-600">{{ item.paper__exam_subject__exam__year__start_date__year }}</td>
+                        <td class="py-3 px-6 text-center text-[12px] font-semibold text-slate-500">{{ item.total_entries }}</td>
+                        <td class="py-3 px-6 text-right">
+                            <div class="flex flex-col items-end">
+                                <span class="text-[13px] font-bold {% if item.avg_score >= 50 %}text-emerald-600{% else %}text-red-500{% endif %}">
+                                    {{ item.avg_score|floatformat:1 }}%
+                                </span>
+                                <div class="w-16 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                                    <div class="h-full rounded-full {% if item.avg_score >= 50 %}bg-emerald-500{% else %}bg-red-500{% endif %}" style="width: {{ item.avg_score }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-8 text-center text-slate-400 text-sm">No examination records found matching filters</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        Chart.defaults.font.family = "'Inter', 'Outfit', sans-serif";
+        Chart.defaults.color = '#94a3b8';
+
     {% if report_type == 'students' %}
-    // School Distribution Chart
-    const schoolCtx = document.getElementById('schoolChart').getContext('2d');
-    new Chart(schoolCtx, {
-        type: 'doughnut',
-        data: {
-            labels: [{% for s in school_distribution %}'{{ s.school__name }}',{% endfor %}],
-            datasets: [{
-                data: [{% for s in school_distribution %}{{ s.count }},{% endfor %}],
-                backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-                borderWidth: 0,
-                hoverOffset: 20
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'right',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 20,
-                        font: { family: 'Outfit', weight: 'bold', size: 10 }
+        // School Distribution Chart
+        const schoolCtx = document.getElementById('schoolChart').getContext('2d');
+        new Chart(schoolCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [{% for s in school_distribution %}'{{ s.school__name }}',{% endfor %}],
+                datasets: [{
+                    data: [{% for s in school_distribution %}{{ s.count }},{% endfor %}],
+                    backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+                    borderWidth: 6,
+                    borderColor: '#fff',
+                    hoverOffset: 4,
+                    cutout: '75%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20,
+                            font: { family: "'Inter', sans-serif", weight: 'bold', size: 10 }
+                        }
                     }
                 }
-            },
-            cutout: '70%'
+            }
+        });
+
+        // Grade Distribution Chart
+        const gradeCtx = document.getElementById('gradeChart');
+        if (gradeCtx) {
+            new Chart(gradeCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: [{% for g in grade_distribution %}'{{ g.class_id__grade__name }}',{% endfor %}],
+                    datasets: [{
+                        label: 'Students',
+                        data: [{% for g in grade_distribution %}{{ g.count }},{% endfor %}],
+                        backgroundColor: '#6366f1',
+                        borderRadius: 4,
+                        barThickness: 14
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                        y: {
+                            grid: { color: '#f1f5f9', drawBorder: false },
+                            ticks: { font: { size: 10 }, beginAtZero: true }
+                        }
+                    }
+                }
+            });
         }
-    });
 
     {% elif report_type == 'fees' %}
-    // Fee Collection Trend Chart
-    const feeTrendCtx = document.getElementById('feeTrendChart').getContext('2d');
-    new Chart(feeTrendCtx, {
-        type: 'line',
-        data: {
-            labels: [{% for trend in collection_trend %}'{{ trend.month|date:"M Y" }}',{% endfor %}],
-            datasets: [{
-                label: 'Gross Collection',
-                data: [{% for trend in collection_trend %}{{ trend.total }},{% endfor %}],
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#10b981',
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+        // Fee Collection Trend Chart
+        const feeTrendCtx = document.getElementById('feeTrendChart').getContext('2d');
+        new Chart(feeTrendCtx, {
+            type: 'line',
+            data: {
+                labels: [{% for trend in collection_trend %}'{{ trend.month|date:"M Y" }}',{% endfor %}],
+                datasets: [{
+                    label: 'Gross Collection',
+                    data: [{% for trend in collection_trend %}{{ trend.total }},{% endfor %}],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#10b981',
+                }]
             },
-            scales: {
-                y: { 
-                    beginAtZero: true, 
-                    grid: { color: '#f1f5f9' },
-                    ticks: { callback: value => 'KES ' + value.toLocaleString(), font: { family: 'Outfit', weight: 'bold' } }
-                },
-                x: { grid: { display: false }, ticks: { font: { family: 'Outfit', weight: 'bold' } } }
-            }
-        }
-    });
-
-    // Fee School Distribution Chart
-    const feeSchoolCtx = document.getElementById('feeSchoolChart').getContext('2d');
-    new Chart(feeSchoolCtx, {
-        type: 'polarArea',
-        data: {
-            labels: [{% for s in fee_school_distribution %}'{{ s.student__studentprofile__school__name }}',{% endfor %}],
-            datasets: [{
-                data: [{% for s in fee_school_distribution %}{{ s.total }},{% endfor %}],
-                backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 15,
-                        font: { family: 'Outfit', weight: 'bold', size: 10 }
-                    }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f1f5f9', drawBorder: false },
+                        ticks: { callback: value => 'KES ' + value.toLocaleString(), font: { size: 10 } }
+                    },
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } }
                 }
-            },
-            scales: {
-                r: { ticks: { display: false }, grid: { color: '#f1f5f9' } }
             }
-        }
-    });
+        });
+
+        // Fee School Distribution Chart
+        const feeSchoolCtx = document.getElementById('feeSchoolChart').getContext('2d');
+        new Chart(feeSchoolCtx, {
+            type: 'polarArea',
+            data: {
+                labels: [{% for s in fee_school_distribution %}'{{ s.student__studentprofile__school__name }}',{% endfor %}],
+                datasets: [{
+                    data: [{% for s in fee_school_distribution %}{{ s.total }},{% endfor %}],
+                    backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: { family: "'Inter', sans-serif", weight: 'bold', size: 10 }
+                        }
+                    }
+                },
+                scales: {
+                    r: { ticks: { display: false }, grid: { color: '#f1f5f9' } }
+                }
+            }
+        });
     {% endif %}
+    });
 </script>
 {% endblock %}

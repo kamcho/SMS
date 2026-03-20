@@ -21,9 +21,14 @@
                 <i class="fas fa-calendar-alt text-indigo-500"></i>
                 Academic Years
             </h3>
-            <button class="btn btn-primary text-sm" onclick="toggleForm('academic-year-form')">
-                <i class="fas fa-plus"></i> Add Year
-            </button>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'core:migrate-year' %}" class="btn bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-sm">
+                    <i class="fas fa-rocket"></i> Migrate Year
+                </a>
+                <button class="btn btn-primary text-sm" onclick="toggleForm('academic-year-form')">
+                    <i class="fas fa-plus"></i> Add Year
+                </button>
+            </div>
         </div>
         
         <div id="academic-year-form" class="hidden mb-6 p-4 bg-slate-50 rounded-2xl">
@@ -125,62 +130,8 @@
         </div>
     </div>
 
-    <!-- Grade Levels Section -->
-    <div class="glass-card">
-        <div class="flex items-center justify-between mb-6">
-            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <i class="fas fa-layer-group text-purple-500"></i>
-                Grade Levels
-            </h3>
-            <button class="btn btn-primary text-sm" onclick="toggleForm('grade-form')">
-                <i class="fas fa-plus"></i> Add Level
-            </button>
-        </div>
-        
-        <div id="grade-form" class="hidden mb-6 p-4 bg-slate-50 rounded-2xl">
-            <form method="post" action="{% url 'core:create-grade' %}">
-                {% csrf_token %}
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {{ grade_form.name }}
-                    {{ grade_form.school }}
-                </div>
-                <div class="flex gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary">Create Level</button>
-                    <button type="button" class="btn btn-secondary" onclick="toggleForm('grade-form')">Cancel</button>
-                </div>
-            </form>
-        </div>
-        
-        {% regroup grades by name as grade_list %}
-        <div class="space-y-4">
-            {% for g in grade_list %}
-                <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
-                    <h4 class="text-xs font-black text-indigo-600 mb-3 uppercase tracking-widest flex items-center gap-2">
-                        {{ g.grouper }}
-                    </h4>
-                    <div class="flex flex-wrap gap-2">
-                        {% for item in g.list %}
-                            <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg group">
-                                <span class="text-[10px] font-bold text-slate-600">{{ item.school.name }}</span>
-                                <form method="post" action="{% url 'core:delete-item' 'grade' item.id %}"
-                                    onsubmit="return confirm('Delete this level?')">
-                                    {% csrf_token %}
-                                    <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors">
-                                        <i class="fas fa-times text-[9px]"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            {% empty %}
-                <p class="text-slate-400 text-center py-8">No grade levels yet.</p>
-            {% endfor %}
-        </div>
-    </div>
-
     <!-- Class Streams Section -->
-    <div class="glass-card">
+    <div class="glass-card lg:col-span-2">
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <i class="fas fa-graduation-cap text-indigo-500"></i>
@@ -208,28 +159,31 @@
             </form>
         </div>
         
-        <div class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {% for class in classes %}
             <div
-                class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-all group">
+                class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-all group shadow-sm">
                     <div>
                         <h4 class="font-bold text-slate-800 cursor-pointer hover:text-indigo-600 transition-colors" onclick="openEditClassModal('{{ class.id }}', '{{ class.name }}', '{{ class.grade.id }}', '{{ class.school.id }}')">{{ class.name }}</h4>
                         <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">{{ class.grade.name }} — {{ class.school.name }}</p>
                     </div>
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
                         <button onclick="openEditClassModal('{{ class.id }}', '{{ class.name }}', '{{ class.grade.id }}', '{{ class.school.id }}')" class="text-indigo-500 hover:text-indigo-700 transition-colors">
-                            <i class="fas fa-edit"></i>
+                            <i class="fas fa-edit text-xs"></i>
                         </button>
                         <form method="post" action="{% url 'core:delete-item' 'class' class.id %}" onsubmit="return confirm('Delete class?')">
                             {% csrf_token %}
                             <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors">
-                                <i class="fas fa-trash-alt"></i>
+                                <i class="fas fa-trash-alt text-xs"></i>
                             </button>
                         </form>
                     </div>
                 </div>
             {% empty %}
-                <p class="text-slate-400 text-center py-8">No class streams yet.</p>
+                <div class="col-span-full py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                    <i class="fas fa-school text-2xl mb-2 opacity-20"></i>
+                    <p class="font-medium">No class streams yet.</p>
+                </div>
             {% endfor %}
         </div>
     </div>
