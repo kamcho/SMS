@@ -3,16 +3,18 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.utils import timezone
 
 class MyUserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, phone_number, email, password=None, **extra_fields):
+        if not phone_number:
+            raise ValueError('The Phone number field must be set')
         if not email:
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+        user = self.model(phone_number=phone_number, email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password=None, **extra_fields):
+    def create_superuser(self, phone_number, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
@@ -21,7 +23,7 @@ class MyUserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
 
-        return self.create_user(email, password, **extra_fields)
+        return self.create_user(phone_number, email, password, **extra_fields)
 
 class MyUser(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
@@ -48,7 +50,7 @@ class MyUser(AbstractBaseUser, PermissionsMixin):
     objects = MyUserManager()
 
     USERNAME_FIELD = 'phone_number'
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = ['email']
 
     def get_full_name(self):
         full_name = "%s %s" % (self.first_name, self.last_name)

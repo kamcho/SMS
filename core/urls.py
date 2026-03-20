@@ -20,6 +20,7 @@ urlpatterns = [
     path('configurations/', views.configurations, name='configurations'),
     path('configurations/academic-year/create/', views.create_academic_year, name='create-academic-year'),
     path('configurations/term/create/', views.create_term, name='create-term'),
+    path('configurations/term/update/', views.update_term, name='update-term'),
     path('configurations/grade/create/', views.create_grade, name='create-grade'),
     path('configurations/class/create/', views.create_class, name='create-class'),
     path('configurations/class/update/', views.update_class, name='update-class'),

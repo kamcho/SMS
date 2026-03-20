@@ -65,22 +65,6 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <!-- Admission No -->
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{{ student_form.adm_no.label }}</label>
-                    <div class="relative">
-                        <i class="fas fa-hashtag absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <style>
-                            /* Temporary fix for icon spacing if not using class-based injection */
-                            #id_adm_no { padding-left: 2.75rem; }
-                        </style>
-                        {{ student_form.adm_no }}
-                    </div>
-                    {% if student_form.adm_no.errors %}
-                        <p class="text-[10px] text-rose-500 font-bold mt-1 ml-1">{{ student_form.adm_no.errors.0 }}</p>
-                    {% endif %}
-                </div>
-                <!-- Gender -->
                 <div class="space-y-2">
                     <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{{ student_form.gender.label }}</label>
                     {{ student_form.gender }}
@@ -323,6 +307,32 @@
     const feeMsg = document.getElementById('term-fee-preview-msg');
     const feeAmt = document.getElementById('term-fee-preview-amount');
 
+    const balanceInput = document.getElementById('id_fee_balance');
+
+    function refreshTotalBalance() {
+        if (!balanceInput) return;
+        
+        // 1. Term Fee
+        const termFee = parseFloat(feeAmt.textContent) || 0;
+        
+        // 2. Admission Fee
+        const admissionFee = parseFloat(admissionFeeVal.textContent) || 0;
+        
+        // 3. Additional Charges
+        let additionalTotal = 0;
+        document.querySelectorAll('input[name="additional_charge_ids"]:checked').forEach(cb => {
+            const amountSpan = cb.closest('label').querySelector('span');
+            if (amountSpan) {
+                const val = amountSpan.textContent.replace('KES', '').trim();
+                additionalTotal += parseFloat(val) || 0;
+            }
+        });
+
+        // Sum them up
+        const total = termFee + admissionFee + additionalTotal;
+        balanceInput.value = total;
+    }
+
     async function refreshFeePreview() {
         if (!schoolSelect || !classSelect || !categorySelect || !feeMsg || !feeAmt) return;
         const schoolId = schoolSelect.value;
@@ -332,6 +342,7 @@
         if (!schoolId || !classId) {
             feeAmt.textContent = '—';
             feeMsg.textContent = 'Select school and class to preview the fee that will be invoiced.';
+            refreshTotalBalance();
             return;
         }
 
@@ -354,6 +365,7 @@
             feeAmt.textContent = '—';
             feeMsg.textContent = 'Could not load fee preview. Please try again.';
         }
+        refreshTotalBalance();
     }
 
     if (schoolSelect && classSelect) {
@@ -365,13 +377,21 @@
                 chargeItems.forEach((el) => {
                     const elSchool = el.getAttribute('data-school-id');
                     el.style.display = (!schoolId || elSchool === schoolId) ? '' : 'none';
+                    // Uncheck if hidden
+                    if (schoolId && elSchool !== schoolId) {
+                        const cb = el.querySelector('input[type="checkbox"]');
+                        if (cb) cb.checked = false;
+                    }
                 });
             }
             
             // Clear current options
             classSelect.innerHTML = '<option value="">---------</option>';
             
-            if (!schoolId) return;
+            if (!schoolId) {
+                refreshTotalBalance();
+                return;
+            }
 
             // Show loading state
             const originalLabel = classSelect.previousElementSibling;
@@ -410,5 +430,16 @@
     if (categorySelect) {
         categorySelect.addEventListener('change', refreshFeePreview);
     }
+
+    // Listen to admission slider and checkboxes
+    if (admissionFeeInput) {
+        admissionFeeInput.addEventListener('input', refreshTotalBalance);
+    }
+    document.querySelectorAll('input[name="additional_charge_ids"]').forEach(cb => {
+        cb.addEventListener('change', refreshTotalBalance);
+    });
+
+    // Initial check
+    refreshTotalBalance();
 </script>
 {% endblock %}

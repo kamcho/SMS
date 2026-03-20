@@ -773,6 +773,14 @@ def create_student(request):
             profile.student = student
             profile.save()
 
+            # Auto-generate admission number: E{first letter of second name of school name}-student.id
+            if profile.school:
+                name_parts = profile.school.name.split()
+                # Get first letter of second word if it exists
+                initial = name_parts[1][0].upper() if len(name_parts) > 1 else ""
+                student.adm_no = f"E{initial}-{student.id}"
+                student.save()
+
             # Negotiated admission fee (invoiced as agreed amount)
             from accounts.models import AdmissionFee, Invoice
             admission_fee_raw = request.POST.get('admission_fee_amount', '').strip()
@@ -842,15 +850,35 @@ def create_student(request):
                         description=f"Additional Charge: {ch.name}",
                     )
 
-            if initial_balance > 0:
-                from accounts.models import Invoice
+            # 4. Calculate Adjustment vs the "Opening Balance" target the user entered in the form
+            # Because the Term/Admission/Additional invoices created above INCREASE the profile balance (due to Invoice.save),
+            # we need to create an "Adjustment" invoice for whatever is left over from initial_balance.
+            total_auto_invoiced = 0
+            # Total up what we've actually invoiced above in this one code block
+            # Admission
+            total_auto_invoiced += agreed_admission_fee
+            # Term Fee (term_amount was defined in the block above)
+            try:
+                if 'term_amount' in locals() and term_amount > 0:
+                    total_auto_invoiced += int(term_amount)
+            except NameError:
+                pass
+            
+            # Additional Charges
+            if charge_ids:
+                total_auto_invoiced += sum(int(ch.amount) for ch in charges)
+
+            # The final Adjustment (could be + arrears or - discount)
+            adjustment = initial_balance - total_auto_invoiced
+            
+            if adjustment != 0:
                 Invoice.objects.create(
                     student=student,
-                    amount=initial_balance,
-                    description="Opening Balance (Registration)",
-                    is_billed=False # Flag to track this was an initial balance
+                    amount=adjustment,
+                    description="Opening Balance Adjustment / Arrears",
+                    is_billed=(adjustment > 0)
                 )
-            
+
             messages.success(request, f'Student {student.first_name} {student.last_name} has been enrolled successfully!')
             return redirect('core:student-detail', pk=student.pk)
     else:
@@ -1140,7 +1168,8 @@ class StudentDetailView(DetailView):
             })
         for i in student_invoices:
             if i.fee_structure:
-                year = i.fee_structure.academic_year.start_date.year if i.fee_structure.academic_year else ""
+                # FeeStructure doesn't have academic_year; use invoice date
+                year = i.created_at.year if i.created_at else ""
                 desc = f"Billed: {i.fee_structure.term.name} {year}"
             else:
                 desc = i.description or "General Billing"
@@ -1789,6 +1818,24 @@ def create_term(request):
         else:
             messages.error(request, 'Error creating term. Please check the form.')
     
+    return redirect('core:configurations')
+
+
+def update_term(request):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'You do not have permission to perform this action.')
+        return redirect('core:configurations')
+    
+    if request.method == 'POST':
+        term_id = request.POST.get('term_id')
+        term = get_object_or_404(Term, id=term_id)
+        form = TermForm(request.POST, instance=term)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Term updated successfully!')
+        else:
+            messages.error(request, 'Failed to update term. Please check your data.')
+            
     return redirect('core:configurations')
 
 
@@ -2897,6 +2944,68 @@ def subject_exam_analytics(request, class_id, subject_id, exam_id):
     return render(request, 'core/subject_exam_analytics.html', context)
 
 
+def generate_teacher_remarks(student, exam, current_avg, subject_data):
+    """
+    Generate short, accurate, human-like class teacher remarks
+    based on current performance vs previous exam performance.
+    """
+    from Exam.models import ExamSUbjectScore
+    
+    # 1. Look for the previous exam specifically for this student
+    prev_exam = Exam.objects.filter(
+        year=exam.year, 
+        created_at__lt=exam.created_at
+    ).order_by('-created_at').first()
+
+    prev_avg = None
+    if prev_exam:
+        # Calculate raw average for the previous exam
+        prev_scores_raw = ExamSUbjectScore.objects.filter(
+            student=student, 
+            paper__exam_subject__exam=prev_exam
+        ).select_related('paper__exam_subject__subject')
+        
+        if prev_scores_raw.exists():
+            prev_subj_data = {}
+            for s in prev_scores_raw:
+                sid = s.paper.exam_subject.subject_id
+                if sid not in prev_subj_data:
+                    config = s.paper.exam_subject.exam.examsubjectconfiguration_set.filter(subject_id=sid).first()
+                    prev_subj_data[sid] = {'score': 0, 'max': config.max_score if config else 100}
+                prev_subj_data[sid]['score'] += s.score
+            
+            p_percs = [(d['score'] / d['max']) * 100 for d in prev_subj_data.values() if d['max'] > 0]
+            if p_percs:
+                prev_avg = sum(p_percs) / len(p_percs)
+
+    # 2. Identify strongest and weakest current subjects
+    valid_subjects = [d for d in subject_data.values() if d.get('max', 0) > 0]
+    strong_subj = None
+    weak_subj = None
+    
+    if valid_subjects:
+        sorted_subs = sorted(valid_subjects, key=lambda x: (x['score'] / x['max']))
+        weak_subj = sorted_subs[0]['name']
+        strong_subj = sorted_subs[-1]['name']
+
+    # 3. Build the remark
+    if prev_avg:
+        diff = current_avg - prev_avg
+        assessment = "Improved significantly" if diff > 5 else ("Maintained steady" if diff > -2 else "Performance dropped")
+        remark = f"{assessment} compared to last exam. "
+    else:
+        assessment = "Excellent" if current_avg >= 80 else ("Good" if current_avg >= 60 else ("Fair" if current_avg >= 40 else "Weak"))
+        remark = f"{assessment} results this term. "
+
+    if strong_subj:
+        remark += f"Strong in {strong_subj}. "
+    if weak_subj and (strong_subj != weak_subj or current_avg < 60):
+        remark += f"Needs focus in {weak_subj}. "
+
+    remark += "Consistent effort will lead to success."
+    return remark
+
+
 @login_required
 def student_report(request, student_id, exam_id):
     from datetime import datetime
@@ -2992,12 +3101,15 @@ def student_report(request, student_id, exam_id):
     # Summary Calculations
     total_marks = sum(d['score'] for d in subject_data.values())
     total_out_of = sum(d['max'] for d in subject_data.values())
-    total_points = sum(d['points'] for d in subject_data.values())
+    sum_points = sum(d['points'] for d in subject_data.values())
+    num_subjects = len(subject_data)
+    average_points = int(sum_points / num_subjects) if num_subjects > 0 else 0
+    
     max_pts_per_subj = 8 if is_junior_secondary else 4
-    total_max_points = len(subject_data) * max_pts_per_subj
+    total_max_points = num_subjects * max_pts_per_subj
     
     # Overall Performance Level based on points percentage
-    pts_perc = (total_points / total_max_points) * 100 if total_max_points > 0 else 0
+    pts_perc = (sum_points / total_max_points) * 100 if total_max_points > 0 else 0
     if is_junior_secondary:
         if pts_perc >= 87.5: overall_grade = 'EE1'
         elif pts_perc >= 75: overall_grade = 'EE2'
@@ -3026,6 +3138,14 @@ def student_report(request, student_id, exam_id):
     else:
         grade_category = "ASSESSMENT"
 
+    # Check for 3rd term opening date logic
+    next_opening_date = exam.term.opening_date
+    term_name = exam.term.name.lower()
+    if '3' in term_name or 'third' in term_name:
+        next_year = AcademicYear.objects.filter(start_date__gt=exam.year.start_date).order_by('start_date').first()
+        if next_year:
+            next_opening_date = next_year.start_date
+
     context = {
         'student': student,
         'exam': exam,
@@ -3036,13 +3156,16 @@ def student_report(request, student_id, exam_id):
         'today': datetime.now().date(),
         'is_junior_secondary': is_junior_secondary,
         'grade_category': grade_category,
+        'next_opening_date': next_opening_date,
+        'next_opening_date': next_opening_date,
         'totals': {
             'marks': total_marks,
             'out_of': total_out_of,
-            'points': total_points,
+            'points': average_points,
             'max_points': total_max_points,
             'grade': overall_grade
-        }
+        },
+        'teacher_remarks': generate_teacher_remarks(student, exam, student_average, subject_data)
     }
     return render(request, 'core/student_report.html', context)
 
@@ -3149,12 +3272,15 @@ def bulk_class_reports(request, class_id, exam_id):
         # Summary Calculations
         total_marks = sum(d['score'] for d in subject_data.values())
         total_out_of = sum(d['max'] for d in subject_data.values())
-        total_points = sum(d['points'] for d in subject_data.values())
+        sum_points = sum(d['points'] for d in subject_data.values())
+        num_subjects = len(subject_data)
+        average_points = int(sum_points / num_subjects) if num_subjects > 0 else 0
+        
         max_pts_per_subj = 8 if is_junior_secondary else 4
-        total_max_points = len(subject_data) * max_pts_per_subj
+        total_max_points = num_subjects * max_pts_per_subj
         
         # Overall Performance Level based on points percentage
-        pts_perc = (total_points / total_max_points) * 100 if total_max_points > 0 else 0
+        pts_perc = (sum_points / total_max_points) * 100 if total_max_points > 0 else 0
         if is_junior_secondary:
             if pts_perc >= 87.5: overall_grade = 'EE1'
             elif pts_perc >= 75: overall_grade = 'EE2'
@@ -3186,24 +3312,34 @@ def bulk_class_reports(request, class_id, exam_id):
         reports.append({
             'student': student,
             'profile': profile,
-            'subject_results': sorted(subject_data.values(), key=lambda x: x['name']),
-            'student_average': student_average,
             'is_junior_secondary': is_junior_secondary,
             'grade_category': grade_category,
+            'subject_results': sorted(subject_data.values(), key=lambda x: x['name']),
+            'student_average': student_average,
             'totals': {
                 'marks': total_marks,
                 'out_of': total_out_of,
-                'points': total_points,
+                'points': average_points,
                 'max_points': total_max_points,
                 'grade': overall_grade
-            }
+            },
+            'teacher_remarks': generate_teacher_remarks(student, exam, student_average, subject_data)
         })
+    
+    # Check for 3rd term opening date logic
+    next_opening_date = exam.term.opening_date
+    term_name = exam.term.name.lower()
+    if '3' in term_name or 'third' in term_name:
+        next_year = AcademicYear.objects.filter(start_date__gt=exam.year.start_date).order_by('start_date').first()
+        if next_year:
+            next_opening_date = next_year.start_date
     
     context = {
         'class_obj': class_obj,
         'exam': exam,
         'reports': reports,
         'today': today,
+        'next_opening_date': next_opening_date,
     }
     return render(request, 'core/bulk_reports.html', context)
 

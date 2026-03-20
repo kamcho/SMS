@@ -19,7 +19,7 @@ class BaseStyledForm(forms.ModelForm):
 class StudentForm(BaseStyledForm):
     class Meta:
         model = Student
-        fields = ['first_name', 'middle_name', 'last_name', 'adm_no', 'date_of_birth', 'joined_date', 'gender', 'location', 'fee_category']
+        fields = ['first_name', 'middle_name', 'last_name', 'date_of_birth', 'joined_date', 'gender', 'location', 'fee_category']
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'joined_date': forms.DateInput(attrs={'type': 'date'}),
@@ -59,7 +59,11 @@ class AcademicYearForm(BaseStyledForm):
 class TermForm(BaseStyledForm):
     class Meta:
         model = Term
-        fields = ['name']
+        fields = ['name', 'closing_date', 'opening_date']
+        widgets = {
+            'closing_date': forms.DateInput(attrs={'type': 'date'}),
+            'opening_date': forms.DateInput(attrs={'type': 'date'}),
+        }
 
 
 class GradeForm(BaseStyledForm):

@@ -16,15 +16,36 @@
         }
 
         @media print {
-            body { background-color: white; margin: 0; padding: 0; }
+            @page {
+                size: A4;
+                margin: 0;
+            }
+            body { 
+                background-color: white; 
+                margin: 0; 
+                padding: 0; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+            }
             .no-print { display: none !important; }
             .report-container { 
                 box-shadow: none !important; 
                 margin: 0 !important; 
-                padding: 1cm !important;
-                width: 100% !important;
+                padding: 1.5cm !important;
+                width: 210mm !important;
+                height: 297mm !important;
                 border: none !important;
+                box-sizing: border-box;
+                position: relative;
+                overflow: hidden;
+                page-break-after: always;
             }
+            table.formal-table { margin-top: 10px; }
+            table.formal-table th, table.formal-table td { padding: 4px; font-size: 11px; }
+            .mb-12 { margin-bottom: 1rem !important; }
+            .mb-8 { margin-bottom: 0.75rem !important; }
+            .space-y-8 > * + * { margin-top: 0.5rem !important; }
+            .space-y-12 > * + * { margin-top: 0.75rem !important; }
         }
 
         .report-container {
@@ -99,9 +120,9 @@
             
             <div class="text-left border-l-4 border-slate-900 pl-4 py-2 bg-slate-50/50">
                 <h2 class="text-lg font-bold uppercase mb-1">
-                    {{ grade_category }} ({{ exam.term.name|upper }} - {{ exam.period|upper }}) ASSESSMENT REPORT {{ exam.year.start_date.year }}
+                  {{ exam.term.name|upper }} - {{ exam.period|upper }} ASSESSMENT REPORT {{ exam.year.start_date.year }}
                 </h2>
-                <h3 class="text-md font-black uppercase text-slate-700 tracking-tight">{{ class_obj.grade.name|upper }}</h3>
+                <h3 class="text-md font-black uppercase text-slate-700 tracking-tight">  {{ grade_category }} </h3>
             </div>
         </div>
 
@@ -118,7 +139,9 @@
             <div>
                 <span class="uppercase font-bold">Class-Manager:</span>
                 <span class="line-field">
-                    {% if profile.class_id.teacherclassprofile_set.first %}
+                    {% if profile.class_id.class_teacher %}
+                        {{ profile.class_id.class_teacher.get_full_name }}
+                    {% elif profile.class_id.teacherclassprofile_set.first %}
                         {{ profile.class_id.teacherclassprofile_set.first.user.get_full_name }}
                     {% else %}
                         ___________________________
@@ -194,7 +217,7 @@
                     <td>{{ totals.out_of }}</td>
                     <td>{{ totals.points }}</td>
                     <td>
-                        <span class="underline {% if 'EE' in totals.grade %}text-emerald-700{% elif 'ME' in totals.grade %}text-blue-700{% elif 'AE' in totals.grade %}text-amber-700{% else %}text-rose-700{% endif %}">
+                        <span class="{% if 'EE' in totals.grade %}text-emerald-700{% elif 'ME' in totals.grade %}text-blue-700{% elif 'AE' in totals.grade %}text-amber-700{% else %}text-rose-700{% endif %}">
                             OVERALL: {{ totals.grade }}
                         </span>
                     </td>
@@ -206,7 +229,7 @@
         <div class="space-y-12 text-sm">
             <div>
                 <p class="font-bold mb-4">Class-teacher's Remarks:</p>
-                <div class="border-b border-slate-400 w-full mb-4 h-6"></div>
+                <p class="italic mb-2 text-slate-800">{{ teacher_remarks }}</p>
                 <div class="border-b border-slate-400 w-full mb-4 h-6"></div>
             </div>
 
@@ -223,12 +246,12 @@
 
             <div class="flex justify-between items-end gap-12 pt-4">
                 <div class="flex-1">
-                    <span class="font-bold">Closing Date:</span>
-                    <span class="border-b border-slate-400 min-w-[150px] inline-block ml-2"></span>
+                    <span class="font-bold uppercase text-xs">Closing Date:</span>
+                    <span class="border-b-2 border-slate-900 min-w-[150px] inline-block ml-2 font-bold px-2">{{ exam.term.closing_date|default:"________________" }}</span>
                 </div>
                 <div class="flex-1">
-                    <span class="font-bold">Opening Date:</span>
-                    <span class="border-b border-slate-400 min-w-[150px] inline-block ml-2"></span>
+                    <span class="font-bold uppercase text-xs">Next Term Opening Date:</span>
+                    <span class="border-b-2 border-slate-900 min-w-[150px] inline-block ml-2 font-bold px-2">{{ next_opening_date|default:"________________" }}</span>
                 </div>
             </div>
         </div>

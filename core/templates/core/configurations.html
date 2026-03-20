@@ -91,8 +91,19 @@
         <div id="term-form" class="hidden mb-6 p-4 bg-slate-50 rounded-2xl">
             <form method="post" action="{% url 'core:create-term' %}">
                 {% csrf_token %}
-                <div class="grid grid-cols-1 gap-4">
-                    {{ term_form.name }}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Term Name</label>
+                        {{ term_form.name }}
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Closing Date</label>
+                        {{ term_form.closing_date }}
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Next Opening Date</label>
+                        {{ term_form.opening_date }}
+                    </div>
                 </div>
                 <div class="flex gap-2 mt-4">
                     <button type="submit" class="btn btn-primary">Create</button>
@@ -106,8 +117,15 @@
                 <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
                     <div>
                         <h4 class="font-bold text-slate-800">{{ term.name }}</h4>
+                        <div class="flex gap-3 mt-0.5">
+                            <p class="text-[10px] text-slate-500 font-medium">Closing: <span class="text-slate-700 font-bold">{{ term.closing_date|date:"M d, Y"|default:"Not Set" }}</span></p>
+                            <p class="text-[10px] text-slate-500 font-medium">Next Opening: <span class="text-slate-700 font-bold">{{ term.opening_date|date:"M d, Y"|default:"Not Set" }}</span></p>
+                        </div>
                     </div>
                     <div class="flex items-center gap-4">
+                        <button onclick='openEditTermModal("{{ term.id }}", "{{ term.name }}", "{{ term.closing_date|date:"Y-m-d" }}", "{{ term.opening_date|date:"Y-m-d" }}")' class="text-indigo-500 hover:text-indigo-700 transition-colors">
+                            <i class="fas fa-edit text-xs"></i>
+                        </button>
                         {% if term.is_active %}
                             <span class="px-3 py-1 bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full">Active</span>
                         {% else %}
@@ -445,6 +463,54 @@
     </div>
 </div>
 
+<!-- Edit Term Modal -->
+<div id="editTermModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-black text-slate-900 flex items-center gap-2">
+                <i class="fas fa-edit text-indigo-500"></i>
+                Edit Term
+            </h3>
+            <button onclick="closeEditTermModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form method="post" action="{% url 'core:update-term' %}" id="editTermForm" class="space-y-5">
+            {% csrf_token %}
+            <input type="hidden" name="term_id" id="editTermId">
+            
+            <div>
+                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Term Name</label>
+                <input type="text" name="name" id="editTermName" required
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Closing Date</label>
+                    <input type="date" name="closing_date" id="editTermClosingDate"
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Next Opening Date</label>
+                    <input type="date" name="opening_date" id="editTermOpeningDate"
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
+                </div>
+            </div>
+            
+            <div class="flex gap-3 pt-4">
+                <button type="submit" class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">
+                    Update Term
+                </button>
+                <button type="button" onclick="closeEditTermModal()" class="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 </div>
 
 <style>
@@ -488,6 +554,18 @@ function openEditClassModal(classId, className, gradeId, schoolId) {
 
 function closeEditClassModal() {
     document.getElementById('editClassModal').classList.add('hidden');
+}
+
+function openEditTermModal(termId, termName, closingDate, openingDate) {
+    document.getElementById('editTermModal').classList.remove('hidden');
+    document.getElementById('editTermId').value = termId;
+    document.getElementById('editTermName').value = termName;
+    document.getElementById('editTermClosingDate').value = closingDate;
+    document.getElementById('editTermOpeningDate').value = openingDate;
+}
+
+function closeEditTermModal() {
+    document.getElementById('editTermModal').classList.add('hidden');
 }
 
 // Auto-hide forms after successful submission
