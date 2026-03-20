@@ -23,6 +23,8 @@ class Command(BaseCommand):
             )
             courses[c_data['name']] = course
 
+        # Define Subjects by Grade Level
+        cbc_curriculum = {
             # Play Group
             'Play Group': [
                 ('Language Activities', 'Language & Communication'),
