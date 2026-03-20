@@ -23,8 +23,14 @@ class Command(BaseCommand):
             )
             courses[c_data['name']] = course
 
-        # Define Subjects by Grade Level
-        cbc_curriculum = {
+            # Play Group
+            'Play Group': [
+                ('Language Activities', 'Language & Communication'),
+                ('Mathematical Activities', 'Mathematics & Science'),
+                ('Environmental Activities', 'Environment & Social'),
+                ('Psychomotor and Creative Activities', 'Creative & Psychomotor'),
+                ('Religious Education Activities', 'Religious & Moral'),
+            ],
             # Pre-Primary (PP1, PP2)
             'PP1': [
                 ('Language Activities', 'Language & Communication'),
@@ -104,6 +110,55 @@ class Command(BaseCommand):
                 ('Creative Arts', 'Creative & Psychomotor'),
                 ('Physical and Health Education', 'Creative & Psychomotor'),
                 ('Religious Education', 'Religious & Moral'),
+            ],
+            # Junior Secondary (Grade 7-9)
+            'Grade 7': [
+                ('English', 'Language & Communication'),
+                ('Kiswahili', 'Language & Communication'),
+                ('Mathematics', 'Mathematics & Science'),
+                ('Integrated Science', 'Mathematics & Science'),
+                ('Health Education', 'Mathematics & Science'),
+                ('Pre-Technical Studies', 'Technical & Applied'),
+                ('Social Studies', 'Environment & Social'),
+                ('Business Studies', 'Technical & Applied'),
+                ('Agriculture and Nutrition', 'Technical & Applied'),
+                ('Religious Education', 'Religious & Moral'),
+                ('Life Skills Education', 'Religious & Moral'),
+                ('Physical Education and Sports', 'Creative & Psychomotor'),
+                ('Creative Arts and Sports', 'Creative & Psychomotor'),
+                ('Optional Subject', 'Technical & Applied'),
+            ],
+            'Grade 8': [
+                ('English', 'Language & Communication'),
+                ('Kiswahili', 'Language & Communication'),
+                ('Mathematics', 'Mathematics & Science'),
+                ('Integrated Science', 'Mathematics & Science'),
+                ('Health Education', 'Mathematics & Science'),
+                ('Pre-Technical Studies', 'Technical & Applied'),
+                ('Social Studies', 'Environment & Social'),
+                ('Business Studies', 'Technical & Applied'),
+                ('Agriculture and Nutrition', 'Technical & Applied'),
+                ('Religious Education', 'Religious & Moral'),
+                ('Life Skills Education', 'Religious & Moral'),
+                ('Physical Education and Sports', 'Creative & Psychomotor'),
+                ('Creative Arts and Sports', 'Creative & Psychomotor'),
+                ('Optional Subject', 'Technical & Applied'),
+            ],
+            'Grade 9': [
+                ('English', 'Language & Communication'),
+                ('Kiswahili', 'Language & Communication'),
+                ('Mathematics', 'Mathematics & Science'),
+                ('Integrated Science', 'Mathematics & Science'),
+                ('Health Education', 'Mathematics & Science'),
+                ('Pre-Technical Studies', 'Technical & Applied'),
+                ('Social Studies', 'Environment & Social'),
+                ('Business Studies', 'Technical & Applied'),
+                ('Agriculture and Nutrition', 'Technical & Applied'),
+                ('Religious Education', 'Religious & Moral'),
+                ('Life Skills Education', 'Religious & Moral'),
+                ('Physical Education and Sports', 'Creative & Psychomotor'),
+                ('Creative Arts and Sports', 'Creative & Psychomotor'),
+                ('Optional Subject', 'Technical & Applied'),
             ],
         }
 
