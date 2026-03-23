@@ -101,6 +101,19 @@
         </div>
 
         <div class="space-y-1.5">
+            <label for="exam" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Filter Exam</label>
+            <div class="relative group">
+                <select name="exam" id="exam" onchange="this.form.submit()" class="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                    <option value="">All Exams</option>
+                    {% for e in exams %}
+                        <option value="{{ e.id }}" {% if e.id|stringformat:"s" == selected_exam %}selected{% endif %}>{{ e.name }}</option>
+                    {% endfor %}
+                </select>
+                <i class="fas fa-file-invoice absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+            </div>
+        </div>
+
+        <div class="space-y-1.5">
             <label for="date_from" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Date From</label>
             <input type="date" name="date_from" id="date_from" value="{{ selected_date_from|default_if_none:'' }}" onchange="this.form.submit()" class="w-full pl-4 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer">
         </div>
@@ -432,6 +445,53 @@
     </div>
 
 {% else %}
+    <!-- Stream Comparison Chart (Visible when grade selected but no stream) -->
+    {% if stream_comparison %}
+    <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md mb-6">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                    <i class="fas fa-chart-line text-xs"></i>
+                </div>
+                <div>
+                    <h3 class="text-[14px] font-black text-slate-800 uppercase tracking-tight">Stream Comparison</h3>
+                    <p class="text-[10px] font-bold text-slate-400 capitalize">Benchmarking Results for {{ selected_grade_obj.name }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="h-64 relative">
+            <canvas id="streamCompareChart"></canvas>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Performance Distribution Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-[14px] font-black text-slate-800 uppercase tracking-tight">Grade Distribution</h3>
+                <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
+                    <i class="fas fa-medal text-xs"></i>
+                </div>
+            </div>
+            <div class="h-64 relative">
+                <canvas id="perfGradeChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-[14px] font-black text-slate-800 uppercase tracking-tight">Subject-wise Mastery</h3>
+                <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
+                    <i class="fas fa-book text-xs"></i>
+                </div>
+            </div>
+            <div class="h-64 relative">
+                <canvas id="perfSubjectChart"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- Performance Table -->
     <div class="bg-white rounded-[14px] border border-slate-200 shadow-sm overflow-hidden">
         <div class="flex items-center justify-between p-6 border-b border-slate-100">
@@ -614,6 +674,97 @@
                 }
             }
         });
+    {% elif report_type == 'performance' %}
+        // Performance Grade Distribution
+        const perfGradeCtx = document.getElementById('perfGradeChart').getContext('2d');
+        new Chart(perfGradeCtx, {
+            type: 'bar',
+            data: {
+                labels: [{% for g in performance_grade_dist %}'{{ g.grade|default:"Unknown" }}',{% endfor %}],
+                datasets: [{
+                    label: 'Entries',
+                    data: [{% for g in performance_grade_dist %}{{ g.count }},{% endfor %}],
+                    backgroundColor: '#f59e0b',
+                    borderRadius: 8,
+                    barThickness: 30
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { weight: 'bold', size: 10 } } },
+                    y: { 
+                        grid: { color: 'rgba(0,0,0,0.03)', drawBorder: false }, 
+                        ticks: { font: { size: 10 }, beginAtZero: true } 
+                    }
+                }
+            }
+        });
+
+        // Subject mastery chart (Horizontal Bar)
+        const perfSubjCtx = document.getElementById('perfSubjectChart').getContext('2d');
+        new Chart(perfSubjCtx, {
+            type: 'bar',
+            data: {
+                labels: [{% for s in performance_subject_dist %}'{{ s.paper__exam_subject__subject__name }}',{% endfor %}],
+                datasets: [{
+                    label: 'Average Score',
+                    data: [{% for s in performance_subject_dist %}{{ s.avg_score|floatformat:1 }},{% endfor %}],
+                    backgroundColor: '#6366f1',
+                    borderRadius: 8,
+                    barThickness: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: { 
+                        callbacks: { 
+                            label: function(context) { return `Average: ${context.parsed.x.toFixed(1)}%`; } 
+                        } 
+                    }
+                },
+                scales: {
+                    x: { max: 100, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.03)' }, ticks: { font: { size: 10 } } },
+                    y: { grid: { display: false }, ticks: { font: { weight: 'bold', size: 10 } } }
+                }
+            }
+        });
+
+        {% if stream_comparison %}
+        // Stream Comparison Chart
+        const streamCtx = document.getElementById('streamCompareChart').getContext('2d');
+        new Chart(streamCtx, {
+            type: 'bar',
+            data: {
+                labels: [{% for s in stream_comparison %}'{{ s.class_id__name }}',{% endfor %}],
+                datasets: [{
+                    label: 'Mean Score %',
+                    data: [{% for s in stream_comparison %}{{ s.avg_score|floatformat:1 }},{% endfor %}],
+                    backgroundColor: '#10b981',
+                    borderRadius: 8,
+                    barThickness: 40
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: context => `Mean: ${context.parsed.y.toFixed(1)}%` } }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { weight: 'bold', size: 10 } } },
+                    y: { max: 100, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.03)' }, ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+        {% endif %}
     {% endif %}
     });
 </script>

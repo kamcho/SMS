@@ -105,6 +105,31 @@
                         <i class="fas fa-chevron-down absolute right-8 top-1/2 -translate-y-1/2 text-indigo-400 group-hover:text-indigo-600 pointer-events-none transition-colors"></i>
                     </div>
                 </div>
+                </div>
+            </div>
+
+            <!-- Exclude Classes Section -->
+            <div class="space-y-6 pt-6 border-t-2 border-slate-50">
+                <div class="flex items-center gap-3 px-4">
+                    <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
+                        <i class="fas fa-ban text-xs"></i>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Exclude Classes (Skip Promotion)</label>
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Selected streams will remain in their current grade</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {% for class in classes %}
+                    <label class="relative group cursor-pointer">
+                        <input type="checkbox" name="skip_classes[]" value="{{ class.id }}" class="peer sr-only">
+                        <div class="h-full px-4 py-4 bg-slate-50 border-2 border-transparent rounded-2xl text-[10px] font-black text-slate-600 peer-checked:border-rose-500 peer-checked:bg-rose-50 peer-checked:text-rose-700 transition-all hover:bg-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+                            <span class="block truncate w-full">{{ class.grade.name }}</span>
+                            <span class="text-[9px] opacity-60">{{ class.name }}</span>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
             </div>
 
             <!-- Promotion Details List -->
@@ -162,19 +187,31 @@
                     <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Processed</span>
                 </div>
                 <div class="p-6 bg-emerald-50 rounded-3xl border border-emerald-100 shadow-sm flex flex-col items-center">
-                    <span id="success-count" class="text-2xl font-black text-emerald-600">0</span>
+                    <div class="flex items-baseline gap-2">
+                        <span id="success-count" class="text-2xl font-black text-emerald-600">0</span>
+                        <span id="success-percent" class="text-[9px] font-black text-emerald-500 bg-white/80 px-2 py-0.5 rounded-lg shadow-sm">0%</span>
+                    </div>
                     <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Promoted</span>
                 </div>
                 <div class="p-6 bg-indigo-50 rounded-3xl border border-indigo-100 shadow-sm flex flex-col items-center">
-                    <span id="invoice-count" class="text-2xl font-black text-indigo-600">0</span>
+                    <div class="flex items-baseline gap-2">
+                        <span id="invoice-count" class="text-2xl font-black text-indigo-600">0</span>
+                        <span id="invoice-percent" class="text-[9px] font-black text-indigo-500 bg-white/80 px-2 py-0.5 rounded-lg shadow-sm">0%</span>
+                    </div>
                     <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Invoices</span>
                 </div>
                 <div class="p-6 bg-amber-50 rounded-3xl border border-amber-100 shadow-sm flex flex-col items-center">
-                    <span id="manual-count" class="text-2xl font-black text-amber-600">0</span>
+                    <div class="flex items-baseline gap-2">
+                        <span id="manual-count" class="text-2xl font-black text-amber-600">0</span>
+                        <span id="manual-percent" class="text-[9px] font-black text-amber-500 bg-white/80 px-2 py-0.5 rounded-lg shadow-sm">0%</span>
+                    </div>
                     <span class="text-[10px] font-black text-amber-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Manual Req.</span>
                 </div>
                 <div class="p-6 bg-rose-50 rounded-3xl border border-rose-100 shadow-sm flex flex-col items-center">
-                    <span id="skipped-count" class="text-2xl font-black text-rose-600">0</span>
+                    <div class="flex items-baseline gap-2">
+                        <span id="skipped-count" class="text-2xl font-black text-rose-600">0</span>
+                        <span id="skipped-percent" class="text-[9px] font-black text-rose-500 bg-white/80 px-2 py-0.5 rounded-lg shadow-sm">0%</span>
+                    </div>
                     <span class="text-[10px] font-black text-rose-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Skipped</span>
                 </div>
             </div>
@@ -210,6 +247,11 @@
     const invoiceText = document.getElementById('invoice-count');
     const manualText = document.getElementById('manual-count');
     const skippedText = document.getElementById('skipped-count');
+
+    const successPctText = document.getElementById('success-percent');
+    const invoicePctText = document.getElementById('invoice-percent');
+    const manualPctText = document.getElementById('manual-percent');
+    const skippedPctText = document.getElementById('skipped-percent');
     const completionActions = document.getElementById('completion-actions');
 
     let totalStudents = 0;
@@ -232,13 +274,17 @@
 
         try {
             // Stage 1: Prepare
+            const skipClasses = Array.from(migrationForm.querySelectorAll('input[name="skip_classes[]"]:checked')).map(el => el.value);
+            const prepareParams = new URLSearchParams({
+                'csrfmiddlewaretoken': formData.get('csrfmiddlewaretoken'),
+                'action': 'prepare',
+                'target_year': targetYearId
+            });
+            skipClasses.forEach(id => prepareParams.append('skip_classes[]', id));
+
             const prepareResp = await fetch(window.location.href, {
                 method: 'POST',
-                body: new URLSearchParams({
-                    'csrfmiddlewaretoken': formData.get('csrfmiddlewaretoken'),
-                    'action': 'prepare',
-                    'target_year': targetYearId
-                }),
+                body: prepareParams,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
 
@@ -297,6 +343,14 @@
                     invoiceText.innerText = stats.invoices;
                     manualText.innerText = stats.manual;
                     skippedText.innerText = stats.skipped;
+
+                    // Update Success Rates
+                    const getRate = (val) => processedTotal > 0 ? Math.round((val / processedTotal) * 100) + '%' : '0%';
+                    successPctText.innerText = getRate(stats.success);
+                    invoicePctText.innerText = getRate(stats.invoices);
+                    manualPctText.innerText = getRate(stats.manual);
+                    skippedPctText.innerText = getRate(stats.skipped);
+
                     statusText.innerText = `Processing students and billing... (${processedTotal} / ${totalStudents})`;
                 } else {
                     statusText.innerText = "Warning: Error processing a chunk. " + chunkData.message;

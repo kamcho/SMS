@@ -5,7 +5,7 @@ from django.views.generic import ListView, DetailView
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Count, Avg, Sum, Case, When, F, FloatField
+from django.db.models import Q, Count, Avg, Sum, Case, When, F, FloatField, ExpressionWrapper
 from django.db.models.functions import TruncMonth
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
@@ -75,20 +75,35 @@ class DashboardView(LoginRequiredMixin, ListView):
             {'name': d['class_id__grade__name'] or 'Unassigned', 'count': d['count']} for d in grade_data
         ])
 
-        # Wall of Fame: Top Performing Students
-        latest_exam = Exam.objects.order_by('-id').first()
-        if latest_exam:
-            top_performers = ExamSUbjectScore.objects.filter(paper__exam_subject__exam=latest_exam)\
+        # Wall of Fame & Performance Graph Filtering
+        all_exams = Exam.objects.all().order_by('-id')
+        context['exams'] = all_exams
+        
+        selected_exam_id = self.request.GET.get('exam_id')
+        target_exam = None
+        
+        if selected_exam_id:
+            try:
+                target_exam = Exam.objects.get(id=selected_exam_id)
+            except (Exam.DoesNotExist, ValueError):
+                target_exam = all_exams.first()
+        else:
+            target_exam = all_exams.first()
+            
+        context['target_exam'] = target_exam
+
+        if target_exam:
+            # Wall of Fame: Top Performing Students
+            top_performers = ExamSUbjectScore.objects.filter(paper__exam_subject__exam=target_exam)\
                 .values('student__id', 'student__first_name', 'student__last_name', 'student__adm_no')\
-                .annotate(avg_score=Avg('score'))\
+                .annotate(avg_score=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField())))\
                 .order_by('-avg_score')[:4]
             context['top_performers'] = top_performers
-            context['target_exam'] = latest_exam
 
             # Grade Performance line graph data
-            grade_perf = ExamSUbjectScore.objects.filter(paper__exam_subject__exam=latest_exam)\
+            grade_perf = ExamSUbjectScore.objects.filter(paper__exam_subject__exam=target_exam)\
                 .values(name=F('student__studentprofile__class_id__grade__name'))\
-                .annotate(avg=Avg('score'))\
+                .annotate(avg=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField())))\
                 .order_by('name')
             
             context['grade_perf_json'] = json.dumps(list(grade_perf))
@@ -2732,7 +2747,7 @@ def get_comparative_trend_data(subject, current_class, historical_exams):
         for ex in historical_exams:
             avg = ExamSUbjectScore.objects.filter(
                 paper__exam_subject__exam=ex, paper__exam_subject__subject=subject, student__studentprofile__class_id=other_cl
-            ).aggregate(Avg('score'))['score__avg'] or 0
+            ).aggregate(avg=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField())))['avg'] or 0
             cl_averages.append(round(float(avg), 1))
         
         datasets.append({
@@ -2752,7 +2767,7 @@ def get_comparative_trend_data(subject, current_class, historical_exams):
             paper__exam_subject__exam=ex, 
             paper__exam_subject__subject=subject, 
             student__studentprofile__class_id__grade=grade
-        ).aggregate(Avg('score'))['score__avg'] or 0
+        ).aggregate(avg=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField())))['avg'] or 0
         grade_averages.append(round(float(avg), 1))
     
     datasets.append({
@@ -2814,12 +2829,12 @@ def subject_exam_analytics(request, class_id, subject_id, exam_id):
         
     # Calculate Gender distribution
     gender_stats = current_scores.values('student__gender').annotate(
-        avg_score=Avg('score'),
+        avg_score=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField())),
         count=Count('id')
     )
     
     # Average Score
-    avg_score = current_scores.aggregate(Avg('score'))['score__avg'] or 0
+    avg_score = current_scores.aggregate(avg=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField())))['avg'] or 0
     
     # Trend Logic: Performance across ALL exams for THIS subject & class
     subject_exams_ids = ExamSUbjectScore.objects.filter(
@@ -2838,7 +2853,7 @@ def subject_exam_analytics(request, class_id, subject_id, exam_id):
             paper__exam_subject__subject=subject,
             student__studentprofile__class_id=class_obj
         )
-        ex_avg = ex_scores.aggregate(Avg('score'))['score__avg'] or 0
+        ex_avg = ex_scores.aggregate(avg=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField())))['avg'] or 0
         historical_labels.append(f"{ex.name} ({ex.year.start_date.year})")
         historical_averages.append(round(ex_avg, 1))
 
@@ -2871,7 +2886,7 @@ def subject_exam_analytics(request, class_id, subject_id, exam_id):
         for c in all_radar_classes:
             p_avg = ExamSUbjectScore.objects.filter(
                 paper__exam_subject__exam=ex, paper__exam_subject__subject=subject, student__studentprofile__class_id=c
-            ).aggregate(Avg('score'))['score__avg'] or 0
+            ).aggregate(avg=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField())))['avg'] or 0
             ex_data.append(round(float(p_avg), 1))
         
         radar_datasets.append({
@@ -3851,14 +3866,24 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         class_id = self.request.GET.get('class')
         date_from_str = self.request.GET.get('date_from')
         date_to_str = self.request.GET.get('date_to')
+        exam_id = self.request.GET.get('exam')
         
         context['report_type'] = report_type
+        context['selected_exam'] = exam_id
+        context['exams'] = Exam.objects.all().order_by('-id')
+        context['selected_school'] = school_id
+        context['selected_grade'] = grade_id
+        context['selected_class'] = class_id
+        context['selected_date_from'] = date_from_str
+        context['selected_date_to'] = date_to_str
         context['schools'] = School.objects.all().order_by('name')
         
         grades_qs = Grade.objects.all().order_by('name')
         if school_id:
             grades_qs = grades_qs.filter(school_id=school_id)
         context['grades'] = grades_qs
+        if grade_id:
+            context['selected_grade_obj'] = grades_qs.filter(id=grade_id).first()
         context['selected_school'] = school_id
         context['selected_grade'] = grade_id
         context['selected_class'] = class_id
@@ -3984,8 +4009,12 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             queryset = ExamSUbjectScore.objects.all().select_related('student', 'paper__exam_subject__exam', 'class_id')
             if school_id:
                 queryset = queryset.filter(student__studentprofile__school_id=school_id)
+            if grade_id:
+                queryset = queryset.filter(class_id__grade_id=grade_id)
             if class_id:
                 queryset = queryset.filter(class_id_id=class_id)
+            if exam_id:
+                queryset = queryset.filter(paper__exam_subject__exam_id=exam_id)
             if date_from:
                 queryset = queryset.filter(paper__exam_subject__exam__created_at__date__gte=date_from)
             if date_to:
@@ -3996,9 +4025,24 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                 'paper__exam_subject__exam__name', 
                 'paper__exam_subject__exam__year__start_date__year'
             ).annotate(
-                avg_score=Avg('score'),
+                avg_score=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField())),
                 total_entries=Count('id')
             ).order_by('-paper__exam_subject__exam__created_at')
+
+            # NEW: Distribution data for charts
+            # 1. Grade-level counts
+            context['performance_grade_dist'] = list(queryset.values('grade').annotate(count=Count('id')).order_by('grade'))
+            
+            # 2. Subject-wise performance
+            context['performance_subject_dist'] = list(queryset.values('paper__exam_subject__subject__name').annotate(
+                avg_score=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField()))
+            ).order_by('-avg_score'))[:12] # Limit to top 12 subjects for clarity
+
+            # 3. Stream comparison (if grade is selected but No stream is chosen)
+            if grade_id and not class_id:
+                context['stream_comparison'] = list(queryset.values('class_id__name').annotate(
+                    avg_score=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField()))
+                ).order_by('class_id__name'))
 
         return context
 
@@ -4200,7 +4244,13 @@ def migrate_year(request):
                 target_term.save()
 
             # 2. Get Student IDs for chunks
-            student_ids = list(StudentProfile.objects.filter(status='Active').values_list('id', flat=True))
+            skip_classes = request.POST.getlist('skip_classes[]')
+            students_qs = StudentProfile.objects.filter(status='Active')
+            
+            if skip_classes:
+                students_qs = students_qs.exclude(class_id_id__in=skip_classes)
+            
+            student_ids = list(students_qs.values_list('id', flat=True))
             
             return JsonResponse({
                 'status': 'ok',
@@ -4232,6 +4282,8 @@ def migrate_year(request):
             
             profiles = StudentProfile.objects.filter(id__in=student_ids).select_related('class_id', 'class_id__grade', 'school', 'student')
             stats = {'success': 0, 'manual': 0, 'skipped': 0, 'invoices': 0}
+            
+            skip_classes = request.POST.getlist('skip_classes[]')
             
             from django.db import transaction
             with transaction.atomic():
@@ -4300,7 +4352,7 @@ def migrate_year(request):
                                         add_charges = AdditionalCharges.objects.filter(school=profile.school, grades=next_cl.grade)
                                         for ac in add_charges:
                                             # Guard against duplicate invoicing for additional charges
-                                            if not Invoice.objects.filter(student=profile.student, description__icontains=ac.name, created_at__year=target_cal_year).exists():
+                                            if ac.amount and not Invoice.objects.filter(student=profile.student, description__icontains=ac.name, created_at__year=target_cal_year).exists():
                                                 Invoice.objects.create(
                                                     student=profile.student,
                                                     amount=ac.amount,
@@ -4332,8 +4384,10 @@ def migrate_year(request):
 
     current_year = AcademicYear.objects.filter(is_active=True).first()
     academic_years = AcademicYear.objects.all().order_by('-start_date')
+    classes = Class.objects.select_related('grade', 'school').all().order_by('grade__name', 'name')
     
     return render(request, 'core/migrate_year.html', {
         'current_year': current_year,
-        'academic_years': academic_years
+        'academic_years': academic_years,
+        'classes': classes
     })

@@ -270,10 +270,32 @@
                 <div class="w-2 h-8 bg-indigo-600 rounded-full"></div>
                 Academic Performance Benchmark
             </h3>
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 italic">Average Score Progression Across All Grades</p>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 italic">Average Score Progression Across All Grades ({{ target_exam.name|default:"No Exam" }})</p>
         </div>
-        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
-            <i class="fas fa-chart-line text-xl"></i>
+
+        <div class="flex items-center gap-4">
+            <form method="get" class="flex items-center gap-3">
+                {% if search_query %}
+                <input type="hidden" name="q" value="{{ search_query }}">
+                {% endif %}
+                <div class="relative group">
+                    <select name="exam_id" onchange="this.form.submit()" 
+                            class="appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold py-2.5 pl-4 pr-10 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer hover:bg-white shadow-sm">
+                        {% for exam in exams %}
+                        <option value="{{ exam.id }}" {% if target_exam.id == exam.id %}selected{% endif %}>{{ exam.name }}</option>
+                        {% empty %}
+                        <option>No Exams Available</option>
+                        {% endfor %}
+                    </select>
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-indigo-500 transition-colors">
+                        <i class="fas fa-chevron-down text-[10px]"></i>
+                    </div>
+                </div>
+            </form>
+            
+            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
+                <i class="fas fa-chart-line text-xl"></i>
+            </div>
         </div>
     </div>
     <div class="h-80 relative">
