@@ -27,34 +27,88 @@ logger = logging.getLogger(__name__)
 @login_required
 def quiz_list(request):
     """List all quizzes — teachers see their own, admins see all."""
+    from django.db.models import Avg, Count, Sum, Q, F
+    from django.db.models.functions import TruncDate
+    from datetime import timedelta
+
     if request.user.role in ('Admin',) or request.user.is_superuser:
         quizzes = Quiz.objects.all().select_related('subject', 'created_by')
     else:
         quizzes = Quiz.objects.filter(created_by=request.user).select_related('subject', 'created_by')
-    
-    # Dashboard Statistics
+
+    # ── Core Stats ───────────────────────────────────────
     total_quizzes = quizzes.count()
     published_quizzes = quizzes.filter(status='published').count()
     draft_quizzes = quizzes.filter(status='draft').count()
-    
-    # Get recent attempts
-    recent_attempts = QuizAttempt.objects.filter(
-        quiz__in=quizzes
-    ).select_related('student', 'quiz').order_by('-submitted_at')[:5]
-    
-    # Calculate average scores per subject for the subject breakdown
-    from django.db.models import Avg
-    subject_stats = quizzes.filter(status='published').values('subject__name').annotate(
-        avg_score=Avg('attempts__percentage')
-    ).order_by('-avg_score')[:5]
+    closed_quizzes = quizzes.filter(status='closed').count()
+
+    all_attempts = QuizAttempt.objects.filter(quiz__in=quizzes).exclude(status='in_progress')
+    total_attempts = all_attempts.count()
+    overall_avg = all_attempts.aggregate(avg=Avg('percentage'))['avg'] or 0
+    pass_count = all_attempts.filter(passed=True).count()
+    pass_rate = (pass_count / total_attempts * 100) if total_attempts else 0
+
+    # ── Recent Attempts ──────────────────────────────────
+    recent_attempts = all_attempts.select_related(
+        'student', 'quiz', 'quiz__subject'
+    ).order_by('-submitted_at')[:8]
+
+    # ── Subject Performance ──────────────────────────────
+    subject_stats = quizzes.filter(status='published').values(
+        'subject__name'
+    ).annotate(
+        avg_score=Avg('attempts__percentage'),
+        attempt_count=Count('attempts', filter=Q(attempts__status__in=['submitted', 'graded'])),
+        quiz_count=Count('id', distinct=True),
+    ).order_by('-avg_score')[:6]
+
+    # ── Weekly Submission Trend (last 4 weeks) ───────────
+    four_weeks_ago = timezone.now() - timedelta(weeks=4)
+    daily_submissions = (
+        all_attempts
+        .filter(submitted_at__gte=four_weeks_ago)
+        .annotate(day=TruncDate('submitted_at'))
+        .values('day')
+        .annotate(count=Count('id'), avg_pct=Avg('percentage'))
+        .order_by('day')
+    )
+    trend_labels = [entry['day'].strftime('%d %b') for entry in daily_submissions]
+    trend_counts = [entry['count'] for entry in daily_submissions]
+    trend_avg    = [round(float(entry['avg_pct'] or 0), 1) for entry in daily_submissions]
+
+    # ── Top Performers ───────────────────────────────────
+    top_performers = (
+        all_attempts
+        .values('student__id', 'student__first_name', 'student__last_name')
+        .annotate(avg_pct=Avg('percentage'), attempts_count=Count('id'))
+        .order_by('-avg_pct')[:5]
+    )
+
+    # ── Grade Distribution ───────────────────────────────
+    grade_a = all_attempts.filter(percentage__gte=80).count()
+    grade_b = all_attempts.filter(percentage__gte=60, percentage__lt=80).count()
+    grade_c = all_attempts.filter(percentage__gte=40, percentage__lt=60).count()
+    grade_d = all_attempts.filter(percentage__lt=40).count()
 
     return render(request, 'e_learning/quiz_list.html', {
         'quizzes': quizzes,
         'total_quizzes': total_quizzes,
         'published_quizzes': published_quizzes,
         'draft_quizzes': draft_quizzes,
+        'closed_quizzes': closed_quizzes,
+        'total_attempts': total_attempts,
+        'overall_avg': overall_avg,
+        'pass_rate': pass_rate,
         'recent_attempts': recent_attempts,
         'subject_stats': subject_stats,
+        'trend_labels': trend_labels,
+        'trend_counts': trend_counts,
+        'trend_avg': trend_avg,
+        'top_performers': top_performers,
+        'grade_a': grade_a,
+        'grade_b': grade_b,
+        'grade_c': grade_c,
+        'grade_d': grade_d,
     })
 
 
@@ -195,10 +249,76 @@ def quiz_questions(request, quiz_id):
         messages.success(request, 'Question added successfully!')
         return redirect('e_learning:quiz_questions', quiz_id=quiz.pk)
 
+    from Exam.models import Subject
+    # Get all subjects to populate the filter dropdowns
+    all_subjects = Subject.objects.all().order_by('grade', 'name')
+
     return render(request, 'e_learning/quiz_questions.html', {
         'quiz': quiz,
         'questions': questions,
+        'all_subjects': all_subjects
     })
+
+
+@login_required
+def search_questions(request):
+    """AJAX endpoint: search existing questions not yet in a given quiz."""
+    quiz_id = request.GET.get('quiz_id')
+    query = request.GET.get('q', '').strip()
+    q_type = request.GET.get('type', '')
+    grade = request.GET.get('grade', '')
+    subject_id = request.GET.get('subject', '')
+
+    quiz = get_object_or_404(Quiz, pk=quiz_id)
+    existing_ids = quiz.questions.values_list('id', flat=True)
+
+    qs = Question.objects.filter(is_active=True).exclude(id__in=existing_ids)
+
+    # Filter by Grade/Subject. Note: Questions belong to quizzes, and quizzes belong to subjects.
+    # Alternatively they belong to substrands. We'll check the quiz subject.
+    if subject_id:
+        qs = qs.filter(quizzes__subject_id=subject_id).distinct()
+    elif grade:
+        qs = qs.filter(quizzes__subject__grade=grade).distinct()
+
+    if query:
+        qs = qs.filter(question__icontains=query)
+    if q_type:
+        qs = qs.filter(question_type=q_type)
+
+    qs = qs.order_by('-created_at')[:20]
+
+    results = []
+    for q in qs:
+        quizzes_using = list(q.quizzes.values_list('title', flat=True)[:3])
+        results.append({
+            'id': q.id,
+            'question': q.question[:120],
+            'question_type': q.get_question_type_display(),
+            'type_key': q.question_type,
+            'marks': q.marks,
+            'used_in': quizzes_using,
+            'options_count': q.options.count() if q.question_type == 'multiple_choice' else 0,
+        })
+
+    return JsonResponse({'results': results})
+
+
+@login_required
+@require_POST
+def add_existing_question(request, quiz_id):
+    """Link an existing question to this quiz via M2M."""
+    quiz = get_object_or_404(Quiz, pk=quiz_id)
+    question_id = request.POST.get('question_id')
+    question = get_object_or_404(Question, pk=question_id)
+
+    if quiz.questions.filter(pk=question.pk).exists():
+        messages.warning(request, 'This question is already in the quiz.')
+    else:
+        quiz.questions.add(question)
+        messages.success(request, f'Question added to "{quiz.title}"!')
+
+    return redirect('e_learning:quiz_questions', quiz_id=quiz.pk)
 
 
 @login_required

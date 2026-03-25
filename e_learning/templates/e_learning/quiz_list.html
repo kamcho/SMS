@@ -1,363 +1,654 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Quiz Management Dashboard — E-Learning{% endblock %}
+{% block title %}Quiz Analytics Dashboard — E-Learning{% endblock %}
+
+{% block page_header %}
+<h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Quiz Analytics</h1>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-0.5">E-Learning Intelligence Dashboard</p>
+{% endblock %}
 
 {% block extra_css %}
 <style>
-    .card-purple {
-        background: linear-gradient(135deg, #4c1d95 0%, #2e1065 100%);
+    /* ── Metric Card Animations ─────────────── */
+    .metric-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .glass-effect {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
+    .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px -12px rgba(0,0,0,0.08);
     }
-    .sidebar-active-gradient {
-        background: linear-gradient(90deg, #6366f1 0%, #818cf8 100%);
+    .metric-value {
+        font-variant-numeric: tabular-nums;
     }
-    .hover-scale {
-        transition: transform 0.2s ease-in-out;
+
+    /* ── Animated Progress Bars ────────────── */
+    .progress-fill {
+        transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .hover-scale:hover {
-        transform: scale(1.02);
+
+    /* ── Table Styling ────────────────────── */
+    .data-table tr {
+        transition: background 0.15s ease;
+    }
+    .data-table tbody tr:hover {
+        background: rgba(99, 102, 241, 0.04);
+    }
+
+    /* ── Sparkline shimmer ────────────────── */
+    @keyframes shimmer {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+    .live-dot {
+        animation: shimmer 2s ease-in-out infinite;
+    }
+
+    /* ── Donut center text ────────────────── */
+    /* ── Filter pill active state ──────────── */
+    .quiz-filter-btn {
+        color: #64748b;
+    }
+    .quiz-filter-btn:hover {
+        background: rgba(99, 102, 241, 0.06);
+        color: #4f46e5;
+    }
+    .quiz-filter-btn.active-filter {
+        background: white;
+        color: #1e293b;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .donut-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-[1400px] mx-auto pb-12">
-    <!-- Welcome Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+<div class="max-w-[1400px] mx-auto pb-16">
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 1: Summary Metrics Row
+         ═══════════════════════════════════════════ -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
-            <h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                Welcome Back, <span class="text-indigo-600">{{ request.user.get_full_name|default:request.user.email }}</span>!
-            </h1>
-            <p class="text-slate-500 font-medium mt-1">Here's what's happening in your e-learning modules today.</p>
+            <p class="text-slate-500 text-sm font-medium">Welcome back, <span class="font-bold text-slate-700 dark:text-slate-200">{{ request.user.get_full_name|default:request.user.email }}</span></p>
         </div>
-        <div class="flex items-center gap-3 bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-            <button class="px-5 py-2.5 rounded-xl font-bold text-sm bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
-                Create Quiz
-            </button>
-            <button class="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
-                Generate Reports
-            </button>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'e_learning:quiz_create' %}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 active:scale-95 transition-all">
+                <i class="fas fa-plus text-xs"></i> New Quiz
+            </a>
+            <a href="{% url 'e_learning:assignment_create' %}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-700 hover:border-indigo-300 transition-all">
+                <i class="fas fa-paper-plane text-xs text-indigo-500"></i> Assign Quiz
+            </a>
         </div>
     </div>
 
-    <!-- Main Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        <!-- Left: Highlights & Charts (Col 8) -->
-        <div class="lg:col-span-8 space-y-8">
-            
-            <!-- Top Summary Cards Row -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Info Card (Purple) -->
-                <div class="card-purple rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-indigo-900/20">
-                    <div class="relative z-10">
-                        <div class="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-8">
-                            <i class="fas fa-brain text-2xl"></i>
-                        </div>
-                        <h2 class="text-3xl font-black mb-3 leading-tight">Quiz Library Systems</h2>
-                        <p class="text-indigo-100 text-sm mb-10 max-w-[200px]">Manage and track all interactive assessments.</p>
-                        
-                        <div class="grid grid-cols-2 gap-6">
-                            <div class="bg-white/10 backdrop-blur-sm p-5 rounded-3xl">
-                                <p class="text-4xl font-black">{{ total_quizzes }}</p>
-                                <p class="text-xs font-bold uppercase tracking-widest text-indigo-200 mt-1">Total Quizzes</p>
-                            </div>
-                            <div class="bg-white/10 backdrop-blur-sm p-5 rounded-3xl">
-                                <p class="text-4xl font-black">{{ published_quizzes }}</p>
-                                <p class="text-xs font-bold uppercase tracking-widest text-indigo-200 mt-1">Published</p>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Decorative Background Shapes -->
-                    <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
-                    <div class="absolute -left-10 -top-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <!-- Total Quizzes -->
+        <div class="metric-card bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
+                    <i class="fas fa-layer-group text-indigo-600 text-sm"></i>
                 </div>
-
-                <!-- Skill Graph (Radar Chart) -->
-                <div class="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-sm border border-slate-100 dark:border-slate-800">
-                    <div class="flex items-center justify-between mb-8">
-                        <h3 class="text-xl font-black text-slate-800 dark:text-white">Subject Mastery</h3>
-                        <div class="bg-indigo-50 dark:bg-indigo-500/10 px-4 py-1.5 rounded-full">
-                            <span class="text-xs font-black text-indigo-600 uppercase">Averages</span>
-                        </div>
-                    </div>
-                    <div class="h-[220px] w-full">
-                        <canvas id="skillRadar"></canvas>
-                    </div>
-                </div>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</span>
             </div>
-
-            <!-- Bottom Stats Row -->
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
-                <!-- Bar Chart: Progress Statistics -->
-                <div class="md:col-span-12 bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-sm border border-slate-100 dark:border-slate-800">
-                    <div class="flex items-center justify-between mb-8">
-                        <div>
-                            <h3 class="text-xl font-black text-slate-800 dark:text-white">Recent Activity Trends</h3>
-                            <p class="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Quiz Submissions per Week</p>
-                        </div>
-                        <select class="bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-xs font-black p-2 focus:ring-2 ring-indigo-500">
-                            <option>Last 7 Days</option>
-                            <option>Last 30 Days</option>
-                        </select>
-                    </div>
-                    <div class="h-[300px]">
-                        <canvas id="progressChart"></canvas>
-                    </div>
-                </div>
+            <p class="metric-value text-3xl font-black text-slate-900 dark:text-white">{{ total_quizzes }}</p>
+            <div class="flex items-center gap-2 mt-2">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600">{{ published_quizzes }} live</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600">{{ draft_quizzes }} draft</span>
             </div>
         </div>
 
-        <!-- Right: Members & Scores (Col 4) -->
-        <div class="lg:col-span-4 space-y-8">
-            
-            <!-- Recent Participants -->
-            <div class="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-sm border border-slate-100 dark:border-slate-800">
-                <div class="flex items-center justify-between mb-10">
-                    <h3 class="text-xl font-black text-slate-800 dark:text-white">Recent Attempts</h3>
-                    <button class="text-indigo-600 hover:text-indigo-700 font-bold text-sm tracking-tight">View All</button>
+        <!-- Total Submissions -->
+        <div class="metric-card bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                    <i class="fas fa-file-alt text-blue-600 text-sm"></i>
                 </div>
-                
-                <div class="space-y-6">
-                    {% for attempt in recent_attempts %}
-                    <div class="flex items-center gap-4 group cursor-pointer">
-                        <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-slate-900 dark:text-white transition-all group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white shadow-sm">
-                            {{ attempt.student.get_full_name|slice:":1" }}
-                        </div>
-                        <div class="flex-grow min-w-0">
-                            <h4 class="text-sm font-black text-slate-900 dark:text-white truncate group-hover:text-indigo-600 transition-colors">
-                                {{ attempt.student.get_full_name }}
-                            </h4>
-                            <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">{{ attempt.quiz.title|truncatechars:15 }}</p>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-sm font-black text-indigo-600">{{ attempt.percentage|floatformat:0 }}%</span>
-                        </div>
-                    </div>
-                    {% empty %}
-                    <p class="text-sm text-slate-500 italic">No recent attempts found.</p>
-                    {% endfor %}
-                </div>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Submissions</span>
             </div>
+            <p class="metric-value text-3xl font-black text-slate-900 dark:text-white">{{ total_attempts }}</p>
+            <p class="text-xs text-slate-500 mt-2 font-medium">Completed attempts</p>
+        </div>
 
-            <!-- Subject Performance Cards -->
-            <div class="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 shadow-sm border border-slate-100 dark:border-slate-800">
-                <h3 class="text-xl font-black text-slate-800 dark:text-white mb-8">Subject Averages</h3>
-                
-                <div class="space-y-8">
-                    {% for stat in subject_stats %}
-                    <div>
-                        <div class="flex justify-between items-center mb-3">
-                            <span class="text-sm font-black text-slate-700 dark:text-slate-300">{{ stat.subject__name }}</span>
-                            <span class="text-sm font-black text-indigo-600">{{ stat.avg_score|floatformat:1 }}%</span>
-                        </div>
-                        <div class="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div class="h-full bg-indigo-500 rounded-full dashboard-progress" style="width: 0%;" data-width="{{ stat.avg_score }}"></div>
-                        </div>
-                    </div>
-                    {% empty %}
-                    <p class="text-sm text-slate-500 italic">No quiz data available.</p>
-                    {% endfor %}
+        <!-- Average Score -->
+        <div class="metric-card bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center">
+                    <i class="fas fa-chart-line text-violet-600 text-sm"></i>
                 </div>
-                
-                <button class="w-full mt-10 py-4 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white rounded-2xl text-slate-900 dark:text-white font-black text-sm transition-all shadow-sm">
-                    Detailed Analytics
-                </button>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Avg Score</span>
             </div>
+            <p class="metric-value text-3xl font-black text-slate-900 dark:text-white">{{ overall_avg|floatformat:1 }}%</p>
+            <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden">
+                <div class="progress-fill h-full bg-violet-500 rounded-full" style="width: 0%;" data-width="{{ overall_avg }}"></div>
+            </div>
+        </div>
 
-            <!-- Promo/Image Card -->
-            <div class="relative rounded-[2.5rem] bg-indigo-950 overflow-hidden shadow-2xl hover-scale cursor-pointer group h-[300px]">
-                <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2671&auto=format&fit=crop" class="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"></div>
-                
-                <div class="absolute bottom-8 left-8 right-8">
-                    <h3 class="text-2xl font-black text-white mb-3">Mastering the Art of Learning</h3>
-                    <p class="text-slate-300 text-sm mb-6 font-medium">Whether you're picking up a new hobby, aiming to advance your...</p>
-                    <a href="#" class="flex items-center gap-2 text-white font-black text-sm group">
-                        Read more <i class="fas fa-arrow-right text-[10px] group-hover:translate-x-2 transition-transform"></i>
-                    </a>
+        <!-- Pass Rate -->
+        <div class="metric-card bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
+                    <i class="fas fa-check-circle text-emerald-600 text-sm"></i>
                 </div>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Pass Rate</span>
+            </div>
+            <p class="metric-value text-3xl font-black text-slate-900 dark:text-white">{{ pass_rate|floatformat:1 }}%</p>
+            <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden">
+                <div class="progress-fill h-full bg-emerald-500 rounded-full" style="width: 0%;" data-width="{{ pass_rate }}"></div>
             </div>
         </div>
     </div>
-    
-    <!-- Quiz List Toggle/Section -->
-    <div class="mt-16">
-        <div class="flex items-center justify-between mb-10">
-            <div>
-                <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Active Quiz Library</h2>
-                <p class="text-slate-500 font-medium">Detailed view of all your created assessments</p>
+
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 2: Charts Row (Trend Line + Grade Donut)
+         ═══════════════════════════════════════════ -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+
+        <!-- Submission Trend Line Chart -->
+        <div class="lg:col-span-8 bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-base font-black text-slate-800 dark:text-white">Submission Trends</h3>
+                    <p class="text-xs text-slate-500 font-medium mt-0.5">Daily submissions & average scores — last 4 weeks</p>
+                </div>
+                <div class="flex items-center gap-4 text-xs font-bold text-slate-500">
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span> Submissions</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span> Avg Score</span>
+                </div>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="relative">
-                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input type="text" placeholder="Search quizzes..." class="pl-12 pr-6 py-3 bg-white dark:bg-slate-900 border-none rounded-2xl shadow-sm focus:ring-2 ring-indigo-500 min-w-[300px] text-sm font-bold">
-                </div>
-                <div class="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-sm">
-                    <button class="w-11 h-11 flex items-center justify-center bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 rounded-xl">
-                        <i class="fas fa-th-large"></i>
-                    </button>
-                    <button class="w-11 h-11 flex items-center justify-center text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
-                        <i class="fas fa-list"></i>
-                    </button>
-                </div>
+            <div class="h-[260px]">
+                <canvas id="trendChart"></canvas>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {% for quiz in quizzes %}
-            <div class="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all group overflow-hidden relative">
-                <div class="flex items-center justify-between mb-8">
-                    <div class="w-14 h-14 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                        <i class="fas fa-clipboard-list text-xl"></i>
-                    </div>
-                    {% if quiz.status == 'published' %}
-                    <span class="px-4 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 font-black text-[10px] uppercase tracking-widest rounded-full">Active</span>
-                    {% else %}
-                    <span class="px-4 py-1.5 bg-amber-50 dark:bg-amber-500/10 text-amber-600 font-black text-[10px] uppercase tracking-widest rounded-full">Draft</span>
-                    {% endif %}
+        <!-- Grade Distribution Donut -->
+        <div class="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800">
+            <div class="mb-6">
+                <h3 class="text-base font-black text-slate-800 dark:text-white">Grade Distribution</h3>
+                <p class="text-xs text-slate-500 font-medium mt-0.5">Performance breakdown across all attempts</p>
+            </div>
+            <div class="relative mx-auto" style="width: 180px; height: 180px;">
+                <canvas id="gradeDonut"></canvas>
+                <div class="donut-center">
+                    <p class="text-2xl font-black text-slate-900 dark:text-white">{{ total_attempts }}</p>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total</p>
                 </div>
-                
-                <h3 class="text-xl font-black text-slate-900 dark:text-white mb-2 leading-tight pr-4">{{ quiz.title }}</h3>
-                <p class="text-xs text-slate-500 font-bold uppercase tracking-widest mb-6">{{ quiz.subject.name }} · {{ quiz.subject.grade }}</p>
-                
-                <div class="grid grid-cols-2 gap-4 mb-8">
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-question-circle text-indigo-400 text-xs"></i>
-                        <span class="text-xs font-black text-slate-600 dark:text-slate-400">{{ quiz.question_count }} Qs</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-star text-amber-400 text-xs"></i>
-                        <span class="text-xs font-black text-slate-600 dark:text-slate-400">{{ quiz.total_marks }} Marks</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-clock text-rose-400 text-xs"></i>
-                        <span class="text-xs font-black text-slate-600 dark:text-slate-400">{{ quiz.time_limit_minutes }} Min</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-users text-blue-400 text-xs"></i>
-                        <span class="text-xs font-black text-slate-600 dark:text-slate-400">{{ quiz.attempts.count }} Entries</span>
-                    </div>
-                </div>
-
+            </div>
+            <div class="grid grid-cols-2 gap-3 mt-6">
                 <div class="flex items-center gap-2">
-                    <a href="{% url 'e_learning:quiz_questions' quiz.pk %}" class="flex-grow py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm font-black text-slate-900 dark:text-white rounded-xl text-center transition-all">
-                        Edit
-                    </a>
-                    <a href="{% url 'e_learning:quiz_results' quiz.pk %}" class="w-12 h-12 flex items-center justify-center bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-600/20 hover:scale-105 transition-all">
-                        <i class="fas fa-chart-bar"></i>
-                    </a>
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">A (80%+): {{ grade_a }}</span>
                 </div>
-                
-                <!-- Hover Progress Line -->
-                <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">B (60-79%): {{ grade_b }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">C (40-59%): {{ grade_c }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">D (<40%): {{ grade_d }}</span>
+                </div>
             </div>
-            {% endfor %}
         </div>
     </div>
+
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 3: Subject Performance Table + Top Performers
+         ═══════════════════════════════════════════ -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+
+        <!-- Subject Performance Table -->
+        <div class="lg:col-span-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+            <div class="p-6 pb-0">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-base font-black text-slate-800 dark:text-white">Subject Performance</h3>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Published Quizzes</span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="data-table w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-100 dark:border-slate-800">
+                            <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">#</th>
+                            <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</th>
+                            <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Avg Score</th>
+                            <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Performance</th>
+                            <th class="text-right px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Attempts</th>
+                            <th class="text-right px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Quizzes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in subject_stats %}
+                        <tr class="border-b border-slate-50 dark:border-slate-800/50">
+                            <td class="px-6 py-4 text-xs font-black text-slate-400">{{ forloop.counter }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
+                                        <i class="fas fa-book text-indigo-500 text-xs"></i>
+                                    </div>
+                                    <span class="font-bold text-slate-800 dark:text-white text-sm">{{ stat.subject__name }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="font-black text-sm {% if stat.avg_score >= 70 %}text-emerald-600{% elif stat.avg_score >= 50 %}text-amber-600{% else %}text-rose-600{% endif %}">
+                                    {{ stat.avg_score|floatformat:1 }}%
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="w-32 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div class="progress-fill h-full rounded-full {% if stat.avg_score >= 70 %}bg-emerald-500{% elif stat.avg_score >= 50 %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width: 0%;" data-width="{{ stat.avg_score }}"></div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-right font-bold text-slate-600 dark:text-slate-400">{{ stat.attempt_count }}</td>
+                            <td class="px-6 py-4 text-right font-bold text-slate-600 dark:text-slate-400">{{ stat.quiz_count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-6 py-10 text-center text-slate-400 text-sm">No published quiz data available yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Top Performers -->
+        <div class="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-base font-black text-slate-800 dark:text-white">Top Performers</h3>
+                <span class="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-500"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot inline-block"></span> Live</span>
+            </div>
+            <div class="space-y-4">
+                {% for perf in top_performers %}
+                <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                    <div class="w-9 h-9 rounded-full flex items-center justify-center font-black text-sm
+                        {% if forloop.counter == 1 %}bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400
+                        {% elif forloop.counter == 2 %}bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300
+                        {% elif forloop.counter == 3 %}bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400
+                        {% else %}bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400{% endif %}
+                    ">
+                        {% if forloop.counter <= 3 %}
+                        <i class="fas fa-trophy text-xs"></i>
+                        {% else %}
+                        {{ forloop.counter }}
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <p class="text-sm font-bold text-slate-800 dark:text-white truncate">{{ perf.student__first_name }} {{ perf.student__last_name }}</p>
+                        <p class="text-[11px] text-slate-400 font-medium">{{ perf.attempts_count }} attempt{{ perf.attempts_count|pluralize }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-black {% if perf.avg_pct >= 80 %}text-emerald-600{% elif perf.avg_pct >= 60 %}text-blue-600{% else %}text-amber-600{% endif %}">{{ perf.avg_pct|floatformat:1 }}%</p>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-sm text-slate-400 text-center py-6">No attempts yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 4: Recent Attempts Feed
+         ═══════════════════════════════════════════ -->
+    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden mb-8">
+        <div class="p-6 pb-0">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-base font-black text-slate-800 dark:text-white">Recent Submissions</h3>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Latest activity</span>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="data-table w-full text-sm">
+                <thead>
+                    <tr class="border-b border-slate-100 dark:border-slate-800">
+                        <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Student</th>
+                        <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Quiz</th>
+                        <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</th>
+                        <th class="text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Score</th>
+                        <th class="text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Result</th>
+                        <th class="text-right px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Submitted</th>
+                        <th class="text-right px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attempt in recent_attempts %}
+                    <tr class="border-b border-slate-50 dark:border-slate-800/50">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+                                    {{ attempt.student.first_name|slice:":1" }}
+                                </div>
+                                <span class="font-bold text-slate-800 dark:text-white text-sm">{{ attempt.student.get_full_name|truncatechars:20 }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm font-medium text-slate-600 dark:text-slate-400">{{ attempt.quiz.title|truncatechars:25 }}</td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">{{ attempt.quiz.subject.name }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="font-black text-sm {% if attempt.percentage >= 80 %}text-emerald-600{% elif attempt.percentage >= 50 %}text-blue-600{% else %}text-rose-600{% endif %}">
+                                {{ attempt.percentage|floatformat:0 }}%
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if attempt.passed %}
+                            <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600">
+                                <i class="fas fa-check text-[8px]"></i> Pass
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-500/10 text-rose-600">
+                                <i class="fas fa-times text-[8px]"></i> Fail
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right text-xs text-slate-400 font-medium">{{ attempt.submitted_at|timesince }} ago</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'e_learning:attempt_detail' attempt.pk %}" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all">
+                                <i class="fas fa-arrow-right text-xs"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-10 text-center text-slate-400 text-sm">No submissions yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════
+         SECTION 5: Quiz Library (Data Table)
+         ═══════════════════════════════════════════ -->
+    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden mb-6">
+        <div class="p-6 pb-4">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-base font-black text-slate-900 dark:text-white tracking-tight">Quiz Library</h2>
+                    <p class="text-xs text-slate-500 font-medium mt-0.5">{{ total_quizzes }} assessment{{ total_quizzes|pluralize }} across all subjects</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <!-- Filter pills -->
+                    <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 p-1 rounded-xl">
+                        <button onclick="filterQuizzes('all')" class="quiz-filter-btn active-filter px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all" data-filter="all">
+                            All <span class="ml-1 text-slate-400">{{ total_quizzes }}</span>
+                        </button>
+                        <button onclick="filterQuizzes('published')" class="quiz-filter-btn px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all" data-filter="published">
+                            Live <span class="ml-1 text-emerald-500">{{ published_quizzes }}</span>
+                        </button>
+                        <button onclick="filterQuizzes('draft')" class="quiz-filter-btn px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all" data-filter="draft">
+                            Draft <span class="ml-1 text-amber-500">{{ draft_quizzes }}</span>
+                        </button>
+                    </div>
+                    <!-- Search -->
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                        <input type="text" id="quizSearch" placeholder="Search..." class="pl-8 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-xs font-medium focus:ring-2 ring-indigo-500 outline-none w-44 transition-all">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="data-table w-full text-sm" id="quizTable">
+                <thead>
+                    <tr class="border-y border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                        <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">#</th>
+                        <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Quiz</th>
+                        <th class="text-left px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</th>
+                        <th class="text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                        <th class="text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Questions</th>
+                        <th class="text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Marks</th>
+                        <th class="text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            <i class="fas fa-clock mr-1"></i>Time
+                        </th>
+                        <th class="text-center px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Submissions</th>
+                        <th class="text-right px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for quiz in quizzes %}
+                    <tr class="quiz-row border-b border-slate-50 dark:border-slate-800/50 group" data-title="{{ quiz.title|lower }}" data-status="{{ quiz.status }}">
+                        <td class="px-6 py-4 text-xs font-black text-slate-300 dark:text-slate-600">{{ forloop.counter }}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                                    {% if quiz.status == 'published' %}bg-indigo-50 dark:bg-indigo-500/10
+                                    {% elif quiz.status == 'draft' %}bg-amber-50 dark:bg-amber-500/10
+                                    {% else %}bg-slate-100 dark:bg-slate-800{% endif %}
+                                ">
+                                    <i class="fas fa-clipboard-list text-sm
+                                        {% if quiz.status == 'published' %}text-indigo-500
+                                        {% elif quiz.status == 'draft' %}text-amber-500
+                                        {% else %}text-slate-400{% endif %}
+                                    "></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="font-bold text-slate-800 dark:text-white text-sm truncate max-w-[220px] group-hover:text-indigo-600 transition-colors">{{ quiz.title }}</p>
+                                    <p class="text-[10px] text-slate-400 font-medium mt-0.5">by {{ quiz.created_by.get_full_name|default:quiz.created_by.email|truncatechars:20 }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block"></span>
+                                {{ quiz.subject.name }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if quiz.status == 'published' %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot inline-block"></span> Live
+                            </span>
+                            {% elif quiz.status == 'draft' %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span> Draft
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span> Closed
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-center font-bold text-slate-700 dark:text-slate-300">{{ quiz.question_count }}</td>
+                        <td class="px-6 py-4 text-center font-bold text-slate-700 dark:text-slate-300">{{ quiz.total_marks }}</td>
+                        <td class="px-6 py-4 text-center text-xs font-medium text-slate-500">{{ quiz.time_limit_minutes }} min</td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="font-black text-sm text-indigo-600">{{ quiz.attempts.count }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-end gap-1.5">
+                                <a href="{% url 'e_learning:quiz_questions' quiz.pk %}" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all" title="Edit questions">
+                                    <i class="fas fa-pen text-[11px]"></i>
+                                </a>
+                                <a href="{% url 'e_learning:quiz_results' quiz.pk %}" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all" title="View results">
+                                    <i class="fas fa-chart-bar text-[11px]"></i>
+                                </a>
+                                <form method="post" action="{% url 'e_learning:quiz_publish' quiz.pk %}" class="inline">
+                                    {% csrf_token %}
+                                    {% if quiz.status == 'published' %}
+                                    <input type="hidden" name="action" value="close">
+                                    <button type="submit" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all" title="Close quiz">
+                                        <i class="fas fa-lock text-[11px]"></i>
+                                    </button>
+                                    {% elif quiz.status == 'draft' %}
+                                    <input type="hidden" name="action" value="publish">
+                                    <button type="submit" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all" title="Publish quiz">
+                                        <i class="fas fa-paper-plane text-[11px]"></i>
+                                    </button>
+                                    {% else %}
+                                    <input type="hidden" name="action" value="draft">
+                                    <button type="submit" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-all" title="Revert to draft">
+                                        <i class="fas fa-redo text-[11px]"></i>
+                                    </button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="px-6 py-16 text-center">
+                            <div class="w-14 h-14 mx-auto bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-3">
+                                <i class="fas fa-clipboard-list text-xl text-slate-400"></i>
+                            </div>
+                            <p class="text-slate-500 font-bold text-sm">No quizzes created yet</p>
+                            <p class="text-xs text-slate-400 mt-1">Get started by creating your first quiz!</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 
-<!-- Chart.js -->
+<!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Progress bars animation
-        setTimeout(() => {
-            const bars = document.querySelectorAll('.dashboard-progress');
-            bars.forEach(bar => {
-                const width = bar.getAttribute('data-width');
-                bar.style.width = width + '%';
-            });
-        }, 300);
+document.addEventListener('DOMContentLoaded', () => {
 
-        // Radar Chart
-        const radarCtx = document.getElementById('skillRadar').getContext('2d');
-        const subjectsList = [{% for stat in subject_stats %}"{{ stat.subject__name|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
-        const scoresList = [{% for stat in subject_stats %}{{ stat.avg_score|default:0 }}{% if not forloop.last %}, {% endif %}{% endfor %}];
-        
-        // Fill dummy data if list is short
-        while (subjectsList.length < 5) {
-            subjectsList.push('N/A');
-            scoresList.push(0);
-        }
-
-        new Chart(radarCtx, {
-            type: 'radar',
-            data: {
-                labels: subjectsList,
-                datasets: [{
-                    label: 'Class Performance',
-                    data: scoresList,
-                    backgroundColor: 'rgba(99, 102, 241, 0.3)',
-                    borderColor: '#6366f1',
-                    borderWidth: 3,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: '#6366f1',
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    tension: 0.2
-                }]
-            },
-            options: {
-                plugins: { legend: { display: false } },
-                scales: {
-                    r: {
-                        angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                        pointLabels: { color: '#64748b', font: { weight: 'bold', size: 10 } },
-                        suggestedMin: 0,
-                        suggestedMax: 100,
-                        ticks: { display: false }
-                    }
-                }
-            }
+    // ── Animate progress bars ────────────────────────
+    setTimeout(() => {
+        document.querySelectorAll('.progress-fill').forEach(bar => {
+            bar.style.width = bar.getAttribute('data-width') + '%';
         });
+    }, 200);
 
-        // Progress Chart (Weekly Submissions)
-        const progCtx = document.getElementById('progressChart').getContext('2d');
-        new Chart(progCtx, {
-            type: 'bar',
+    // ── Quiz search/filter ───────────────────────────
+    const searchInput = document.getElementById('quizSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            document.querySelectorAll('.quiz-row').forEach(row => {
+                const title = row.getAttribute('data-title');
+                row.style.display = title.includes(q) ? '' : 'none';
+            });
+        });
+    }
+
+    // ── Chart defaults ───────────────────────────────
+    Chart.defaults.font.family = "'Outfit', sans-serif";
+
+    // ── Submission Trend Chart ────────────────────────
+    const trendLabels = {{ trend_labels|safe }};
+    const trendCounts = {{ trend_counts|safe }};
+    const trendAvg = {{ trend_avg|safe }};
+
+    const trendCtx = document.getElementById('trendChart');
+    if (trendCtx) {
+        new Chart(trendCtx.getContext('2d'), {
+            type: 'line',
             data: {
-                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                labels: trendLabels.length ? trendLabels : ['No data'],
                 datasets: [
                     {
                         label: 'Submissions',
-                        data: [65, 45, 75, 50, 90, 30, 40],
-                        backgroundColor: '#6366f1',
-                        borderRadius: 12,
-                        barThickness: 24
+                        data: trendCounts.length ? trendCounts : [0],
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#6366f1',
+                        pointBorderWidth: 2,
+                        yAxisID: 'y',
                     },
                     {
-                        label: 'Average Score',
-                        data: [80, 70, 85, 82, 78, 90, 85],
-                        backgroundColor: '#e2e8f0',
-                        borderRadius: 12,
-                        barThickness: 24
+                        label: 'Avg Score %',
+                        data: trendAvg.length ? trendAvg : [0],
+                        borderColor: '#34d399',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [6, 4],
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: '#34d399',
+                        yAxisID: 'y1',
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', cornerRadius: 10, padding: 12, titleFont: { weight: 'bold' } } },
                 scales: {
-                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { weight: 'black', size: 11 }, color: '#94a3b8' } },
-                    y: { 
-                        grid: { color: 'rgba(226, 232, 240, 0.4)', drawBorder: false }, 
-                        border: { display: false },
-                        ticks: { font: { weight: 'bold' }, color: '#94a3b8', stepSize: 20 }
-                    }
+                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8', maxTicksLimit: 10 } },
+                    y: { position: 'left', grid: { color: 'rgba(226, 232, 240, 0.3)' }, border: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8', stepSize: 1 }, title: { display: true, text: 'Submissions', color: '#94a3b8', font: { size: 10, weight: '700' } } },
+                    y1: { position: 'right', grid: { display: false }, border: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8' }, min: 0, max: 100, title: { display: true, text: 'Avg %', color: '#94a3b8', font: { size: 10, weight: '700' } } },
                 }
             }
         });
+    }
+
+    // ── Grade Distribution Donut ──────────────────────
+    const donutCtx = document.getElementById('gradeDonut');
+    if (donutCtx) {
+        new Chart(donutCtx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['A (80%+)', 'B (60-79%)', 'C (40-59%)', 'D (<40%)'],
+                datasets: [{
+                    data: [{{ grade_a }}, {{ grade_b }}, {{ grade_c }}, {{ grade_d }}],
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                    borderWidth: 0,
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { backgroundColor: '#1e293b', cornerRadius: 10, padding: 12 }
+                }
+            }
+        });
+    }
+
+});
+
+// ── Quiz Library: Status filter ──────────────────
+function filterQuizzes(status) {
+    // Update active pill
+    document.querySelectorAll('.quiz-filter-btn').forEach(btn => {
+        btn.classList.toggle('active-filter', btn.getAttribute('data-filter') === status);
     });
+    // Show/hide rows
+    document.querySelectorAll('.quiz-row').forEach(row => {
+        if (status === 'all') {
+            row.style.display = '';
+        } else {
+            row.style.display = row.getAttribute('data-status') === status ? '' : 'none';
+        }
+    });
+}
 </script>
 {% endblock %}

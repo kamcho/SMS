@@ -53,22 +53,33 @@ class QuizGradingService:
                 expected = answer.question.expected_answer or "Accuracy and clarity related to the topic."
                 student_text = answer.text_answer or "No answer provided."
 
+                system_instruction = (
+                    "You are a strict, objective, and fair academic grader for an e-learning platform. "
+                    "You evaluate student short-answer responses based heavily on the 'Model/Expected Answer'.\n\n"
+                    "STRICT GRADING RULES:\n"
+                    "1. If the student's response is completely irrelevant, nonsensical, or entirely incorrect, you MUST award EXACTLY 0 marks.\n"
+                    "2. Do not give 'effort' or 'participation' marks. 0 is the correct score for a completely wrong answer.\n"
+                    "3. For partial understanding, award partial marks proportionally up to the Max Marks.\n"
+                    "4. If the score is less than Max Marks, identify specific gaps in understanding in your feedback.\n\n"
+                    "Respond ONLY with a valid JSON object in this exact format: "
+                    "{\"score\": X, \"confidence\": Y, \"feedback\": \"...\"}"
+                )
+
                 prompt = (
-                    f"Evaluate the following student response for an e-learning quiz.\n"
                     f"Subject: {attempt.quiz.subject.name}\n"
                     f"Question: {answer.question.question}\n"
                     f"Model/Expected Answer: {expected}\n"
                     f"Student Response: {student_text}\n"
-                    f"Max Marks: {max_marks}\n\n"
-                    "Task: Grade the student fairly according to the expected answer. \n"
-                    "Identify gaps in understanding if the score is low. \n"
-                    "Provide JSON response: {'score': X, 'confidence': Y (0.0-1.0), 'feedback': '...'}"
+                    f"Max Marks: {max_marks}\n"
                 )
 
                 response = client.chat.completions.create(
                     model='gpt-4o-mini',
-                    messages=[{'role': 'user', 'content': prompt}],
-                    temperature=0.2,
+                    messages=[
+                        {'role': 'system', 'content': system_instruction},
+                        {'role': 'user', 'content': prompt}
+                    ],
+                    temperature=0.0,
                     max_tokens=300,
                     response_format={"type": "json_object"}
                 )

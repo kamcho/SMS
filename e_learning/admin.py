@@ -6,6 +6,11 @@ from .models import (
 )
 
 
+
+class StudentAnswerInline(admin.TabularInline):
+    model = StudentAnswer
+    extra = 0
+    
 class SubstrandInline(admin.TabularInline):
     model = Substrand
     extra = 0
@@ -42,7 +47,8 @@ class StudentAnswerInline(admin.TabularInline):
     readonly_fields = ['question', 'selected_option', 'text_answer',
                        'score_awarded', 'is_graded', 'ai_feedback', 'ai_confidence']
 
-
+admin.site.register(StudentAnswer)
+# admin.site.register(QuizAttempt)
 @admin.register(Strand)
 class StrandAdmin(admin.ModelAdmin):
     list_display = ['name', 'subject', 'order', 'is_active']

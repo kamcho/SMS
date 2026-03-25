@@ -35,10 +35,14 @@ def transport_dashboard(request):
         students = students.filter(studentprofile__school_id=school_id)
     if class_id:
         students = students.filter(studentprofile__class_id_id=class_id)
-    else:
-        if not school_id:
-            # show only assigned
-            students = students.filter(transport_assignments__is_active=True, transport_assignments__academic_year=active_year, transport_assignments__term=active_term)
+
+    # We need a separate list for the dropdown to ensure you can assign anyone
+    # But limit to 300 to prevent massive browser freezes if filtering isn't applied.
+    dropdown_students = students.distinct().order_by('first_name')[:300]
+
+    if not school_id and not class_id:
+        # Default view for superadmins: only show assigned (to avoid massive tables)
+        students = students.filter(transport_assignments__is_active=True, transport_assignments__academic_year=active_year, transport_assignments__term=active_term)
 
     # Sort students: assigned first, then name
     # We can't easily sort by prefetch to_attr in ORM, but we can process in Python if needed
@@ -68,6 +72,7 @@ def transport_dashboard(request):
         'routes': Route.objects.annotate(student_count=Count('assignments', filter=Q(assignments__academic_year=active_year, assignments__term=active_term, assignments__is_active=True))),
         'vehicles': Vehicle.objects.annotate(student_count=Count('assignments', filter=Q(assignments__academic_year=active_year, assignments__term=active_term, assignments__is_active=True))),
         'students': students,
+        'dropdown_students': dropdown_students,
         'total_routes': Route.objects.count(),
         'total_vehicles': Vehicle.objects.count(),
         'total_assigned': total_assigned,
