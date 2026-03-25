@@ -4,7 +4,7 @@ from datetime import datetime, date, timedelta
 from django.views.generic import ListView, DetailView
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Q, Count, Avg, Sum, Case, When, F, FloatField, ExpressionWrapper
 from django.db.models.functions import TruncMonth
 from django.shortcuts import render, redirect, get_object_or_404
@@ -14,7 +14,7 @@ from .models import Student, StudentProfile, School,StudentDiscipline, Class, Gr
 from .forms import StudentForm, StudentProfileForm, AcademicYearForm, TermForm, GradeForm, ClassForm, ExamForm, ExamModeForm, PaymentForm, AttendanceSessionForm, StudentAttendanceForm
 from Exam.models import ExamSUbjectScore, Exam, Subject, ExamSubjectConfiguration, ScoreRanking
 from decimal import Decimal
-from accounts.models import Payment, FeeStructure, Invoice
+from accounts.models import Payment, FeeStructure, Invoice, AdditionalCharges
 from communication.models import Notification, PaymentNotification
 from django.views.generic import TemplateView
 
@@ -646,6 +646,33 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 })
             
             context['promotion_summary'] = summary
+            
+            # Pending Transitions: PP2/Grade 6 students without a PromotionHistory for the active year
+            if active_year:
+                already_promoted_ids = PromotionHistory.objects.filter(
+                    academic_year=active_year
+                ).values_list('student_id', flat=True)
+                
+                grades_to_include = ['PP2']
+                if class_id:
+                    grades_to_include.append('Grade 6')
+                
+                query_kwargs = {
+                    'school_id': school_id,
+                    'status': 'Active',
+                    'class_id__grade__name__in': grades_to_include
+                }
+                
+                if class_id:
+                    query_kwargs['class_id'] = class_id
+                
+                pending_transitions = StudentProfile.objects.filter(
+                    **query_kwargs
+                ).exclude(
+                    student_id__in=already_promoted_ids
+                ).select_related('student', 'class_id', 'class_id__grade')
+                
+                context['pending_transitions'] = pending_transitions
                     
         return context
 
@@ -672,6 +699,16 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
             for fs in f_structures:
                 for grade in fs.grade.all():
                     fee_map[(fs.school_id, grade.id, fs.student_type)] = fs
+            # Pre-fetch additional charges for the active term
+            from django.db.models import Q
+            add_charge_map = {}
+            a_charges = AdditionalCharges.objects.filter(Q(term=active_term) | Q(term__isnull=True)).prefetch_related('grades')
+            for ac in a_charges:
+                for grade in ac.grades.all():
+                    key = (ac.school_id, grade.id)
+                    if key not in add_charge_map:
+                        add_charge_map[key] = []
+                    add_charge_map[key].append(ac)
         
         profiles = StudentProfile.objects.filter(student_id__in=student_ids).select_related('student', 'school')
         success_count = 0
@@ -696,14 +733,15 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                 
                 # Invoicing Logic
                 if active_term:
+                    multiplier = profile.student.get_fee_multiplier()
+                    target_cal_year = active_year.start_date.year
                     fee_type = profile.student.get_fee_student_type()
-                    fs = fee_map.get((profile.school_id, target_class.grade_id, fee_type))
                     
+                    # 1. Handle Main Fees
+                    fs = fee_map.get((profile.school_id, target_class.grade_id, fee_type))
                     if fs:
                         # Guard against duplicate invoicing for the same fee structure and calendar year
-                        target_cal_year = active_year.start_date.year
                         if not Invoice.objects.filter(student=profile.student, fee_structure=fs, created_at__year=target_cal_year).exists():
-                            multiplier = profile.student.get_fee_multiplier()
                             final_amount = fs.amount * Decimal(str(multiplier))
                             
                             Invoice.objects.create(
@@ -711,6 +749,26 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                                 fee_structure=fs,
                                 amount=final_amount,
                                 description=f'First Term Fees - Academic Year {active_year}'
+                            )
+                            invoice_count += 1
+                
+                    # 2. Handle Additional Charges
+                    add_charges = add_charge_map.get((profile.school_id, target_class.grade_id), [])
+                    for ac in add_charges:
+                        # Guard against duplicate invoicing for additional charges
+                        if ac.amount and not Invoice.objects.filter(
+                            student=profile.student, 
+                            additional_charge=ac, 
+                            academic_year=active_year,
+                            term=active_term
+                        ).exists():
+                            Invoice.objects.create(
+                                student=profile.student,
+                                additional_charge=ac,
+                                academic_year=active_year,
+                                term=active_term,
+                                amount=ac.amount,
+                                description=f"{ac.name} for {target_class.grade.name} - Academic Year {active_year}"
                             )
                             invoice_count += 1
                 
@@ -1169,38 +1227,110 @@ class StudentDetailView(DetailView):
             is_active=True
         ).select_related('route', 'vehicle').first()
         
-        financial_log = []
+        # Enhanced Ledger Logic: Grouping transactions by Period (Grade, Term, Year)
+        all_transactions = []
         for p in student_payments:
-            financial_log.append({
+            all_transactions.append({
                 'type': 'payment',
                 'description': 'Fee Payment',
                 'amount': p.amount,
-                'date': p.date_paid, # Keep for display
-                'sort_date': p.created_at if hasattr(p, 'created_at') else timezone.now(), # Use timestamp for sort
+                'date': p.date_paid,
+                'sort_date': p.created_at if hasattr(p, 'created_at') else timezone.now(),
                 'method': getattr(p, 'method', None),
-                'balance_before': p.previous_balance,
-                'balance_after': p.current_balance
+                'reference': p.reference or f"PY-{p.id}",
+                'balance_after': p.current_balance,
+                'debit': 0,
+                'credit': p.amount,
             })
         for i in student_invoices:
+            period_name = "Other"
+            grade_name = ""
+            year = i.created_at.year if i.created_at else ""
+            
             if i.fee_structure:
-                # FeeStructure doesn't have academic_year; use invoice date
-                year = i.created_at.year if i.created_at else ""
-                desc = f"Billed: {i.fee_structure.term.name} {year}"
+                term_name = i.fee_structure.term.name
+                # Get the grade associated with this fee structure (any of them)
+                grade_obj = i.fee_structure.grade.first()
+                grade_name = grade_obj.name if grade_obj else ""
+                period_name = f"{grade_name} {term_name} {year}".strip()
             else:
-                desc = i.description or "General Billing"
+                period_name = f"General Billing {year}".strip()
                 
-            financial_log.append({
+            all_transactions.append({
                 'type': 'invoice',
-                'description': desc,
+                'description': i.description or "General Billing",
                 'amount': i.amount,
                 'date': i.created_at.date() if hasattr(i, 'created_at') else timezone.now().date(),
                 'sort_date': i.created_at if hasattr(i, 'created_at') else timezone.now(),
-                'balance_before': i.previous_balance,
-                'balance_after': i.current_balance
+                'reference': f"INV-{i.id}",
+                'balance_after': i.current_balance,
+                'debit': i.amount,
+                'credit': 0,
+                'period': period_name
             })
             
-        financial_log.sort(key=lambda x: x['sort_date'], reverse=True)
-        context['financial_log'] = financial_log[:15]
+        # Sort chronologically to build ledger flow
+        all_transactions.sort(key=lambda x: x['sort_date'])
+        
+        # Now group by period and calculate B/FWD and C/FWD
+        grouped_log = []
+        if all_transactions:
+            current_period = None
+            period_items = []
+            running_balance = all_transactions[0].get('balance_before', 0) # Fallback if we had it
+            
+            # Since we don't always have balance_before accurately in the dict,
+            # we'll infer it from the first item's balance_after and amount
+            first = all_transactions[0]
+            if first['type'] == 'invoice':
+                running_balance = first['balance_after'] - first['amount']
+            else:
+                running_balance = first['balance_after'] + first['amount']
+
+            for tx in all_transactions:
+                # Assign period to payments based on closest preceding invoice or date
+                if tx['type'] == 'payment':
+                    # Try to find which term this payment belongs to
+                    # For now, we'll assign it to the same period as the last invoice
+                    # If no previous invoice, use current student grade/term
+                    tx['period'] = current_period or "Initial Period"
+                
+                if tx['period'] != current_period:
+                    if current_period is not None:
+                        # Close previous group
+                        grouped_log.append({
+                            'period': current_period,
+                            'items': period_items,
+                            'b_fwd': period_b_fwd,
+                            'c_fwd': running_balance,
+                            'total_debit': sum(item['debit'] for item in period_items),
+                            'total_credit': sum(item['credit'] for item in period_items),
+                        })
+                    
+                    current_period = tx['period']
+                    period_items = []
+                    period_b_fwd = running_balance
+                
+                period_items.append(tx)
+                if tx['type'] == 'invoice':
+                    running_balance += tx['amount']
+                else:
+                    running_balance -= tx['amount']
+                    
+            # Add final group
+            grouped_log.append({
+                'period': current_period,
+                'items': period_items,
+                'b_fwd': period_b_fwd,
+                'c_fwd': running_balance,
+                'total_debit': sum(item['debit'] for item in period_items),
+                'total_credit': sum(item['credit'] for item in period_items),
+            })
+
+        # Reverse for "Recent First" display of GROUPS
+        grouped_log.reverse()
+        context['financial_statement'] = grouped_log
+        context['financial_log'] = all_transactions[::-1][:15] # Keep the old one for breadcrumbs if needed
         context['payments'] = student_payments.order_by('-date_paid')
         
         # Data for Subject Performance Chart (Progress Bars & Radar)
@@ -1737,7 +1867,7 @@ def configurations(request):
     from accounts.models import AdditionalCharges
     context['fee_structure_form'] = FeeStructureForm()
     context['additional_charge_form'] = AdditionalChargesForm()
-    context['additional_charges'] = AdditionalCharges.objects.all().select_related('school').prefetch_related('grades')
+    context['additional_charges'] = AdditionalCharges.objects.all().select_related('school', 'term').prefetch_related('grades')
     
     return render(request, 'core/configurations.html', context)
 
@@ -4200,33 +4330,92 @@ def link_student_view(request):
     return render(request, 'core/link_student.html', context)
 
 @login_required
+@user_passes_test(lambda u: u.role == 'admin')
+def revert_year_migration(request):
+    """
+    UNDOs a year-end migration using PromotionHistory.
+    1. Restore students to 'from_class'
+    2. Deactivate current year/term, reactivate previous
+    3. Delete created invoices and PromotionHistory records
+    """
+    if request.method != 'POST':
+        return redirect('core:student-promotion')
+
+    current_active_year = AcademicYear.objects.filter(is_active=True).first()
+    if not current_active_year:
+        messages.error(request, "No active academic year found to revert.")
+        return redirect('core:student-promotion')
+
+    # 1. Identify Promotion History for this year
+    histories = PromotionHistory.objects.filter(academic_year=current_active_year)
+    total_reverted = histories.count()
+
+    if total_reverted == 0:
+        messages.warning(request, f"No promotion records found for {current_active_year.year}. Nothing to revert.")
+        return redirect('core:student-promotion')
+
+    try:
+        from django.db import transaction
+        with transaction.atomic():
+            # 2. Restore Students
+            for h in histories:
+                student = h.student
+                student.class_id = h.from_class
+                
+                # If they were graduated, mark them active again
+                if student.status == 'Graduated':
+                    student.status = 'Active'
+                
+                student.save()
+
+            # 3. Delete Invoices tied to this academic year
+            # (Signals will handle updating balances!)
+            from accounts.models import Invoice
+            Invoice.objects.filter(academic_year=current_active_year).delete()
+
+            # 4. Handle Academic Year Shift
+            previous_year = AcademicYear.objects.filter(year__lt=current_active_year.year).order_by('-year').first()
+            if previous_year:
+                current_active_year.is_active = False
+                current_active_year.save()
+                previous_year.is_active = True
+                previous_year.save()
+                
+                # Also activate the last term of that previous year
+                last_term = Term.objects.filter(academic_year=previous_year).order_by('-start_date').last()
+                if last_term:
+                    Term.objects.all().update(is_active=False)
+                    last_term.is_active = True
+                    last_term.save()
+
+            # 5. Finally, delete the histories
+            histories.delete()
+
+            messages.success(request, f"Successfully reverted {total_reverted} students and deleted all {current_active_year.year} invoices.")
+    except Exception as e:
+        messages.error(request, f"Revert failed: {str(e)}")
+
+    return redirect('core:student-promotion')
+
+@login_required
+@user_passes_test(lambda u: u.role.lower() == 'admin' or u.is_superuser)
 def migrate_year(request):
     """
     Promotes students to the next grade and activates the selected academic year.
     Exceptions (PP2 -> Grade 1, Grade 6 -> Grade 7) are cleared from classes 
     for manual reshuffling. Supports AJAX chunked processing.
     """
-    if not request.user.is_superuser and getattr(request.user, 'role', '') != 'Admin':
-        messages.error(request, "Permission denied.")
-        return redirect('core:configurations')
-
     if request.method == 'POST':
         action = request.POST.get('action')
-        year_id = request.POST.get('target_year') or request.POST.get('year_id')
+        year_id = request.POST.get('target_year')
         
         if not year_id:
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'status': 'error', 'message': 'Target year not specified.'})
-            messages.error(request, "Target year not specified.")
-            return redirect('core:migrate-year')
+            return JsonResponse({'status': 'error', 'message': 'Target year not specified.'}, status=400)
 
         try:
             target_year = AcademicYear.objects.get(id=year_id)
         except AcademicYear.DoesNotExist:
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'status': 'error', 'message': 'Target year does not exist.'})
-            messages.error(request, "Target year does not exist.")
-            return redirect('core:migrate-year')
+            return JsonResponse({'status': 'error', 'message': 'Target year does not exist.'}, status=404)
 
         if action == 'prepare':
             # 1. Activate Year & Term
@@ -4275,6 +4464,21 @@ def migrate_year(request):
                     for grade in fs.grade.all():
                         fee_map[(fs.school_id, grade.id, fs.student_type)] = fs
 
+            # Pre-fetch Additional Charges similarly
+            # Key: (school_id, grade_id) -> list of AdditionalCharges
+            add_charge_map = {}
+            if target_term:
+                from accounts.models import AdditionalCharges
+                all_add_charges = AdditionalCharges.objects.filter(
+                    Q(term=target_term) | Q(term__isnull=True)
+                ).prefetch_related('grades')
+                for ac in all_add_charges:
+                    for grade in ac.grades.all():
+                        key = (ac.school_id, grade.id)
+                        if key not in add_charge_map:
+                            add_charge_map[key] = []
+                        add_charge_map[key].append(ac)
+
             grade_sequence = [
                 'Play Group', 'PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 
                 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'
@@ -4283,102 +4487,99 @@ def migrate_year(request):
             profiles = StudentProfile.objects.filter(id__in=student_ids).select_related('class_id', 'class_id__grade', 'school', 'student')
             stats = {'success': 0, 'manual': 0, 'skipped': 0, 'invoices': 0}
             
-            skip_classes = request.POST.getlist('skip_classes[]')
-            
             from django.db import transaction
-            with transaction.atomic():
-                for profile in profiles:
-                    # 1. Guard against duplicate promotion in the same year
-                    if PromotionHistory.objects.filter(student=profile.student, academic_year=target_year).exists():
-                        stats['skipped'] += 1
-                        continue
+            from decimal import Decimal
+            for profile in profiles:
+                try:
+                    with transaction.atomic():
+                        # 1. Guard against duplicate promotion in the same year
+                        if PromotionHistory.objects.filter(student=profile.student, academic_year=target_year).exists():
+                            stats['skipped'] += 1
+                            continue
 
-                    current_cl = profile.class_id
-                    if not current_cl:
-                        stats['skipped'] += 1
-                        continue
-                    
-                    curr_gr_name = current_cl.grade.name
-                    
-                    if curr_gr_name == 'PP2' or curr_gr_name == 'Grade 6':
-                        old_cl = profile.class_id
-                        profile.class_id = None
-                        profile.save()
-                        PromotionHistory.objects.create(
-                            student=profile.student, from_class=old_cl, to_class=None, academic_year=target_year
-                        )
-                        stats['manual'] += 1
-                        continue
-                    
-                    try:
-                        curr_idx = grade_sequence.index(curr_gr_name)
-                        if curr_idx < len(grade_sequence) - 1:
-                            next_gr_name = grade_sequence[curr_idx + 1]
-                            next_cl = Class.objects.filter(
-                                grade__name=next_gr_name, name=current_cl.name, school=profile.school
-                            ).first()
-                            
-                            if next_cl:
-                                old_cl = profile.class_id
-                                profile.class_id = next_cl
-                                profile.save()
-                                PromotionHistory.objects.create(
-                                    student=profile.student, from_class=old_cl, to_class=next_cl, academic_year=target_year
-                                )
-                                stats['success'] += 1
+                        current_cl = profile.class_id
+                        if not current_cl:
+                            stats['skipped'] += 1
+                            continue
+                        
+                        curr_gr_name = current_cl.grade.name
+                        
+                        if curr_gr_name == 'PP2' or curr_gr_name == 'Grade 6':
+                            stats['manual'] += 1
+                            continue
+                        
+                        try:
+                            curr_idx = grade_sequence.index(curr_gr_name)
+                            if curr_idx < len(grade_sequence) - 1:
+                                next_gr_name = grade_sequence[curr_idx + 1]
+                                next_cl = Class.objects.filter(
+                                    grade__name=next_gr_name, name=current_cl.name, school=profile.school
+                                ).first()
                                 
-                                # Billing Logic
-                                if target_term:
-                                    fee_type = profile.student.get_fee_student_type()
-                                    fs = fee_map.get((profile.school_id, next_cl.grade_id, fee_type))
+                                if next_cl:
+                                    old_cl = profile.class_id
+                                    profile.class_id = next_cl
+                                    profile.save()
+                                    PromotionHistory.objects.create(
+                                        student=profile.student, from_class=old_cl, to_class=next_cl, academic_year=target_year
+                                    )
+                                    stats['success'] += 1
                                     
-                                    if fs:
-                                        # 2. Guard against duplicate invoicing for the same fee structure and calendar year
-                                        target_cal_year = target_year.start_date.year
-                                        if not Invoice.objects.filter(student=profile.student, fee_structure=fs, created_at__year=target_cal_year).exists():
-                                            multiplier = profile.student.get_fee_multiplier()
-                                            final_amount = fs.amount * Decimal(str(multiplier))
-                                            
-                                            Invoice.objects.create(
-                                                student=profile.student,
-                                                fee_structure=fs,
-                                                amount=final_amount,
-                                                description=f"First Term Fees - Academic Year {target_year}"
-                                            )
-                                            stats['invoices'] += 1
-
-                                        # 3. Invoice Additional Charges
-                                        from accounts.models import AdditionalCharges
-                                        add_charges = AdditionalCharges.objects.filter(school=profile.school, grades=next_cl.grade)
-                                        for ac in add_charges:
-                                            # Guard against duplicate invoicing for additional charges
-                                            if ac.amount and not Invoice.objects.filter(student=profile.student, description__icontains=ac.name, created_at__year=target_cal_year).exists():
+                                    # Billing Logic
+                                    if target_term:
+                                        multiplier = profile.student.get_fee_multiplier()
+                                        fee_type = profile.student.get_fee_student_type()
+                                        
+                                        # 1. Handle Main Fees
+                                        fs = fee_map.get((profile.school_id, next_cl.grade_id, fee_type))
+                                        if fs:
+                                            if not Invoice.objects.filter(student=profile.student, fee_structure=fs, academic_year=target_year).exists():
+                                                final_amount = fs.amount * Decimal(str(multiplier))
                                                 Invoice.objects.create(
-                                                    student=profile.student,
+                                                    student=profile.student, fee_structure=fs, academic_year=target_year,
+                                                    term=target_term, amount=final_amount,
+                                                    description=f"Initial Term Fees - Academic Year {target_year}"
+                                                )
+                                                stats['invoices'] += 1
+
+                                        # 2. Handle Additional Charges (Optimized)
+                                        add_charges = add_charge_map.get((profile.school_id, next_cl.grade_id), [])
+                                        for ac in add_charges:
+                                            if ac.amount and not Invoice.objects.filter(
+                                                student=profile.student, additional_charge=ac, 
+                                                academic_year=target_year, term=target_term
+                                            ).exists():
+                                                Invoice.objects.create(
+                                                    student=profile.student, additional_charge=ac,
+                                                    academic_year=target_year, term=target_term,
                                                     amount=ac.amount,
                                                     description=f"{ac.name} for {next_cl.grade.name} - Academic Year {target_year}"
                                                 )
                                                 stats['invoices'] += 1
+                                else:
+                                    # No matching class in next grade
+                                    old_cl = profile.class_id
+                                    profile.class_id = None
+                                    profile.save()
+                                    PromotionHistory.objects.create(
+                                        student=profile.student, from_class=old_cl, to_class=None, academic_year=target_year
+                                    )
+                                    stats['skipped'] += 1
                             else:
+                                # Graduation for last grade
                                 old_cl = profile.class_id
                                 profile.class_id = None
+                                profile.status = 'Graduated'
                                 profile.save()
                                 PromotionHistory.objects.create(
-                                    student=profile.student, from_class=old_cl, to_class=None, academic_year=target_year
+                                    student=profile.student, from_class=old_cl, to_class=None, academic_year=target_year, is_graduation=True
                                 )
-                                stats['skipped'] += 1
-                        else:
-                            # Graduation for last grade
-                            old_cl = profile.class_id
-                            profile.class_id = None
-                            profile.status = 'Graduated'
-                            profile.save()
-                            PromotionHistory.objects.create(
-                                student=profile.student, from_class=old_cl, to_class=None, academic_year=target_year, is_graduation=True
-                            )
-                            stats['success'] += 1
-                    except ValueError:
-                        stats['skipped'] += 1
+                                stats['success'] += 1
+                        except ValueError:
+                            stats['skipped'] += 1
+                except Exception as e:
+                    print(f"Error migrating student profile {profile.id}: {e}")
+                    stats['skipped'] += 1
             
             return JsonResponse({'status': 'ok', 'stats': stats})
 

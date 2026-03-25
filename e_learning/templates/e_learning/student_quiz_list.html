@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}E-Learning Dashboard | {{ student.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Dashboard Header -->
+        <div class="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-8">
+            <div class="space-y-1">
+                <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600">E-Learning</span> Dashboard
+                </h1>
+                <p class="text-slate-500 dark:text-slate-400 flex items-center text-sm font-medium">
+                    <i class="fas fa-graduation-cap mr-2 text-indigo-500"></i>
+                    Academic portal for <span class="font-bold text-slate-800 dark:text-slate-200 ml-1">{{ student.get_full_name }}</span>
+                </p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <!-- Quick Stats Mini -->
+                <div class="flex items-center gap-3 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                    <div class="text-right">
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Avg Score</p>
+                        <p class="text-base font-black text-indigo-600 dark:text-indigo-400">{{ avg_score|floatformat:0 }}%</p>
+                    </div>
+                    <div class="w-px h-8 bg-slate-100 dark:bg-slate-800"></div>
+                    <div class="text-right">
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Completed</p>
+                        <p class="text-base font-black text-slate-700 dark:text-slate-300">{{ all_attempts.count }}</p>
+                    </div>
+                </div>
+
+                <!-- Student Switcher -->
+                {% if all_students.count > 1 %}
+                <div class="flex items-center gap-2 bg-indigo-50/50 dark:bg-indigo-500/5 p-1.5 rounded-2xl border border-indigo-100/50 dark:border-indigo-500/10">
+                    {% for s in all_students %}
+                    <a href="?student_id={{ s.id }}" 
+                       class="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-300 {% if s.id == student.id %}bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100/50 dark:border-indigo-500/10{% else %}text-slate-500 hover:text-indigo-500{% endif %}">
+                        <span class="text-xs font-bold">{{ s.first_name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Hierarchical Filters at Top -->
+        <div class="glass-card p-8 mb-10 border border-white dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-none">
+            <form method="GET" class="flex flex-col md:flex-row items-center justify-between gap-8">
+                <!-- Keep other params if needed (like student_id) -->
+                <input type="hidden" name="student_id" value="{{ student.id }}">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+                    <!-- Grade Select -->
+                    <div class="space-y-4">
+                        <label for="grade" class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center">
+                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-2"></span>
+                            Grade
+                        </label>
+                        <div class="relative group">
+                            <select name="grade" id="grade" onchange="this.form.submit()"
+                                    class="w-full h-12 pl-5 pr-12 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] font-black text-slate-700 dark:text-slate-300 outline-none appearance-none transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer">
+                                <option value="">Select Grade</option>
+                                {% for grade_name in grades %}
+                                <option value="{{ grade_name }}" {% if selected_grade == grade_name %}selected{% endif %}>{{ grade_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none group-hover:text-indigo-500 transition-colors"></i>
+                        </div>
+                    </div>
+
+                    <!-- Subject Select -->
+                    <div class="space-y-4">
+                        <label for="subject" class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center">
+                            <span class="w-1.5 h-1.5 rounded-full {% if selected_grade %}bg-purple-500{% else %}bg-slate-300{% endif %} mr-2"></span>
+                            Subject
+                        </label>
+                        <div class="relative group {% if not selected_grade %}opacity-50{% endif %}">
+                            <select name="subject" id="subject" onchange="this.form.submit()"
+                                    {% if not selected_grade %}disabled{% endif %}
+                                    class="w-full h-12 pl-5 pr-12 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] font-black text-slate-700 dark:text-slate-300 outline-none appearance-none transition-all focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 cursor-pointer">
+                                <option value="">All Subjects</option>
+                                {% for sub in subjects %}
+                                <option value="{{ sub.id }}" {% if selected_subject == sub.id|stringformat:'s' %}selected{% endif %}>{{ sub.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <i class="fas fa-search absolute right-5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none group-hover:text-purple-500 transition-colors"></i>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Main Content Area: Available Tests -->
+        <div class="space-y-12">
+            <div>
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-xl font-black text-slate-900 dark:text-white flex items-center uppercase tracking-tight">
+                        <i class="fas fa-rocket mr-3 text-indigo-500"></i>
+                        Open Assessments
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Updates</span>
+                    </div>
+                </div>
+
+                {% if quiz_data %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {% for item in quiz_data %}
+                    <div class="glass-card hover:translate-y-[-4px] transition-all duration-500 group overflow-hidden border border-slate-200 dark:border-slate-800 hover:shadow-2xl hover:shadow-indigo-500/10 dark:hover:shadow-none">
+                        <!-- Header with Subject & Score -->
+                        <div class="p-6 pb-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100/50 dark:border-indigo-500/10">
+                                        {{ item.quiz.subject.name }}
+                                    </span>
+                                    {% if item.assignment %}
+                                    <span class="p-1 px-2 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500 text-white animate-pulse shadow-lg shadow-rose-500/20">
+                                        Assignment
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% if item.best_score is not None %}
+                                <div class="text-right">
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Best</p>
+                                    <p class="text-lg font-black {% if item.best_score >= item.quiz.pass_percentage %}text-emerald-500{% else %}text-rose-500{% endif %} tracking-tighter">
+                                        {{ item.best_score|floatformat:0 }}%
+                                    </p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <h3 class="text-lg font-black text-slate-800 dark:text-white leading-tight mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                {{ item.quiz.title }}
+                            </h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{{ item.quiz.description|default:"No description available for this assessment." }}</p>
+                        </div>
+
+                        <!-- Info Bar -->
+                        <div class="px-6 py-4 bg-slate-50/50 dark:bg-slate-800 text-[10px] font-bold text-slate-400 flex items-center justify-between border-y border-slate-100/50 dark:border-slate-800">
+                            <span class="flex items-center gap-1.5"><i class="fas fa-tasks text-indigo-400"></i> {{ item.quiz.question_count }} Questions</span>
+                            <span class="flex items-center gap-1.5"><i class="fas fa-clock text-indigo-400"></i> {{ item.quiz.time_limit_minutes }} Minutes</span>
+                            <span class="flex items-center gap-1.5"><i class="fas fa-redo text-indigo-400"></i> {{ item.attempts_count }}/{{ item.quiz.max_attempts|default:'∞' }}</span>
+                        </div>
+
+                        <!-- CTA Area -->
+                        <div class="p-6">
+                            {% if item.can_attempt %}
+                            <a href="{% url 'e_learning:take_quiz' item.quiz.pk %}"
+                               class="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-100 dark:shadow-none flex items-center justify-center gap-3 transition-all transform active:scale-[0.98]">
+                                <i class="fas fa-play text-[9px]"></i>
+                                {% if item.attempts_count > 0 %}Retake Attempt{% else %}Start Session{% endif %}
+                            </a>
+                            {% else %}
+                            <button disabled class="w-full py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 cursor-not-allowed">
+                                <i class="fas fa-lock text-[9px]"></i> Assessment Locked
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="glass-card text-center py-20 bg-slate-50/50 dark:bg-slate-900/50 border-dashed border-2 border-slate-200 dark:border-slate-800">
+                    <div class="w-24 h-24 bg-white dark:bg-slate-800 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-sm">
+                        <i class="fas fa-coffee text-slate-300 dark:text-slate-600 text-4xl"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-800 dark:text-white mb-2 tracking-tight">Nothing to show here</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto">Either you are fully caught up, or no assessments are published for this category.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- History Ledger -->
+            <div>
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-xl font-black text-slate-900 dark:text-white flex items-center uppercase tracking-tight">
+                        <i class="fas fa-history mr-3 text-indigo-500"></i>
+                        Completion History
+                    </h2>
+                </div>
+
+                <div class="glass-card overflow-hidden shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800">
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Timestamp</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Assigned Test</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Outcome</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Status</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Preview</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
+                                {% for attempt in all_attempts %}
+                                <tr class="hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5 transition-colors">
+                                    <td class="px-8 py-5">
+                                        <p class="text-xs font-black text-slate-700 dark:text-slate-300">{{ attempt.submitted_at|date:"d M, Y" }}</p>
+                                        <p class="text-[10px] text-slate-400 font-bold mt-0.5">{{ attempt.submitted_at|time:"H:i" }}</p>
+                                    </td>
+                                    <td class="px-8 py-5">
+                                        <div class="flex items-center gap-4">
+                                            <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-black">
+                                                <i class="fas fa-file-invoice text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <p class="text-xs font-black text-slate-900 dark:text-white">{{ attempt.quiz.title }}</p>
+                                                <p class="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{{ attempt.quiz.subject.name }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-8 py-5 text-center">
+                                        <div class="inline-flex flex-col items-center">
+                                            <span class="text-lg font-black {% if attempt.passed %}text-emerald-500{% else %}text-rose-500{% endif %} tracking-tighter tabular-nums">
+                                                {{ attempt.percentage|floatformat:0 }}%
+                                            </span>
+                                            <span class="text-[8px] font-black text-slate-300 uppercase tracking-widest">
+                                                Scale: {{ attempt.total_score|floatformat:0 }}/{{ attempt.total_possible|floatformat:0 }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="px-8 py-5 text-center">
+                                        {% if attempt.passed %}
+                                        <span class="px-3 py-1 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 text-[9px] font-black uppercase rounded-lg tracking-widest">Mastery</span>
+                                        {% else %}
+                                        <span class="px-3 py-1 bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 text-[9px] font-black uppercase rounded-lg tracking-widest">Incomplete</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-8 py-5 text-right">
+                                        <a href="{% url 'e_learning:quiz_result_student' attempt.id %}" 
+                                           class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all border border-slate-100 dark:border-slate-800">
+                                            <i class="fas fa-arrow-right text-[11px]"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="px-8 py-20 text-center">
+                                        <p class="text-xs font-black text-slate-300 uppercase tracking-[0.2em]">Initial Assessment Record Empty</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .glass-card {
+        background-color: white;
+        border-radius: 2rem;
+        border: 1px solid rgba(226, 232, 240, 0.4);
+        position: relative;
+        backdrop-filter: blur(20px);
+    }
+    .dark .glass-card {
+        background-color: #0f172a;
+        border-color: rgba(30, 41, 59, 0.5);
+    }
+</style>
+{% endblock %}

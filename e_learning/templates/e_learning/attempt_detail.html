@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Attempt Detail — {{ attempt.quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <div class="mb-8">
+        <a href="{% url 'e_learning:quiz_results' attempt.quiz.pk %}" class="text-indigo-500 hover:text-indigo-700 font-medium text-sm">
+            <i class="fas fa-arrow-left mr-1"></i> Back to Results
+        </a>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white mt-3">
+            {{ attempt.student.get_full_name }} — {{ attempt.quiz.title }}
+        </h1>
+        <p class="text-slate-500 text-sm">
+            Attempt #{{ attempt.attempt_number }} ·
+            Score: <strong>{{ attempt.total_score|floatformat:1 }} / {{ attempt.total_possible|floatformat:1 }}</strong>
+            ({{ attempt.percentage|floatformat:0 }}%) ·
+            {% if attempt.passed %}<span class="text-emerald-600 font-bold">PASSED</span>{% else %}<span class="text-rose-600 font-bold">FAILED</span>{% endif %}
+        </p>
+    </div>
+
+    <div class="space-y-4">
+        {% for answer in answers %}
+        <div class="glass-card border-l-4 {% if answer.is_graded and answer.score_awarded == answer.question.marks %}border-emerald-500{% elif answer.is_graded and answer.score_awarded > 0 %}border-amber-500{% elif answer.is_graded %}border-rose-500{% else %}border-slate-300{% endif %}">
+            <div class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-lg {% if answer.is_graded and answer.score_awarded == answer.question.marks %}bg-emerald-500{% elif answer.is_graded and answer.score_awarded > 0 %}bg-amber-500{% elif answer.is_graded %}bg-rose-500{% else %}bg-slate-400{% endif %} text-white flex items-center justify-center font-bold text-sm shrink-0">
+                    {{ forloop.counter }}
+                </span>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        {% if answer.question.question_type == 'multiple_choice' %}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-500/10 text-blue-600 uppercase">MCQ</span>
+                        {% else %}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-500/10 text-purple-600 uppercase">Short Answer</span>
+                        {% endif %}
+                        <span class="text-xs font-bold {% if answer.score_awarded == answer.question.marks %}text-emerald-600{% elif answer.score_awarded > 0 %}text-amber-600{% else %}text-rose-600{% endif %}">
+                            {{ answer.score_awarded|floatformat:1 }} / {{ answer.question.marks }}
+                        </span>
+                    </div>
+
+                    <p class="text-slate-900 dark:text-white font-medium mb-3">{{ answer.question.question }}</p>
+
+                    {% if answer.question.question_type == 'multiple_choice' %}
+                    <div class="space-y-1.5">
+                        {% for opt in answer.question.options.all %}
+                        <div class="flex items-center gap-2 text-sm p-2 rounded-lg
+                            {% if opt.is_correct %}bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 font-semibold
+                            {% elif opt == answer.selected_option and not opt.is_correct %}bg-rose-50 dark:bg-rose-500/10 text-rose-700 line-through
+                            {% else %}text-slate-500{% endif %}">
+                            {% if opt.is_correct %}<i class="fas fa-check-circle text-emerald-500"></i>
+                            {% elif opt == answer.selected_option %}<i class="fas fa-times-circle text-rose-500"></i>
+                            {% else %}<i class="far fa-circle text-slate-300"></i>{% endif %}
+                            {{ opt.option }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="space-y-2">
+                        <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                            <p class="text-xs text-slate-400 uppercase font-bold mb-1">Student's Answer</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ answer.text_answer|default:"(blank)" }}</p>
+                        </div>
+                        {% if answer.ai_feedback %}
+                        <div class="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg">
+                            <p class="text-xs text-indigo-600 uppercase font-bold mb-1"><i class="fas fa-robot mr-1"></i> AI Feedback</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ answer.ai_feedback }}</p>
+                        </div>
+                        {% endif %}
+                        {% if answer.question.expected_answer %}
+                        <div class="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg">
+                            <p class="text-xs text-emerald-600 uppercase font-bold mb-1">Model Answer</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ answer.question.expected_answer }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

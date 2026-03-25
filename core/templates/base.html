@@ -219,10 +219,34 @@
                         <a href="{% url 'accounts:migrate-term' %}" class="menu-item py-2 text-sm {% if 'migrate-term' in request.path %}active{% endif %}">
                             Migrate Term
                         </a>
+                        <a href="{% url 'accounts:revert-migrations' %}" class="menu-item py-2 text-sm {% if 'revert-migrations' in request.path %}active{% endif %}">
+                            Revert Migrations
+                        </a>
                     </div>
                 </div>
             </div>
             {% endif %}
+
+            <!-- E-Learning Section -->
+            <div class="dropdown-group">
+                <button class="dropdown-toggle menu-item w-full" data-group="elearning">
+                    <i class="fas fa-laptop-code w-5 text-lg"></i>
+                    <span>E-Learning</span>
+                    <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
+                    <div class="pl-11 py-1 space-y-1">
+                        {% if user.role == 'Admin' or user.role == 'Teacher' or user.is_superuser %}
+                        <a href="{% url 'e_learning:quiz_list' %}" class="menu-item py-2 text-sm {% if 'e-learning/quizzes' in request.path %}active{% endif %}">
+                            Quiz Manager
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'e_learning:student_quiz_list' %}" class="menu-item py-2 text-sm {% if 'e-learning/my-quizzes' in request.path %}active{% endif %}">
+                            Student Assessments
+                        </a>
+                    </div>
+                </div>
+            </div>
 
             <!-- Guardian Portal -->
             {% if user.role == 'Guardian' %}

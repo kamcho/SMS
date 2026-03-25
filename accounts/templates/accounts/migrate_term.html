@@ -116,34 +116,83 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusLabel = document.getElementById('term-progress-status');
 
     if (!form) return;
+    
+    // Smooth progress tracker
+    let progressInterval;
+    let currentPct = 0;
 
-    form.addEventListener('submit', function(e) {
+    function startProgress() {
+        currentPct = 0;
+        progressBar.style.width = '0%';
+        progressPctLabel.textContent = '0%';
+        
+        progressInterval = setInterval(() => {
+            if (currentPct < 98) {
+                // Slower as it gets closer to 98%
+                const step = Math.max(0.1, (98 - currentPct) * 0.05);
+                currentPct += step;
+                const displayPct = Math.round(currentPct);
+                progressBar.style.width = displayPct + '%';
+                progressPctLabel.textContent = displayPct + '%';
+            }
+        }, 150);
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
         const termSelect = form.querySelector('select[name="term_id"]');
         if (!termSelect || !termSelect.value) {
-            // Let server-side validation handle message, but avoid showing modal
+            alert('Please select a term before running the migration.');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to run the term migration? This will process ALL students across all schools.')) {
             return;
         }
 
         // Show progress modal
         modal.classList.remove('hidden');
         modal.classList.add('flex');
-        statusLabel.textContent = 'Starting migration...';
+        statusLabel.textContent = 'Migrating students and generating invoices...';
+        
+        // Start "fake" smooth progress
+        startProgress();
 
-        // Fake incremental progress so user sees activity until page reloads
-        let pct = 0;
-        const interval = setInterval(() => {
-            // Cap at 95% so it does not appear "stuck" at 100% before reload
-            if (pct < 95) {
-                pct += Math.max(1, Math.round((95 - pct) * 0.1));
-                progressBar.style.width = pct + '%';
-                progressPctLabel.textContent = pct + '%';
+        const formData = new FormData(form);
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            });
+            
+            const result = await response.json();
+            clearInterval(progressInterval);
+            
+            if (result.status === 'success') {
+                // Snap to 100%
+                progressBar.style.width = '100%';
+                progressPctLabel.textContent = '100%';
+                statusLabel.textContent = result.message || 'Migration successful!';
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                modal.classList.add('hidden');
+                alert('Error: ' + (result.message || 'Unknown error occurred.'));
             }
-        }, 400);
-
-        // When the page unloads (navigation because request finished), stop timer
-        window.addEventListener('beforeunload', function() {
-            clearInterval(interval);
-        });
+        } catch (error) {
+            clearInterval(progressInterval);
+            modal.classList.add('hidden');
+            console.error('Migration error:', error);
+            alert('A network error occurred during migration. Please check your connection and try again.');
+        }
     });
 });
 </script>

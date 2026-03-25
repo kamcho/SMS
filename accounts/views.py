@@ -441,24 +441,54 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
                 grade=profile.class_id.grade
             ).first()
 
+        from .models import AdditionalCharges
+        from django.db.models import Q
+
         if action == 'invoice_all':
             profiles = self.get_queryset()
             invoice_count = 0
             missing_structure_count = 0
             
             for profile in profiles:
+                multiplier = profile.student.get_fee_multiplier()
                 fee_structure = get_structure_for_student(profile)
-                if not fee_structure:
+                
+                # 1. Main Tuition
+                if fee_structure:
+                    if not Invoice.objects.filter(student=profile.student, fee_structure=fee_structure, academic_year=active_year).exists():
+                        final_amount = fee_structure.amount * Decimal(str(multiplier))
+                        Invoice.objects.create(
+                            student=profile.student,
+                            fee_structure=fee_structure,
+                            academic_year=active_year,
+                            term=active_term,
+                            amount=final_amount
+                        )
+                        invoice_count += 1
+                else:
                     missing_structure_count += 1
-                    continue
-                    
-                if not Invoice.objects.filter(student=profile.student, fee_structure=fee_structure).exists():
-                    Invoice.objects.create(
-                        student=profile.student,
-                        fee_structure=fee_structure,
-                        amount=fee_structure.amount
-                    )
-                    invoice_count += 1
+
+                # 2. Additional charges
+                add_charges = AdditionalCharges.objects.filter(
+                    Q(term=active_term) | Q(term__isnull=True),
+                    school=profile.school, 
+                    grades=profile.class_id.grade
+                )
+                for ac in add_charges:
+                    if ac.amount and not Invoice.objects.filter(
+                        student=profile.student, 
+                        additional_charge=ac, 
+                        academic_year=active_year, 
+                        term=active_term
+                    ).exists():
+                        Invoice.objects.create(
+                            student=profile.student,
+                            additional_charge=ac,
+                            academic_year=active_year,
+                            term=active_term,
+                            amount=ac.amount,
+                            description=f"{ac.name} for {profile.class_id.grade.name} - {active_term.name}"
+                        )
             
             msg = f"Successfully created {invoice_count} invoices."
             if missing_structure_count > 0:
@@ -469,25 +499,47 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
             student_id = request.POST.get('student_id')
             student = get_object_or_404(Student, id=student_id)
             profile = student.studentprofile
+            multiplier = student.get_fee_multiplier()
             fee_structure = get_structure_for_student(profile)
             
-            if not fee_structure:
-                msg = f"No fee structure found for {student.get_full_name()} (School: {student.profile.school.name}, Type: {'Boarder' if student.is_boarder else 'Day Scholar'})."
-                if is_ajax:
-                    return JsonResponse({'status': 'error', 'message': msg})
-                messages.error(request, msg)
-                return redirect(get_redirect_url())
-
-            if not Invoice.objects.filter(student=student, fee_structure=fee_structure).exists():
-                Invoice.objects.create(
-                    student=student,
-                    fee_structure=fee_structure,
-                    amount=fee_structure.amount
-                )
-                msg = f"Invoiced {student.get_full_name()} successfully."
-                if is_ajax:
-                    return JsonResponse({'status': 'success', 'message': msg})
-                messages.success(request, msg)
+            # 1. Main Tuition
+            if fee_structure:
+                if not Invoice.objects.filter(student=student, fee_structure=fee_structure, academic_year=active_year).exists():
+                    final_amount = fee_structure.amount * Decimal(str(multiplier))
+                    Invoice.objects.create(
+                        student=student,
+                        fee_structure=fee_structure,
+                        academic_year=active_year,
+                        term=active_term,
+                        amount=final_amount
+                    )
+                    msg = f"Invoiced {student.get_full_name()} successfully."
+                    messages.success(request, msg)
+                else:
+                    msg = f"{student.get_full_name()} already has tuition for this term."
+                    messages.warning(request, msg)
+            
+            # 2. Additional Charges
+            add_charges = AdditionalCharges.objects.filter(
+                Q(term=active_term) | Q(term__isnull=True),
+                school=profile.school, 
+                grades=profile.class_id.grade
+            )
+            for ac in add_charges:
+                if ac.amount and not Invoice.objects.filter(
+                    student=student, 
+                    additional_charge=ac, 
+                    academic_year=active_year, 
+                    term=active_term
+                ).exists():
+                    Invoice.objects.create(
+                        student=student,
+                        additional_charge=ac,
+                        academic_year=active_year,
+                        term=active_term,
+                        amount=ac.amount,
+                        description=f"{ac.name} for {profile.class_id.grade.name} - {active_term.name}"
+                    )
             else:
                 msg = f"{student.get_full_name()} has already been invoiced."
                 if is_ajax:
@@ -519,7 +571,9 @@ class MigrateTermView(LoginRequiredMixin, TemplateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        from core.models import Term
+        from core.models import Term, AcademicYear
+        from .models import AdditionalCharges
+        from django.db.models import Q
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         if not request.user.is_superuser and request.user.role not in ['Admin', 'Accountant']:
@@ -539,6 +593,11 @@ class MigrateTermView(LoginRequiredMixin, TemplateView):
 
         try:
             selected_term = Term.objects.get(id=term_id)
+            active_year = AcademicYear.objects.filter(is_active=True).first()
+            if not active_year:
+                 # Fallback to year of selected term if term doesn't have a year link
+                 # (assuming terms are within a year)
+                 active_year = AcademicYear.objects.all().first()
         except Term.DoesNotExist:
             msg = "Selected term does not exist."
             if is_ajax:
@@ -559,30 +618,253 @@ class MigrateTermView(LoginRequiredMixin, TemplateView):
 
         invoice_count = 0
         missing_structure_count = 0
+        additional_invoice_count = 0
 
         for profile in profiles:
+            multiplier = profile.student.get_fee_multiplier()
+            
+            # 1. Handle Main Fee Structure
             fee_structure = get_structure_for_profile(profile)
-            if not fee_structure:
+            if fee_structure:
+                if not Invoice.objects.filter(student=profile.student, fee_structure=fee_structure, academic_year=active_year).exists():
+                    final_amount = fee_structure.amount * Decimal(str(multiplier))
+                    Invoice.objects.create(
+                        student=profile.student,
+                        fee_structure=fee_structure,
+                        academic_year=active_year,
+                        term=selected_term,
+                        amount=final_amount,
+                    )
+                    invoice_count += 1
+            else:
                 missing_structure_count += 1
-                continue
 
-            if not Invoice.objects.filter(student=profile.student, fee_structure=fee_structure).exists():
-                Invoice.objects.create(
-                    student=profile.student,
-                    fee_structure=fee_structure,
-                    amount=fee_structure.amount,
-                )
-                invoice_count += 1
+            # 2. Handle Additional Charges for this term
+            add_charges = AdditionalCharges.objects.filter(
+                Q(term=selected_term) | Q(term__isnull=True),
+                school=profile.school, 
+                grades=profile.class_id.grade
+            )
+            for ac in add_charges:
+                if ac.amount and not Invoice.objects.filter(
+                    student=profile.student, 
+                    additional_charge=ac, 
+                    academic_year=active_year, 
+                    term=selected_term
+                ).exists():
+                    Invoice.objects.create(
+                        student=profile.student,
+                        additional_charge=ac,
+                        academic_year=active_year,
+                        term=selected_term,
+                        amount=ac.amount,
+                        description=f"{ac.name} for {profile.class_id.grade.name} - {selected_term.name}"
+                    )
+                    additional_invoice_count += 1
 
-        msg = f"Successfully created {invoice_count} invoices across all schools for {selected_term.name}."
+        msg = f"Successfully created {invoice_count} tuition invoices and {additional_invoice_count} additional charge invoices across all schools for {selected_term.name}."
         if missing_structure_count > 0:
-            msg += f" {missing_structure_count} students skipped due to missing fee structures."
+            msg += f" {missing_structure_count} students skipped for tuition due to missing fee structures."
 
         if is_ajax:
+            from django.contrib import messages
+            messages.success(request, msg)
             return JsonResponse({'status': 'success', 'message': msg})
 
         messages.success(request, msg)
         return redirect('accounts:migrate-term')
+
+
+class RevertMigrationsView(LoginRequiredMixin, TemplateView):
+    """
+    Page to revert term migrations (delete invoices) or
+    academic year migrations (undo promotions + delete invoices).
+    """
+    template_name = 'accounts/revert_migrations.html'
+
+    def get_context_data(self, **kwargs):
+        from core.models import Term, AcademicYear, PromotionHistory
+        context = super().get_context_data(**kwargs)
+
+        terms = Term.objects.all().order_by('id')
+        academic_years = AcademicYear.objects.all().order_by('-start_date')
+
+        # Build summary data for each term
+        term_summaries = []
+        for term in terms:
+            invoice_count = Invoice.objects.filter(term=term).count()
+            invoice_total = Invoice.objects.filter(term=term).aggregate(
+                total=Sum('amount')
+            )['total'] or 0
+            term_summaries.append({
+                'term': term,
+                'invoice_count': invoice_count,
+                'invoice_total': invoice_total,
+            })
+
+        # Build summary data for each academic year
+        year_summaries = []
+        for year in academic_years:
+            invoice_count = Invoice.objects.filter(academic_year=year).count()
+            invoice_total = Invoice.objects.filter(academic_year=year).aggregate(
+                total=Sum('amount')
+            )['total'] or 0
+            promotion_count = PromotionHistory.objects.filter(academic_year=year).count()
+            year_summaries.append({
+                'year': year,
+                'invoice_count': invoice_count,
+                'invoice_total': invoice_total,
+                'promotion_count': promotion_count,
+            })
+
+        context['term_summaries'] = term_summaries
+        context['year_summaries'] = year_summaries
+        context['active_term'] = Term.objects.filter(is_active=True).first()
+        context['active_year'] = AcademicYear.objects.filter(is_active=True).first()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        from core.models import Term, AcademicYear, PromotionHistory
+        from django.db import transaction
+
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+        if not request.user.is_superuser and request.user.role not in ['Admin']:
+            msg = "Permission denied. Only admins can revert migrations."
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': msg}, status=403)
+            messages.error(request, msg)
+            return redirect('accounts:revert-migrations')
+
+        revert_type = request.POST.get('revert_type')
+
+        if revert_type == 'term':
+            term_id = request.POST.get('term_id')
+            if not term_id:
+                msg = "Please select a term to revert."
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': msg})
+                messages.error(request, msg)
+                return redirect('accounts:revert-migrations')
+
+            try:
+                selected_term = Term.objects.get(id=term_id)
+            except Term.DoesNotExist:
+                msg = "Selected term does not exist."
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': msg})
+                messages.error(request, msg)
+                return redirect('accounts:revert-migrations')
+
+            try:
+                with transaction.atomic():
+                    invoices = Invoice.objects.filter(term=selected_term)
+                    invoice_count = invoices.count()
+                    total_amount = invoices.aggregate(total=Sum('amount'))['total'] or 0
+
+                    # Deleting invoices triggers the post_delete signal
+                    # which automatically adjusts student fee_balance
+                    invoices.delete()
+
+                    msg = (
+                        f"Successfully reverted {selected_term.name}: "
+                        f"deleted {invoice_count} invoices totalling {total_amount:,.0f}. "
+                        f"Student balances have been adjusted."
+                    )
+                    if is_ajax:
+                        messages.success(request, msg)
+                        return JsonResponse({'status': 'success', 'message': msg})
+                    messages.success(request, msg)
+
+            except Exception as e:
+                msg = f"Revert failed: {str(e)}"
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': msg})
+                messages.error(request, msg)
+
+        elif revert_type == 'year':
+            year_id = request.POST.get('year_id')
+            if not year_id:
+                msg = "Please select an academic year to revert."
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': msg})
+                messages.error(request, msg)
+                return redirect('accounts:revert-migrations')
+
+            try:
+                selected_year = AcademicYear.objects.get(id=year_id)
+            except AcademicYear.DoesNotExist:
+                msg = "Selected academic year does not exist."
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': msg})
+                messages.error(request, msg)
+                return redirect('accounts:revert-migrations')
+
+            try:
+                with transaction.atomic():
+                    # 1. Revert promotions — move students back to their old classes
+                    histories = PromotionHistory.objects.filter(academic_year=selected_year)
+                    promotion_count = histories.count()
+
+                    for h in histories:
+                        try:
+                            profile = StudentProfile.objects.get(student=h.student)
+                            profile.class_id = h.from_class
+                            if h.is_graduation and profile.status == 'Graduated':
+                                profile.status = 'Active'
+                            profile.save()
+                        except StudentProfile.DoesNotExist:
+                            pass
+
+                    # 2. Delete invoices for this academic year
+                    #    (post_delete signal handles balance restoration)
+                    invoices = Invoice.objects.filter(academic_year=selected_year)
+                    invoice_count = invoices.count()
+                    total_amount = invoices.aggregate(total=Sum('amount'))['total'] or 0
+                    invoices.delete()
+
+                    # 3. Delete promotion history records
+                    histories.delete()
+
+                    # 4. Handle active year/term switching
+                    #    Deactivate the reverted year, reactivate the previous one
+                    previous_year = AcademicYear.objects.filter(
+                        start_date__lt=selected_year.start_date
+                    ).order_by('-start_date').first()
+
+                    if previous_year and selected_year.is_active:
+                        selected_year.is_active = False
+                        selected_year.save()
+                        previous_year.is_active = True
+                        previous_year.save()
+
+                        # Also reactivate the last term
+                        last_term = Term.objects.all().order_by('-id').first()
+                        if last_term:
+                            Term.objects.all().update(is_active=False)
+                            last_term.is_active = True
+                            last_term.save()
+
+                    msg = (
+                        f"Successfully reverted Academic Year {selected_year}: "
+                        f"restored {promotion_count} students, "
+                        f"deleted {invoice_count} invoices totalling {total_amount:,.0f}. "
+                        f"Student balances have been adjusted."
+                    )
+                    if is_ajax:
+                        messages.success(request, msg)
+                        return JsonResponse({'status': 'success', 'message': msg})
+                    messages.success(request, msg)
+
+            except Exception as e:
+                msg = f"Revert failed: {str(e)}"
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': msg})
+                messages.error(request, msg)
+
+        return redirect('accounts:revert-migrations')
+
+
 @login_required
 def payments_list_view(request):
     """View that calls M-Pesa Pull Transactions API for reconciliation"""

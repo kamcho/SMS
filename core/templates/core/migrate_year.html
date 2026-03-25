@@ -160,68 +160,67 @@
         </form>
     </div>
 
-    <!-- Progress Section (Hidden initially) -->
-    <div id="progress-container" class="hidden bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-10 border border-white shadow-2xl shadow-indigo-950/5 animate-in zoom-in-95 duration-700">
-        <div class="space-y-8">
-            <div class="flex items-center justify-between">
-                <div class="space-y-1">
-                    <h3 class="text-2xl font-black text-slate-900">Migration in Progress</h3>
-                    <p id="migration-status" class="text-slate-500 font-bold text-xs">Waiting to start...</p>
+    <!-- Progress Modal (Mirroring migrate-term style) -->
+    <div id="migration-progress-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300 border border-white">
+            <div class="p-10 text-center">
+                <div class="w-24 h-24 bg-indigo-50 text-indigo-600 rounded-[2rem] flex items-center justify-center mx-auto mb-8 relative shadow-inner">
+                    <i class="fas fa-rocket text-4xl animate-pulse"></i>
+                    <div class="absolute inset-0 border-4 border-indigo-100 border-t-indigo-600 rounded-[2rem] animate-spin"></div>
                 </div>
-                <div id="percentage-badge" class="px-6 py-2 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-indigo-200">
-                    0%
+                
+                <h3 id="modal-title" class="text-2xl font-black text-slate-800 mb-2">Global Migration Active</h3>
+                <p id="migration-status" class="text-slate-500 text-xs font-bold mb-8 uppercase tracking-widest">
+                    Initializing migration and billing system...
+                </p>
+                
+                <div class="space-y-6">
+                    <!-- Progress Bar -->
+                    <div class="relative pt-1">
+                        <div class="flex mb-4 items-center justify-between px-2">
+                            <div>
+                                <span id="percentage-badge" class="text-[10px] font-black inline-block py-2 px-4 uppercase rounded-xl text-indigo-600 bg-indigo-50 shadow-sm border border-indigo-100/50">
+                                    0%
+                                </span>
+                            </div>
+                            <div class="text-right">
+                                <span id="processed-text" class="text-[10px] font-black inline-block text-slate-400 uppercase tracking-widest">
+                                    Processing: 0 / 0
+                                </span>
+                            </div>
+                        </div>
+                        <div class="overflow-hidden h-4 mb-4 text-xs flex rounded-full bg-slate-100 shadow-inner p-1">
+                            <div id="progress-bar-fill" style="width:0%" class="shadow-lg flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-indigo-500 to-indigo-700 transition-all duration-500 ease-out rounded-full overflow-hidden relative">
+                                <div class="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:2rem_2rem] animate-[progress-bar-stripes_1s_linear_infinite]"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Counter Stats -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center">
+                            <span id="success-count" class="text-xl font-black text-emerald-600">0</span>
+                            <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Promoted</span>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center">
+                            <span id="invoice-count" class="text-xl font-black text-indigo-600">0</span>
+                            <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Invoiced</span>
+                        </div>
+                    </div>
+
+                    <p class="text-[10px] font-black text-rose-500 animate-pulse uppercase tracking-[0.2em] pt-4">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Do not close or refresh this window
+                    </p>
                 </div>
             </div>
-
-            <!-- Progress Bar -->
-            <div class="w-full h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner p-1">
-                <div id="progress-bar-fill" class="h-full w-0 bg-gradient-to-r from-indigo-500 to-indigo-700 rounded-full transition-all duration-500 shadow-lg relative">
-                    <div class="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:2rem_2rem] animate-[progress-bar-stripes_1s_linear_infinite]"></div>
-                </div>
-            </div>
-
-            <!-- Detailed Stats -->
-            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                <div class="p-6 bg-slate-50 rounded-3xl border border-white shadow-sm flex flex-col items-center">
-                    <span id="processed-count" class="text-2xl font-black text-slate-900">0</span>
-                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Processed</span>
-                </div>
-                <div class="p-6 bg-emerald-50 rounded-3xl border border-emerald-100 shadow-sm flex flex-col items-center">
-                    <div class="flex items-baseline gap-2">
-                        <span id="success-count" class="text-2xl font-black text-emerald-600">0</span>
-                        <span id="success-percent" class="text-[9px] font-black text-emerald-500 bg-white/80 px-2 py-0.5 rounded-lg shadow-sm">0%</span>
-                    </div>
-                    <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Promoted</span>
-                </div>
-                <div class="p-6 bg-indigo-50 rounded-3xl border border-indigo-100 shadow-sm flex flex-col items-center">
-                    <div class="flex items-baseline gap-2">
-                        <span id="invoice-count" class="text-2xl font-black text-indigo-600">0</span>
-                        <span id="invoice-percent" class="text-[9px] font-black text-indigo-500 bg-white/80 px-2 py-0.5 rounded-lg shadow-sm">0%</span>
-                    </div>
-                    <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Invoices</span>
-                </div>
-                <div class="p-6 bg-amber-50 rounded-3xl border border-amber-100 shadow-sm flex flex-col items-center">
-                    <div class="flex items-baseline gap-2">
-                        <span id="manual-count" class="text-2xl font-black text-amber-600">0</span>
-                        <span id="manual-percent" class="text-[9px] font-black text-amber-500 bg-white/80 px-2 py-0.5 rounded-lg shadow-sm">0%</span>
-                    </div>
-                    <span class="text-[10px] font-black text-amber-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Manual Req.</span>
-                </div>
-                <div class="p-6 bg-rose-50 rounded-3xl border border-rose-100 shadow-sm flex flex-col items-center">
-                    <div class="flex items-baseline gap-2">
-                        <span id="skipped-count" class="text-2xl font-black text-rose-600">0</span>
-                        <span id="skipped-percent" class="text-[9px] font-black text-rose-500 bg-white/80 px-2 py-0.5 rounded-lg shadow-sm">0%</span>
-                    </div>
-                    <span class="text-[10px] font-black text-rose-400 uppercase tracking-widest mt-1 text-center line-clamp-1">Skipped</span>
-                </div>
-            </div>
-
-            <div id="completion-actions" class="hidden pt-6 flex flex-col md:flex-row gap-4">
-                <a href="{% url 'core:dashboard' %}" class="flex-1 py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest text-center hover:bg-indigo-600 transition-all">
-                    Return to Dashboard
+            
+            <div id="completion-actions" class="hidden bg-slate-50/50 p-8 flex flex-col gap-3 border-t border-slate-100">
+                <a href="{% url 'core:dashboard' %}" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest text-center hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200">
+                    Go to Dashboard
                 </a>
-                <button onclick="location.reload()" class="flex-1 py-5 bg-white border-2 border-slate-200 text-slate-900 rounded-[1.5rem] font-black text-xs uppercase tracking-widest text-center hover:border-indigo-600 transition-all">
-                    Migrate Another Year
+                <button onclick="location.reload()" class="w-full py-4 bg-white border-2 border-slate-200 text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest text-center hover:border-indigo-600 transition-all">
+                    Dismiss
                 </button>
             </div>
         </div>
@@ -238,20 +237,13 @@
 <script>
     const migrationForm = document.getElementById('migration-form');
     const formContainer = document.getElementById('migration-form-container');
-    const progressContainer = document.getElementById('progress-container');
+    const migrationProgressModal = document.getElementById('migration-progress-modal');
     const progressBarFill = document.getElementById('progress-bar-fill');
     const percentageBadge = document.getElementById('percentage-badge');
     const statusText = document.getElementById('migration-status');
-    const processedText = document.getElementById('processed-count');
+    const processedTextLabel = document.getElementById('processed-text');
     const successText = document.getElementById('success-count');
     const invoiceText = document.getElementById('invoice-count');
-    const manualText = document.getElementById('manual-count');
-    const skippedText = document.getElementById('skipped-count');
-
-    const successPctText = document.getElementById('success-percent');
-    const invoicePctText = document.getElementById('invoice-percent');
-    const manualPctText = document.getElementById('manual-percent');
-    const skippedPctText = document.getElementById('skipped-percent');
     const completionActions = document.getElementById('completion-actions');
 
     let totalStudents = 0;
@@ -268,39 +260,44 @@
         const targetYearId = formData.get('target_year');
 
         // Transition UI
-        formContainer.classList.add('hidden');
-        progressContainer.classList.remove('hidden');
+        migrationProgressModal.classList.remove('hidden');
         statusText.innerText = "Initializing migration and billing system...";
 
         try {
             // Stage 1: Prepare
+            const prepareDataFinal = new FormData();
+            prepareDataFinal.append('csrfmiddlewaretoken', formData.get('csrfmiddlewaretoken'));
+            prepareDataFinal.append('action', 'prepare');
+            prepareDataFinal.append('target_year', targetYearId);
+            
+            // Re-append skip classes
             const skipClasses = Array.from(migrationForm.querySelectorAll('input[name="skip_classes[]"]:checked')).map(el => el.value);
-            const prepareParams = new URLSearchParams({
-                'csrfmiddlewaretoken': formData.get('csrfmiddlewaretoken'),
-                'action': 'prepare',
-                'target_year': targetYearId
-            });
-            skipClasses.forEach(id => prepareParams.append('skip_classes[]', id));
+            skipClasses.forEach(id => prepareDataFinal.append('skip_classes[]', id));
 
             const prepareResp = await fetch(window.location.href, {
                 method: 'POST',
-                body: prepareParams,
+                body: prepareDataFinal,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
 
+            if (!prepareResp.ok) {
+                const errText = await prepareResp.text();
+                throw new Error(`Server returned ${prepareResp.status}: ${errText.substring(0, 200)}`);
+            }
+
             const prepareData = await prepareResp.json();
             if (prepareData.status !== 'ok') {
-                alert("Error: " + prepareData.message);
+                alert("Initialization Error: " + prepareData.message);
                 location.reload();
                 return;
             }
 
             totalStudents = prepareData.total;
             const studentIds = prepareData.student_ids;
-            statusText.innerText = `Year activated: ${prepareData.year_name}. Starting chunked migration and billing of ${totalStudents} students...`;
+            statusText.innerText = `Year activated: ${prepareData.year_name}. Starting migration of ${totalStudents} students...`;
 
             if (totalStudents === 0) {
-                processedText.innerText = 0;
+                processedTextLabel.innerText = "Processing: 0 / 0";
                 statusText.innerText = "No active students found for migration.";
                 progressBarFill.style.width = '100%';
                 percentageBadge.innerText = '100%';
@@ -309,7 +306,7 @@
             }
 
             // Stage 2: Process in Chunks
-            const chunkSize = 20; 
+            const chunkSize = 50; 
             for (let i = 0; i < studentIds.length; i += chunkSize) {
                 const chunk = studentIds.slice(i, i + chunkSize);
                 
@@ -325,6 +322,11 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
 
+                if (!chunkResp.ok) {
+                    console.error(`Chunk error at index ${i}`);
+                    continue; 
+                }
+
                 const chunkData = await chunkResp.json();
                 if (chunkData.status === 'ok') {
                     // Update internal stats
@@ -335,38 +337,26 @@
                     stats.invoices += chunkData.stats.invoices;
 
                     // Update UI
-                    const percentage = Math.round((processedTotal / totalStudents) * 100);
+                    const percentage = Math.round((Math.min(processedTotal, totalStudents) / totalStudents) * 100);
                     progressBarFill.style.width = percentage + '%';
                     percentageBadge.innerText = percentage + '%';
-                    processedText.innerText = processedTotal;
+                    processedTextLabel.innerText = `Processing: ${Math.min(processedTotal, totalStudents)} / ${totalStudents}`;
                     successText.innerText = stats.success;
                     invoiceText.innerText = stats.invoices;
-                    manualText.innerText = stats.manual;
-                    skippedText.innerText = stats.skipped;
 
-                    // Update Success Rates
-                    const getRate = (val) => processedTotal > 0 ? Math.round((val / processedTotal) * 100) + '%' : '0%';
-                    successPctText.innerText = getRate(stats.success);
-                    invoicePctText.innerText = getRate(stats.invoices);
-                    manualPctText.innerText = getRate(stats.manual);
-                    skippedPctText.innerText = getRate(stats.skipped);
-
-                    statusText.innerText = `Processing students and billing... (${processedTotal} / ${totalStudents})`;
-                } else {
-                    statusText.innerText = "Warning: Error processing a chunk. " + chunkData.message;
+                    statusText.innerText = `Processing students and billing...`;
                 }
             }
 
             // Completion
             statusText.innerText = "Migration and Global Billing successfully completed!";
-            progressBarFill.classList.remove('bg-indigo-600');
-            progressBarFill.classList.add('bg-emerald-500');
+            progressBarFill.classList.remove('from-indigo-500');
+            progressBarFill.classList.add('from-emerald-500', 'to-emerald-700');
             completionActions.classList.remove('hidden');
 
         } catch (error) {
             console.error(error);
-            statusText.innerText = "A fatal error occurred during migration. Please check console.";
-            statusText.classList.remove('text-slate-500');
+            statusText.innerText = "Fatal Error: " + error.message;
             statusText.classList.add('text-rose-600');
         }
     });

@@ -35,6 +35,10 @@
         </div>
     </div>
     <div class="flex items-center gap-3">
+        <a href="{% url 'e_learning:student_quiz_list' %}?student_id={{ student.id }}"
+            class="h-12 px-6 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 flex items-center gap-3">
+            <i class="fas fa-laptop"></i> E-Learning
+        </a>
         <a href="{% url 'core:student-report' student.id selected_exam.id %}" target="_blank"
             class="h-12 px-6 bg-white border border-slate-200 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm flex items-center gap-3">
             <i class="fas fa-print text-indigo-500"></i> Print Transcript
@@ -81,7 +85,7 @@
                 </div>
             </div>
             <div class="pt-4 border-t border-slate-50 flex items-center justify-between">
-                <button onclick="openPaymentModal('{{ student.id }}', '{{ student.get_full_name }}', '{{ profile.fee_balance|default:"0" }}')" class="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-widest flex items-center gap-1.5">
+                <button onclick="openPaymentModal('{{ student.id|escapejs }}', '{{ student.get_full_name|escapejs }}', '{{ profile.fee_balance|default:0|escapejs }}')" class="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-widest flex items-center gap-1.5">
                     <i class="fas fa-plus-circle"></i> Add Payment
                 </button>
                 {% if profile.fee_balance > 0 %}
@@ -220,12 +224,12 @@
     <!-- Row 2: Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <!-- Report Card Style Subject Performance -->
-        <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden h-fit flex flex-col">
+        <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
             <div class="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
                 <h3 class="text-lg font-black text-slate-800 tracking-tight">Subject Performance</h3>
                 <span class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest">Report Style</span>
             </div>
-            <div class="p-2 overflow-y-auto max-h-[500px]">
+            <div class="p-2">
                 <table class="w-full text-left text-[11px]">
                     <thead class="sticky top-0 bg-white z-10">
                         <tr class="border-b border-slate-50">
@@ -273,7 +277,7 @@
         </div>
 
         <!-- Subject Scores Bar Chart -->
-        <div class="lg:col-span-12 xl:col-span-8 chart-container h-[450px]">
+        <div class="lg:col-span-8 chart-container flex flex-col">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
                 <h3 class="text-xl font-black text-slate-800">Subject performance summary</h3>
                 <form method="GET" class="relative">
@@ -287,64 +291,133 @@
                         class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 pointer-events-none"></i>
                 </form>
             </div>
-            <div class="h-64">
+            <div class="flex-grow min-h-[350px]">
                 <canvas id="subjectBarChart"></canvas>
             </div>
             </div>
             </div>
     <!-- Row 3: Tables & Calendar -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Transactions Table -->
-        <div class="bg-white rounded-[22px] border border-slate-200 shadow-sm overflow-hidden">
-            <div class="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-                <h3 class="text-lg font-black text-slate-800 tracking-tight">Financial Log</h3>
-                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recent Activity</span>
+    <div class="flex flex-col gap-8" id="payments">
+    <!-- Fees Statement Section -->
+    <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div class="px-10 py-8 border-b border-slate-50 bg-gradient-to-r from-slate-50/50 to-white flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <h3 class="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                    <span class="w-2 h-8 bg-indigo-500 rounded-full"></span>
+                    Student Fees Statement
+                </h3>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-2 ml-5">Official Transaction Ledger</p>
             </div>
-            <div class="overflow-x-auto">
+            <div class="flex items-center gap-4">
+                <div class="px-5 py-3 bg-slate-50 rounded-2xl border border-slate-100/50 text-right">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Current Balance</p>
+                    <p class="text-lg font-black {% if profile.fee_balance > 0 %}text-rose-600{% else %}text-emerald-600{% endif %} tracking-tighter">
+                        KES {{ profile.fee_balance|abs_val|floatformat:0 }}
+                        <span class="text-[10px] uppercase font-bold ml-1">{% if profile.fee_balance > 0 %}Due{% else %}Credit{% endif %}</span>
+                    </p>
+                </div>
+                <button onclick="openPaymentModal('{{ student.id|escapejs }}', '{{ student.get_full_name|escapejs }}', '{{ profile.fee_balance|default:0|escapejs }}')" 
+                    class="h-14 px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-200 transition-all flex items-center gap-3 group">
+                    <i class="fas fa-plus-circle group-hover:rotate-90 transition-transform"></i> Add Payment
+                </button>
+            </div>
+        </div>
+
+        <div class="p-0 overflow-x-auto">
+            {% for period in financial_statement %}
+            <div class="min-w-[800px] border-b border-slate-100 last:border-0 hover:bg-slate-50/10 transition-colors">
+                <!-- Group Header -->
+                <div class="px-10 py-5 bg-slate-50/30 flex items-center justify-between sticky left-0">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 shadow-sm">
+                            <i class="fas fa-calendar-alt text-xs"></i>
+                        </div>
+                        <span class="text-sm font-black text-slate-700 uppercase tracking-tight">{{ period.period }}</span>
+                    </div>
+                    <div class="bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm flex items-center gap-6">
+                        <div class="text-right">
+                            <p class="text-[8px] font-black text-slate-400 uppercase tracking-[0.1em]">Balance B/FWD</p>
+                            <p class="text-xs font-black text-slate-600">KES {{ period.b_fwd|floatformat:0 }}</p>
+                        </div>
+                    </div>
+                </div>
+
                 <table class="w-full text-left">
-                    <thead class="bg-slate-50/50">
-                        <tr>
-                            <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</th>
-                            <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
-                            <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Balance</th>
+                    <thead>
+                        <tr class="bg-white/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                            <th class="px-10 py-4 w-32">Date</th>
+                            <th class="px-6 py-4 w-40">Ref / Receipt</th>
+                            <th class="px-6 py-4">Vote Head / Particulars</th>
+                            <th class="px-6 py-4 text-right w-36">Debit (KES)</th>
+                            <th class="px-6 py-4 text-right w-36">Credit (KES)</th>
+                            <th class="px-10 py-4 text-right w-44">T. Balance</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        {% for entry in financial_log %}
-                        <tr class="hover:bg-slate-50/50 transition-all">
-                            <td class="px-6 py-4">
+                    <tbody class="divide-y divide-slate-50">
+                        {% for item in period.items %}
+                        <tr class="group hover:bg-white transition-all">
+                            <td class="px-10 py-5 text-[11px] font-bold text-slate-400 tabular-nums">{{ item.date|date:"d M, Y" }}</td>
+                            <td class="px-6 py-5">
+                                <span class="px-2 py-1 bg-slate-50 text-slate-400 rounded-md text-[10px] font-black tracking-tighter">{{ item.reference }}</span>
+                            </td>
+                            <td class="px-6 py-5">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs
-                                        {% if entry.type == 'payment' %}bg-emerald-50 text-emerald-600{% else %}bg-amber-50 text-amber-600{% endif %}">
-                                        <i class="fas {% if entry.type == 'payment' %}fa-check-circle{% else %}fa-file-invoice-dollar{% endif %}"></i>
+                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center text-[10px]
+                                        {% if item.type == 'payment' %}bg-emerald-50 text-emerald-500 shadow-inner{% else %}bg-indigo-50 text-indigo-500 shadow-inner{% endif %}">
+                                        <i class="fas {% if item.type == 'payment' %}fa-arrow-down-long{% else %}fa-arrow-up-long{% endif %}"></i>
                                     </div>
-                                    <div>
-                                        <p class="text-xs font-bold text-slate-700 leading-tight">{{ entry.description }}</p>
-                                        <p class="text-[10px] text-slate-400 font-medium mt-0.5">{{ entry.date|date:"d M Y" }}</p>
-                                    </div>
+                                    <span class="text-xs font-bold text-slate-700">{{ item.description }}</span>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-right font-black {% if entry.type == 'payment' %}text-emerald-600{% else %}text-slate-800{% endif %} text-xs">
-                                {% if entry.type == 'payment' %}-{% endif %}KES {{ entry.amount|floatformat:0 }}
+                            <td class="px-6 py-5 text-right font-black text-slate-700 text-xs">
+                                {% if item.debit > 0 %}{{ item.debit|floatformat:0 }}{% else %}<span class="text-slate-200">-</span>{% endif %}
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <span class="text-xs font-black {% if entry.balance_after > 0 %}text-rose-500{% elif entry.balance_after < 0 %}text-emerald-600{% else %}text-slate-400{% endif %}">
-                                    KES {{ entry.balance_after|default:"0"|abs_val|floatformat:0 }}
+                            <td class="px-6 py-5 text-right font-black text-emerald-600 text-xs">
+                                {% if item.credit > 0 %}{{ item.credit|floatformat:0 }}{% else %}<span class="text-slate-200">-</span>{% endif %}
+                            </td>
+                            <td class="px-10 py-5 text-right tabular-nums">
+                                <span class="text-xs font-black {% if item.balance_after > 0 %}text-rose-500{% elif item.balance_after < 0 %}text-emerald-600{% else %}text-slate-400{% endif %}">
+                                    {{ item.balance_after|abs_val|floatformat:0 }}
                                 </span>
-                                {% if entry.balance_after < 0 %}
-                                <div class="text-[8px] font-bold text-emerald-500 uppercase tracking-tighter">Overpayment</div>
+                                {% if item.balance_after < 0 %}
+                                <span class="block text-[8px] font-black text-emerald-400 uppercase tracking-tighter -mt-0.5">Credit</span>
                                 {% endif %}
                             </td>
                         </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="3" class="px-6 py-12 text-center text-slate-400 italic text-xs">No financial records found</td>
-                        </tr>
                         {% endfor %}
                     </tbody>
+                    <tfoot class="bg-slate-50/5">
+                        <tr class="text-[10px] font-black text-slate-400 bg-slate-50/20">
+                            <td colspan="3" class="px-10 py-4 uppercase tracking-[0.2em] text-slate-500">Sub-Totals for {{ period.period }}</td>
+                            <td class="px-6 py-4 text-right text-slate-800">KES {{ period.total_debit|floatformat:0 }}</td>
+                            <td class="px-6 py-4 text-right text-emerald-600">KES {{ period.total_credit|floatformat:0 }}</td>
+                            <td class="px-10 py-4 text-right bg-indigo-50/30">
+                                <div class="flex flex-col items-end">
+                                    <span class="text-[8px] text-indigo-400 uppercase tracking-widest leading-none">C/FWD Bal</span>
+                                    <span class="text-xs text-indigo-700 mt-1">KES {{ period.c_fwd|floatformat:0 }}</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
+            {% empty %}
+            <div class="px-10 py-24 text-center">
+                <div class="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-slate-200 mx-auto mb-6 border border-slate-100">
+                    <i class="fas fa-file-invoice-dollar text-3xl"></i>
+                </div>
+                <h4 class="text-lg font-black text-slate-400 tracking-tight">Empty Statement</h4>
+                <p class="text-xs font-bold text-slate-300 uppercase tracking-widest mt-2">No transaction history found for this period</p>
+                <button onclick="openPaymentModal('{{ student.id|escapejs }}', '{{ student.get_full_name|escapejs }}', '{{ profile.fee_balance|default:0|escapejs }}')" 
+                    class="mt-8 px-6 py-3 bg-white border border-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm">
+                    Incept Account with Payment
+                </button>
+            </div>
+            {% endfor %}
         </div>
+    </div>
+
+    <!-- Attendance Hub Section -->
 
         <!-- Attendance Calendar -->
         <div class="chart-container" id="attendance-hub">

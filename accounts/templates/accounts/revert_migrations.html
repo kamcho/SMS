@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+
+{% block title %}Revert Migrations | Excel SMS{% endblock %}
+
+{% block page_header %}
+<div>
+    <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Revert Migrations</h1>
+    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-0.5">Undo term or year migrations</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+    <!-- ============================================ -->
+    <!-- REVERT TERM MIGRATION                        -->
+    <!-- ============================================ -->
+    <div class="bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center">
+                <i class="fas fa-calendar-minus text-amber-500 text-lg"></i>
+            </div>
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800 dark:text-slate-100">Revert Term Migration</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Delete all invoices created for a specific term. Student balances will be adjusted automatically.</p>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6">
+            <!-- Active indicator -->
+            {% if active_term %}
+            <div class="mb-5 flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
+                <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400">Active Term: {{ active_term.name }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Term Selection -->
+            <form id="revert-term-form" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="revert_type" value="term">
+                <label class="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Select Term to Revert</label>
+                <select id="term-select" name="term_id" class="w-full px-4 py-3 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all text-slate-800 dark:text-slate-200 font-medium">
+                    <option value="">-- Choose a term --</option>
+                    {% for item in term_summaries %}
+                    <option value="{{ item.term.id }}" data-invoices="{{ item.invoice_count }}" data-total="{{ item.invoice_total }}">
+                        {{ item.term.name }}
+                        {% if item.invoice_count > 0 %} — {{ item.invoice_count }} invoices ({{ item.invoice_total|floatformat:0 }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+
+                <!-- Preview card -->
+                <div id="term-preview" class="mt-4 hidden">
+                    <div class="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5 p-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Invoices</p>
+                                <p id="term-invoice-count" class="text-xl font-black text-slate-800 dark:text-slate-100 mt-1">0</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Amount</p>
+                                <p id="term-invoice-total" class="text-xl font-black text-slate-800 dark:text-slate-100 mt-1">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="revert-term-btn" class="mt-5 w-full flex items-center justify-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold transition-all duration-300 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-undo-alt"></i>
+                    Revert Term Invoices
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- REVERT ACADEMIC YEAR MIGRATION               -->
+    <!-- ============================================ -->
+    <div class="bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center">
+                <i class="fas fa-history text-rose-500 text-lg"></i>
+            </div>
+            <div>
+                <h3 class="text-[15px] font-bold text-slate-800 dark:text-slate-100">Revert Year Migration</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Undo student promotions and delete all invoices for an academic year.</p>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6">
+            <!-- Active indicator -->
+            {% if active_year %}
+            <div class="mb-5 flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
+                <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400">Active Year: {{ active_year }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Year Selection -->
+            <form id="revert-year-form" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="revert_type" value="year">
+                <label class="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Select Academic Year to Revert</label>
+                <select id="year-select" name="year_id" class="w-full px-4 py-3 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 transition-all text-slate-800 dark:text-slate-200 font-medium">
+                    <option value="">-- Choose academic year --</option>
+                    {% for item in year_summaries %}
+                    <option value="{{ item.year.id }}" data-invoices="{{ item.invoice_count }}" data-total="{{ item.invoice_total }}" data-promotions="{{ item.promotion_count }}">
+                        {{ item.year }}
+                        {% if item.invoice_count > 0 or item.promotion_count > 0 %}
+                            — {{ item.invoice_count }} invoices, {{ item.promotion_count }} promotions
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+
+                <!-- Preview card -->
+                <div id="year-preview" class="mt-4 hidden">
+                    <div class="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-500/5 p-4">
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Invoices</p>
+                                <p id="year-invoice-count" class="text-xl font-black text-slate-800 dark:text-slate-100 mt-1">0</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Amount</p>
+                                <p id="year-invoice-total" class="text-xl font-black text-slate-800 dark:text-slate-100 mt-1">0</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Promotions</p>
+                                <p id="year-promotion-count" class="text-xl font-black text-slate-800 dark:text-slate-100 mt-1">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Warning -->
+                    <div class="mt-3 flex items-start gap-2 px-3 py-2.5 bg-rose-50 dark:bg-rose-500/10 rounded-lg border border-rose-200 dark:border-rose-500/20">
+                        <i class="fas fa-exclamation-triangle text-rose-500 mt-0.5 text-xs"></i>
+                        <p class="text-[11px] text-rose-600 dark:text-rose-400 font-medium leading-relaxed">
+                            This will <strong>undo all student promotions</strong> and move students back to their previous classes. All invoices for this year will be deleted and student balances adjusted.
+                        </p>
+                    </div>
+                </div>
+
+                <button type="submit" id="revert-year-btn" class="mt-5 w-full flex items-center justify-center gap-2 px-5 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-bold transition-all duration-300 shadow-lg shadow-rose-500/20 hover:shadow-rose-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-undo-alt"></i>
+                    Revert Year Migration
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MIGRATION HISTORY TABLE                      -->
+<!-- ============================================ -->
+<div class="mt-6 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="text-[15px] font-bold text-slate-800 dark:text-slate-100">Migration Summary</h3>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">Overview of invoices and promotions by term and year.</p>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="bg-slate-50 dark:bg-slate-800/50">
+                    <th class="px-6 py-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Term</th>
+                    <th class="px-6 py-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center">Invoices</th>
+                    <th class="px-6 py-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-right">Total Billed</th>
+                    <th class="px-6 py-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center">Status</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                {% for item in term_summaries %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td class="px-6 py-3.5">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-calendar text-indigo-400 text-xs"></i>
+                            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ item.term.name }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-3.5 text-center">
+                        <span class="text-sm font-bold text-slate-800 dark:text-slate-100">{{ item.invoice_count }}</span>
+                    </td>
+                    <td class="px-6 py-3.5 text-right">
+                        <span class="text-sm font-bold text-slate-800 dark:text-slate-100">{{ item.invoice_total|floatformat:0 }}</span>
+                    </td>
+                    <td class="px-6 py-3.5 text-center">
+                        {% if item.term.is_active %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase">
+                            <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>Active
+                        </span>
+                        {% else %}
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Inactive</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div id="revert-progress-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="p-8 text-center">
+            <div id="modal-icon-container" class="w-20 h-20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6 relative">
+                <i class="fas fa-undo-alt text-3xl animate-pulse"></i>
+                <div class="absolute inset-0 border-4 border-amber-100 dark:border-amber-500/30 border-t-amber-600 rounded-full animate-spin"></div>
+            </div>
+            
+            <h3 id="modal-title" class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Reverting Migration...</h3>
+            <p id="modal-status" class="text-slate-500 dark:text-slate-400 text-sm font-medium mb-8">
+                Please wait while we process the revert.
+            </p>
+            
+            <div class="relative pt-1">
+                <div class="overflow-hidden h-3 mb-4 text-xs flex rounded-full bg-slate-100 dark:bg-slate-800 shadow-inner">
+                    <div id="modal-progress-bar" style="width:0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-amber-500 transition-all duration-300 ease-out rounded-full overflow-hidden">
+                        <div class="w-full h-full bg-[linear-gradient(45deg,rgba(255,255,255,.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,.15)_50%,rgba(255,255,255,.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-[progress-bar-stripes_1s_linear_infinite]"></div>
+                    </div>
+                </div>
+                <p class="text-[11px] font-bold text-slate-400 italic">Do not close this window.</p>
+            </div>
+        </div>
+        
+        <div class="bg-slate-50 dark:bg-slate-800/50 p-6 flex justify-center border-t border-slate-100 dark:border-slate-800">
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Processing revert operation</p>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes progress-bar-stripes {
+    from { background-position: 1rem 0; }
+    to { background-position: 0 0; }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // -- Term preview --
+    const termSelect = document.getElementById('term-select');
+    const termPreview = document.getElementById('term-preview');
+    
+    termSelect.addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        if (this.value) {
+            document.getElementById('term-invoice-count').textContent = opt.dataset.invoices || '0';
+            document.getElementById('term-invoice-total').textContent = Number(opt.dataset.total || 0).toLocaleString();
+            termPreview.classList.remove('hidden');
+        } else {
+            termPreview.classList.add('hidden');
+        }
+    });
+
+    // -- Year preview --
+    const yearSelect = document.getElementById('year-select');
+    const yearPreview = document.getElementById('year-preview');
+    
+    yearSelect.addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        if (this.value) {
+            document.getElementById('year-invoice-count').textContent = opt.dataset.invoices || '0';
+            document.getElementById('year-invoice-total').textContent = Number(opt.dataset.total || 0).toLocaleString();
+            document.getElementById('year-promotion-count').textContent = opt.dataset.promotions || '0';
+            yearPreview.classList.remove('hidden');
+        } else {
+            yearPreview.classList.add('hidden');
+        }
+    });
+
+    // -- Shared AJAX submission --
+    const modal = document.getElementById('revert-progress-modal');
+    const progressBar = document.getElementById('modal-progress-bar');
+    const modalTitle = document.getElementById('modal-title');
+    const modalStatus = document.getElementById('modal-status');
+    const iconContainer = document.getElementById('modal-icon-container');
+
+    let progressInterval;
+    let currentPct = 0;
+
+    function startProgress() {
+        currentPct = 0;
+        progressBar.style.width = '0%';
+        progressInterval = setInterval(() => {
+            if (currentPct < 95) {
+                const step = Math.max(0.15, (95 - currentPct) * 0.04);
+                currentPct += step;
+                progressBar.style.width = Math.round(currentPct) + '%';
+            }
+        }, 120);
+    }
+
+    async function submitRevert(form, type) {
+        const formData = new FormData(form);
+
+        // Styling for type
+        if (type === 'year') {
+            iconContainer.className = 'w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6 relative';
+            progressBar.className = progressBar.className.replace('bg-amber-500', 'bg-rose-500');
+            modalTitle.textContent = 'Reverting Year Migration...';
+            modalStatus.textContent = 'Undoing promotions and deleting invoices...';
+        } else {
+            iconContainer.className = 'w-20 h-20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6 relative';
+            progressBar.className = progressBar.className.replace('bg-rose-500', 'bg-amber-500');
+            modalTitle.textContent = 'Reverting Term Migration...';
+            modalStatus.textContent = 'Deleting invoices and adjusting balances...';
+        }
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        startProgress();
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            });
+
+            const result = await response.json();
+            clearInterval(progressInterval);
+
+            if (result.status === 'success') {
+                progressBar.style.width = '100%';
+                modalTitle.textContent = 'Revert Successful!';
+                modalStatus.textContent = result.message || 'Migration reverted successfully.';
+                setTimeout(() => { window.location.reload(); }, 1500);
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                alert('Error: ' + (result.message || 'Unknown error occurred.'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            console.error('Revert error:', error);
+            alert('A network error occurred. Please check your connection and try again.');
+        }
+    }
+
+    // -- Term form --
+    document.getElementById('revert-term-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (!termSelect.value) {
+            alert('Please select a term to revert.');
+            return;
+        }
+        const termName = termSelect.options[termSelect.selectedIndex].textContent.trim().split('—')[0].trim();
+        if (!confirm(`Are you sure you want to revert "${termName}"?\n\nThis will DELETE all invoices for this term and adjust student balances. This action cannot be undone.`)) {
+            return;
+        }
+        submitRevert(this, 'term');
+    });
+
+    // -- Year form --
+    document.getElementById('revert-year-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (!yearSelect.value) {
+            alert('Please select an academic year to revert.');
+            return;
+        }
+        const yearName = yearSelect.options[yearSelect.selectedIndex].textContent.trim().split('—')[0].trim();
+        if (!confirm(`⚠️ WARNING: You are about to revert Academic Year "${yearName}".\n\nThis will:\n• Undo ALL student promotions\n• Delete ALL invoices for this year\n• Adjust ALL student fee balances\n\nThis action CANNOT be undone. Are you absolutely sure?`)) {
+            return;
+        }
+        submitRevert(this, 'year');
+    });
+});
+</script>
+
+{% endblock %}

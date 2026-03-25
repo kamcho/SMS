@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}Quiz Results — {{ attempt.quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <!-- Score Banner -->
+    <div class="glass-card mb-8 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-r {% if attempt.passed %}from-emerald-500/10 to-teal-500/10{% else %}from-rose-500/10 to-orange-500/10{% endif %}"></div>
+        <div class="relative flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ attempt.quiz.title }}</h1>
+                <p class="text-slate-700 dark:text-slate-300 font-black text-xs uppercase tracking-widest mt-2 mb-1">
+                    <i class="fas fa-user-circle mr-1 text-indigo-500"></i> {{ attempt.student.get_full_name }}
+                </p>
+                <p class="text-slate-500 text-sm">{{ attempt.quiz.subject.name }} · Attempt {{ attempt.attempt_number }}</p>
+                {% if attempt.submitted_at %}
+                <p class="text-xs text-slate-400 mt-1">
+                    <i class="fas fa-clock mr-1"></i> Submitted {{ attempt.submitted_at|timesince }} ago
+                </p>
+                {% endif %}
+            </div>
+            <div class="text-center">
+                <div class="w-28 h-28 rounded-full border-4 {% if attempt.passed %}border-emerald-500{% else %}border-rose-500{% endif %} flex items-center justify-center mx-auto">
+                    <div>
+                        <span class="text-3xl font-black {% if attempt.passed %}text-emerald-500{% else %}text-rose-500{% endif %}">
+                            {{ attempt.percentage|floatformat:0 }}%
+                        </span>
+                    </div>
+                </div>
+                <p class="mt-2 text-sm font-bold {% if attempt.passed %}text-emerald-600{% else %}text-rose-600{% endif %}">
+                    {% if attempt.passed %}
+                    <i class="fas fa-check-circle mr-1"></i> PASSED
+                    {% else %}
+                    <i class="fas fa-times-circle mr-1"></i> NOT PASSED
+                    {% endif %}
+                </p>
+                <p class="text-xs text-slate-400 mt-1">{{ attempt.total_score|floatformat:1 }} / {{ attempt.total_possible|floatformat:1 }} marks</p>
+            </div>
+        </div>
+
+        {% if not attempt.ai_grading_complete %}
+        <div class="relative mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-700 dark:text-amber-400">
+            <i class="fas fa-robot mr-1"></i>
+            <strong>AI grading in progress</strong> — Some short-answer questions are still being graded. Refresh this page to see updates.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Answers Review -->
+    <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-4">
+        <i class="fas fa-clipboard-check text-indigo-500 mr-2"></i>Answer Review
+    </h2>
+
+    <div class="space-y-4">
+        {% for answer in answers %}
+        <div class="glass-card border-l-4 {% if answer.is_graded and answer.score_awarded == answer.question.marks %}border-emerald-500{% elif answer.is_graded and answer.score_awarded > 0 %}border-amber-500{% elif answer.is_graded %}border-rose-500{% else %}border-slate-300{% endif %}">
+            <div class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-lg {% if answer.is_graded and answer.score_awarded == answer.question.marks %}bg-emerald-500{% elif answer.is_graded and answer.score_awarded > 0 %}bg-amber-500{% elif answer.is_graded %}bg-rose-500{% else %}bg-slate-400{% endif %} text-white flex items-center justify-center font-bold text-sm shrink-0">
+                    {{ forloop.counter }}
+                </span>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        {% if answer.question.question_type == 'multiple_choice' %}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-500/10 text-blue-600 uppercase">MCQ</span>
+                        {% else %}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-500/10 text-purple-600 uppercase">Short Answer</span>
+                        {% endif %}
+                        <span class="text-xs font-bold {% if answer.score_awarded == answer.question.marks %}text-emerald-600{% elif answer.score_awarded > 0 %}text-amber-600{% else %}text-rose-600{% endif %}">
+                            {{ answer.score_awarded|floatformat:1 }} / {{ answer.question.marks }} marks
+                        </span>
+                    </div>
+
+                    <p class="text-slate-900 dark:text-white font-medium mb-3">{{ answer.question.question }}</p>
+
+                    {% if answer.question.question_type == 'multiple_choice' %}
+                    <div class="space-y-1.5">
+                        {% for opt in answer.question.options.all %}
+                        <div class="flex items-center gap-2 text-sm p-2 rounded-lg
+                            {% if opt.is_correct %}bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold
+                            {% elif opt == answer.selected_option and not opt.is_correct %}bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 line-through
+                            {% else %}text-slate-500{% endif %}">
+                            {% if opt.is_correct %}
+                            <i class="fas fa-check-circle text-emerald-500"></i>
+                            {% elif opt == answer.selected_option %}
+                            <i class="fas fa-times-circle text-rose-500"></i>
+                            {% else %}
+                            <i class="far fa-circle text-slate-300"></i>
+                            {% endif %}
+                            {{ opt.option }}
+                            {% if opt == answer.selected_option %}
+                            <span class="text-[10px] uppercase font-bold ml-auto">Your answer</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="space-y-2">
+                        <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                            <p class="text-xs text-slate-400 uppercase font-bold mb-1">Your Answer</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ answer.text_answer|default:"No answer provided" }}</p>
+                        </div>
+
+                        {% if answer.ai_feedback %}
+                        <div class="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg">
+                            <p class="text-xs text-indigo-600 uppercase font-bold mb-1">
+                                <i class="fas fa-robot mr-1"></i> AI Feedback
+                                {% if answer.ai_confidence %}
+                                <span class="text-slate-400 normal-case">(confidence: {{ answer.ai_confidence|floatformat:0 }}%)</span>
+                                {% endif %}
+                            </p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ answer.ai_feedback }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if answer.question.expected_answer %}
+                        <div class="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg">
+                            <p class="text-xs text-emerald-600 uppercase font-bold mb-1">Expected Answer</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-300">{{ answer.question.expected_answer }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="mt-8 text-center">
+        <a href="{% url 'e_learning:student_quiz_list' %}" class="btn btn-primary">
+            <i class="fas fa-arrow-left mr-2"></i> Back to My Quizzes
+        </a>
+    </div>
+</div>
+{% endblock %}

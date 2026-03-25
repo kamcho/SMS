@@ -141,9 +141,11 @@ class CreateExamView(LoginRequiredMixin, View):
             return redirect('core:dashboard')
         
         form = ExamForm()
+        running_exam = Exam.objects.filter(is_running=True).first()
         
         context = {
             'form': form,
+            'running_exam': running_exam,
             'page_title': 'Create New Exam',
             'breadcrumb_title': 'Create Exam',
         }
@@ -151,23 +153,40 @@ class CreateExamView(LoginRequiredMixin, View):
         return render(request, 'Exam/create_exam.html', context)
     
     def post(self, request):
-        # Check permissions - only exam officer can create exams
-        if not getattr(request.user, 'is_exam_officer', False):
-            messages.error(request, 'You do not have permission to create exams. Only the Exam Officer can perform this action.')
+        # Check permissions - admin, exam officer, and exam manager can create exams
+        is_allowed = (
+            request.user.is_superuser or 
+            request.user.role == 'Admin' or 
+            getattr(request.user, 'is_exam_officer', False) or 
+            getattr(request.user, 'is_exam_manager', False)
+        )
+        if not is_allowed:
+            messages.error(request, 'You do not have permission to create exams. Only authorized staff can perform this action.')
             return redirect('core:dashboard')
         
         form = ExamForm(request.POST)
+        running_exam = Exam.objects.filter(is_running=True).first()
         
         if form.is_valid():
             try:
-                # Deactivate all other exams
-                Exam.objects.update(is_running=False)
                 exam = form.save(commit=False)
                 exam.created_by = request.user
                 exam.updated_by = request.user
+                
+                # Check if user wants to close the previous exam
+                if running_exam:
+                    close_previous = request.POST.get('close_previous') == 'on'
+                    if close_previous:
+                        Exam.objects.update(is_running=False) # Deactivate all others
+                        exam.is_running = True
+                    else:
+                        exam.is_running = False
+                else:
+                    exam.is_running = True
+                    
                 exam.save()
                 messages.success(request, f'Exam "{exam.name}" has been created successfully!')
-                return redirect('core:dashboard')
+                return redirect('Exam:exam-list')
             except Exception as e:
                 messages.error(request, f'Error creating exam: {str(e)}')
         else:
@@ -175,9 +194,11 @@ class CreateExamView(LoginRequiredMixin, View):
         
         context = {
             'form': form,
+            'running_exam': running_exam,
             'page_title': 'Create New Exam',
             'breadcrumb_title': 'Create Exam',
         }
+
         
         return render(request, 'Exam/create_exam.html', context)
 
@@ -289,6 +310,22 @@ class ManageExamView(LoginRequiredMixin, View):
                 exam_mode.active = False
                 exam_mode.save()
             messages.success(request, f'Exam "{exam.name}" has been deactivated. Teachers can no longer upload marks.')
+            return redirect('Exam:manage-exam', exam_id=exam_id)
+            
+        # Handle explicitly closing an exam
+        if 'close_exam' in request.POST:
+            exam.is_running = False
+            exam.save()
+            messages.success(request, f'Exam "{exam.name}" has been closed.')
+            return redirect('Exam:manage-exam', exam_id=exam_id)
+            
+        # Handle explicitly reopening an exam
+        if 'reopen_exam' in request.POST:
+            # Deactivate all other exams first because we can't have multiple running
+            Exam.objects.exclude(id=exam.id).update(is_running=False)
+            exam.is_running = True
+            exam.save()
+            messages.success(request, f'Exam "{exam.name}" has been reopened and is now the active running exam.')
             return redirect('Exam:manage-exam', exam_id=exam_id)
         
         # Handle different form actions

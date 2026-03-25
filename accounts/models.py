@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.conf import settings
 from decimal import Decimal
 import uuid
@@ -54,6 +56,7 @@ class AdmissionFee(models.Model):
 class AdditionalCharges(models.Model):
     name = models.CharField(max_length=100)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    term = models.ForeignKey('core.Term', on_delete=models.CASCADE, null=True, blank=True, help_text="The term this charge applies to. If empty, it applies to all terms.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     grades = models.ManyToManyField('core.Grade')
@@ -75,12 +78,32 @@ class Invoice(models.Model):
     """
     student = models.ForeignKey('core.Student', on_delete=models.CASCADE)
     fee_structure = models.ForeignKey(FeeStructure, on_delete=models.CASCADE, null=True, blank=True)
+    additional_charge = models.ForeignKey(AdditionalCharges, on_delete=models.SET_NULL, null=True, blank=True)
     description = models.CharField(max_length=200, null=True, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     previous_balance = models.DecimalField(max_digits=12, decimal_places=2, editable=False, null=True, blank=True)
     current_balance = models.DecimalField(max_digits=12, decimal_places=2, editable=False, null=True, blank=True)
     is_billed = models.BooleanField(default=True)
+    is_billed = models.BooleanField(default=True)
+    academic_year = models.ForeignKey('core.AcademicYear', on_delete=models.SET_NULL, null=True, blank=True)
+    term = models.ForeignKey('core.Term', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            # Only ONE invoice per student per FeeStructure (which already links to a specific term)
+            models.UniqueConstraint(
+                fields=['student', 'fee_structure', 'academic_year'], 
+                name='unique_fee_invoice_per_year',
+                condition=models.Q(fee_structure__isnull=False)
+            ),
+            # Only ONE invoice per student per AdditionalCharge per Year/Term period
+            models.UniqueConstraint(
+                fields=['student', 'additional_charge', 'academic_year', 'term'], 
+                name='unique_additional_invoice_per_period',
+                condition=models.Q(additional_charge__isnull=False)
+            )
+        ]
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
@@ -109,6 +132,8 @@ class Invoice(models.Model):
         desc = self.description if self.description else "General Billing"
         if self.fee_structure:
             desc = f"{self.fee_structure.term.name} Fees"
+        elif self.additional_charge and self.term:
+             desc = f"{self.term.name} - {self.additional_charge.name}"
         return f"Invoice: {self.student.first_name} - {desc}"
 
 class Payment(models.Model):
@@ -271,3 +296,28 @@ class MpesaAccessToken(models.Model):
     def is_expired(self):
         from django.utils import timezone
         return timezone.now() >= self.expires_at
+
+# Signals to update student balance on deletion
+@receiver(post_delete, sender=Invoice)
+def update_profile_on_invoice_delete(sender, instance, **kwargs):
+    """Subtract the invoice amount from student balance when deleted"""
+    from core.models import StudentProfile
+    try:
+        profile = StudentProfile.objects.get(student=instance.student)
+        fee_amount = Decimal(str(instance.amount)) if instance.amount else Decimal('0')
+        profile.fee_balance -= int(fee_amount.to_integral_value())
+        profile.save()
+    except StudentProfile.DoesNotExist:
+        pass
+
+@receiver(post_delete, sender=Payment)
+def update_profile_on_payment_delete(sender, instance, **kwargs):
+    """Add the payment amount back to student balance when deleted (cancelling the payment)"""
+    from core.models import StudentProfile
+    try:
+        profile = StudentProfile.objects.get(student=instance.student)
+        payment_amount = Decimal(str(instance.amount)) if instance.amount else Decimal('0')
+        profile.fee_balance += int(payment_amount.to_integral_value())
+        profile.save()
+    except StudentProfile.DoesNotExist:
+        pass

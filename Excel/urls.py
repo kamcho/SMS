@@ -26,4 +26,13 @@ urlpatterns = [
     path('transport/', include('transport.urls')),
     path('communication/', include('communication.urls')),
     path('hostels/', include('hostels.urls')),
+    path('e-learning/', include('e_learning.urls')),
 ]
+
+from django.conf import settings
+from django.conf.urls.static import static
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+

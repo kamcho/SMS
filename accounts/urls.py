@@ -15,6 +15,7 @@ urlpatterns = [
     path('payroll/config/<int:staff_id>/', views.update_salary_config, name='update-salary-config'),
     path('migrate-fees/', views.MigrateFeesView.as_view(), name='migrate-fees'),
     path('migrate-term/', views.MigrateTermView.as_view(), name='migrate-term'),
+    path('revert-migrations/', views.RevertMigrationsView.as_view(), name='revert-migrations'),
     path('fee-structure/<int:pk>/', views.FeeStructureDetailView.as_view(), name='fee-structure-detail'),
     
     # M-Pesa Integration

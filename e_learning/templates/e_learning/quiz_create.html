@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}Create Quiz — E-Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto py-8">
+    <div class="mb-8">
+        <a href="{% url 'e_learning:quiz_list' %}" class="text-indigo-500 hover:text-indigo-700 font-medium text-sm">
+            <i class="fas fa-arrow-left mr-1"></i> Back to Quizzes
+        </a>
+        <h1 class="text-3xl font-bold text-slate-900 dark:text-white mt-3">
+            <i class="fas fa-plus-circle text-indigo-500 mr-2"></i>Create New Quiz
+        </h1>
+    </div>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <div class="glass-card space-y-5">
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
+                <i class="fas fa-info-circle text-indigo-500 mr-2"></i>Quiz Details
+            </h2>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Title *</label>
+                <input type="text" name="title" required
+                    class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-slate-900 dark:text-white"
+                    placeholder="e.g. Grade 4 Science — Term 1 Test">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Description</label>
+                <textarea name="description" rows="3"
+                    class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-slate-900 dark:text-white"
+                    placeholder="Brief description of what this quiz covers…"></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-1 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Subject *</label>
+                    <select name="subject" required
+                        class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-900 dark:text-white">
+                        <option value="">Select Subject</option>
+                        {% for s in subjects %}
+                        <option value="{{ s.pk }}">{{ s.name }} ({{ s.grade }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Substrand (optional)</label>
+                <select name="substrand"
+                    class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-900 dark:text-white">
+                    <option value="">All substrands</option>
+                    {% for ss in substrands %}
+                    <option value="{{ ss.pk }}">{{ ss.strand.subject.name }} → {{ ss.strand.name }} → {{ ss.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Target Classes</label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto bg-slate-50 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700">
+                    {% for c in classes %}
+                    <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-indigo-600 transition-colors">
+                        <input type="checkbox" name="target_classes" value="{{ c.pk }}"
+                            class="rounded border-slate-300 text-indigo-500 focus:ring-indigo-500">
+                        {{ c.name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Leave empty to allow all classes in the selected grade.</p>
+            </div>
+        </div>
+
+        <div class="glass-card space-y-5">
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
+                <i class="fas fa-cog text-indigo-500 mr-2"></i>Settings
+            </h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Time Limit (minutes)</label>
+                    <input type="number" name="time_limit_minutes" value="30" min="0"
+                        class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-900 dark:text-white">
+                    <p class="text-xs text-slate-400 mt-1">0 = unlimited</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Max Attempts</label>
+                    <input type="number" name="max_attempts" value="1" min="0"
+                        class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-900 dark:text-white">
+                    <p class="text-xs text-slate-400 mt-1">0 = unlimited</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Pass %</label>
+                    <input type="number" name="pass_percentage" value="50" min="0" max="100"
+                        class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-900 dark:text-white">
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-6">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="shuffle_questions"
+                        class="rounded border-slate-300 text-indigo-500 focus:ring-indigo-500 w-5 h-5">
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Shuffle questions</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="show_results_immediately" checked
+                        class="rounded border-slate-300 text-indigo-500 focus:ring-indigo-500 w-5 h-5">
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Show results immediately</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <a href="{% url 'e_learning:quiz_list' %}" class="btn bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200">
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary shadow-lg shadow-indigo-500/30">
+                <i class="fas fa-check mr-1"></i> Create & Add Questions
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

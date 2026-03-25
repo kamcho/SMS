@@ -43,6 +43,7 @@ urlpatterns = [
     path('discipline/', views.discipline_log, name='discipline-log'),
     path('configurations/academic-year/<int:year_id>/activate/', views.activate_academic_year, name='activate-academic-year'),
     path('configurations/migrate-year/', views.migrate_year, name='migrate-year'),
+    path('configurations/revert-year-migration/', views.revert_year_migration, name='revert-year-migration'),
     path('configurations/term/<int:term_id>/activate/', views.activate_term, name='activate-term'),
     path('reports/', views.ReportDashboardView.as_view(), name='reports'),
     path('link-student/', views.link_student_view, name='link-student'),

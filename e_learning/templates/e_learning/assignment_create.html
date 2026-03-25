@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Assignment{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8">
+    <div class="glass-card">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center">
+                <i class="fas fa-file-signature"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-900 dark:text-white">New Assignment</h1>
+                <p class="text-xs text-slate-500">Assign a published quiz to a specific class.</p>
+            </div>
+        </div>
+
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            <div>
+                <label for="title" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assignment Title</label>
+                <input type="text" name="title" id="title" required
+                       class="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                       placeholder="e.g. End of Week 4 Mathematics Quiz">
+            </div>
+
+            <div>
+                <label for="description" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Instructions (Optional)</label>
+                <textarea name="description" id="description" rows="3"
+                          class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                          placeholder="Provide any additional instructions for the students..."></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="quiz" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Select Quiz</label>
+                    <div class="relative group">
+                        <select name="quiz" id="quiz" required
+                                class="w-full h-12 pl-4 pr-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none appearance-none focus:ring-2 focus:ring-rose-500 transition-all">
+                            <option value="">Choose a Quiz</option>
+                            {% for q in quizzes %}
+                            <option value="{{ q.id }}">{{ q.title }} ({{ q.subject.name }})</option>
+                            {% endfor %}
+                        </select>
+                        <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none group-hover:text-rose-500"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="target_class" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assign to Class</label>
+                    <div class="relative group">
+                        <select name="target_class" id="target_class" required
+                                class="w-full h-12 pl-4 pr-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none appearance-none focus:ring-2 focus:ring-rose-500 transition-all">
+                            <option value="">Choose a Class</option>
+                            {% for c in classes %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.school.name }})</option>
+                            {% endfor %}
+                        </select>
+                        <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none group-hover:text-rose-500"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label for="due_date" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Due Date (Optional)</label>
+                <input type="datetime-local" name="due_date" id="due_date"
+                       class="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all">
+            </div>
+
+            <div class="pt-4 flex gap-3">
+                <button type="submit" class="flex-1 h-12 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl shadow-lg shadow-rose-500/20 transition-all uppercase tracking-widest text-xs">
+                    Assign Now
+                </button>
+                <a href="{% url 'e_learning:quiz_list' %}" class="px-6 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-xs">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

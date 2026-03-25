@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'transport',
     'communication',
     'hostels',
+    'e_learning',
 ]
 
 MIDDLEWARE = [
@@ -187,3 +188,11 @@ MPESA_QUEUE_TIMEOUT_URL = (_env('MPESA_QUEUE_TIMEOUT_URL') or '').strip()
 
 # Security settings for large forms (like multi-student admin pages)
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+
+# OpenAI API key for AI-powered short-answer grading
+OPENAI_API_KEY = (_env('OPENAI_API_KEY') or '').strip()
+
+# Media files (question images, etc.)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+

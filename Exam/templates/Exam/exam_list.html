@@ -2,14 +2,19 @@
 
 {% block title %}Exams List | Excel SMS{% endblock %}
 
-{% block page_header %}
-<div class="flex items-center justify-between gap-4">
+{% block content %}<br><br>
+
+
+<div class="max-w-7xl mx-auto">
+
+
+    <div class="flex items-center justify-between gap-4">
     <div>
         <h1 class="text-3xl font-black text-slate-900 tracking-tight">Exams</h1>
         <p class="text-slate-500 mt-1 font-medium">Manage and view all examinations</p>
     </div>
     <div class="flex items-center gap-3">
-        {% if user.is_exam_officer or user.is_superuser %}
+        {% if user.is_superuser or user.role == 'Admin' or user.is_exam_officer or user.is_exam_manager %}
         <a href="{% url 'Exam:create-exam' %}" class="btn bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2.5 rounded-xl text-xs font-black">
             <i class="fas fa-plus"></i>
             Create Exam
@@ -17,10 +22,6 @@
         {% endif %}
     </div>
 </div>
-{% endblock %}
-
-{% block content %}
-<div class="max-w-7xl mx-auto">
     <!-- Filters Section -->
     <div class="glass-card mb-8">
         <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
@@ -186,7 +187,7 @@
                 No exams have been created yet. Click "Create Exam" to get started.
                 {% endif %}
             </p>
-            {% if user.is_exam_officer or user.is_superuser %}
+            {% if user.is_superuser or user.role == 'Admin' or user.is_exam_officer or user.is_exam_manager %}
             <a href="{% url 'Exam:create-exam' %}" class="btn bg-indigo-600 text-white hover:bg-indigo-700 px-6 py-3 rounded-xl font-black text-sm">
                 <i class="fas fa-plus"></i>
                 Create First Exam

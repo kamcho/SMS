@@ -87,6 +87,27 @@
                 </div>
             </div>
 
+            {% if running_exam %}
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mt-6">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-amber-600 text-sm"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-black text-amber-900 mb-1">Active Exam Found</h4>
+                        <p class="text-xs text-amber-700 font-medium mb-3">
+                            The exam <strong>{{ running_exam.name }}</strong> is currently active. You cannot have multiple active exams simultaneously.
+                        </p>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="close_previous" id="close_previous" class="w-4 h-4 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 transition-colors">
+                            <span class="text-xs font-bold text-slate-700">Yes, close "{{ running_exam.name }}" and set this new exam as active.</span>
+                        </label>
+                        <p class="text-[10px] text-slate-500 mt-1 italic">If left unchecked, this new exam will be created as "Closed".</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Form Actions -->
             <div class="flex gap-3 pt-4">
                 <button type="submit" class="flex-grow h-12 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">

@@ -36,7 +36,7 @@ class Command(BaseCommand):
 
         total_seeded = 0
         current_year = date.today().year
-
+        Student.objects.all().delete()
         for school in schools:
             self.stdout.write(f"Seeding data for school: {school.name}...")
             
@@ -97,6 +97,19 @@ class Command(BaseCommand):
                 joined_date = date.today() - timedelta(days=random.randint(0, 365*2))
                 location = random.choice(["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"])
 
+                # Fee Category Distribution logic
+                category_roll = random.random()
+                if category_roll < 0.80:
+                    f_cat = 'day'
+                elif category_roll < 0.93:
+                    f_cat = 'boarder'
+                elif category_roll < 0.97:
+                    f_cat = 'staff_day'
+                elif category_roll < 0.99:
+                    f_cat = 'staff_boarder'
+                else:
+                    f_cat = 'director'
+
                 student = Student.objects.create(
                     first_name=first_name,
                     middle_name=middle_name,
@@ -105,7 +118,9 @@ class Command(BaseCommand):
                     date_of_birth=date_of_birth,
                     joined_date=joined_date,
                     gender=gender,
-                    location=location
+                    location=location,
+                    fee_category=f_cat,
+                    is_boarder=(f_cat in ('boarder', 'staff_boarder'))
                 )
 
                 # Assigned class (ensure all grades covered first then random)

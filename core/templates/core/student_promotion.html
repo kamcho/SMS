@@ -83,73 +83,69 @@
             <!-- Student Selection -->
             <div class="lg:col-span-3 space-y-6">
                 <div class="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
-                    <div class="p-10 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+                    <div class="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
                         <div>
-                            <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Target Selection</h3>
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Available Students: {{ students|length }}</p>
+                            <h3 class="text-xs font-black text-slate-900 uppercase tracking-widest">Target Selection</h3>
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Available Students: {{ students|length }}</p>
                         </div>
-                        <label class="flex items-center gap-3 cursor-pointer group bg-white px-6 py-3 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-500 transition-all">
-                            <input type="checkbox" id="select-all" class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer">
-                            <span class="text-[10px] font-black text-slate-600 uppercase tracking-widest">Select All</span>
+                        <label class="flex items-center gap-3 cursor-pointer group bg-white px-5 py-2.5 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-500 transition-all">
+                            <input type="checkbox" id="select-all" class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer">
+                            <span class="text-[9px] font-black text-slate-600 uppercase tracking-widest">Select All</span>
                         </label>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead>
-                                <tr class="bg-slate-50/50">
-                                    <th class="py-5 px-10 w-20 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pick</th>
-                                    <th class="py-5 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reg No</th>
-                                    <th class="py-5 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Information</th>
-                                    <th class="py-5 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Current Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-50">
-                                {% for item in students %}
-                                <tr class="hover:bg-indigo-50/30 transition-all duration-300 group">
-                                    <td class="py-6 px-10">
-                                        {% if item.already_promoted or item.just_promoted %}
-                                            <div class="w-5 h-5 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 opacity-50">
-                                                <i class="fas fa-lock text-[8px] text-slate-400"></i>
-                                            </div>
-                                        {% else %}
-                                            <input type="checkbox" name="student_ids" value="{{ item.student_id }}" class="student-checkbox w-5 h-5 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer">
-                                        {% endif %}
-                                    </td>
-                                    <td class="py-6 px-10">
-                                        <span class="text-[11px] font-black text-slate-900 bg-slate-100 group-hover:bg-white px-4 py-2 rounded-xl transition-colors border border-transparent group-hover:border-slate-100">{{ item.student.adm_no }}</span>
-                                    </td>
-                                    <td class="py-6 px-10">
-                                        <div class="flex items-center gap-4">
-                                            <div class="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-500 transition-all">
-                                                {{ item.student.first_name|first }}{{ item.student.last_name|first }}
-                                            </div>
-                                            <div class="flex flex-col">
-                                                <p class="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{{ item.student.get_full_name }}</p>
-                                                <p class="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">{{ item.student.gender }}</p>
+
+                    <div class="p-6 bg-slate-50/20">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {% for item in students %}
+                            <label class="relative flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-indigo-500/50 hover:shadow-md hover:shadow-indigo-500/5 transition-all group cursor-pointer {% if item.already_promoted or item.just_promoted %}opacity-60 cursor-not-allowed{% endif %}">
+                                <!-- Checkbox / Lock -->
+                                <div class="shrink-0">
+                                    {% if item.already_promoted or item.just_promoted %}
+                                        <div class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200">
+                                            <i class="fas fa-lock text-[10px] text-slate-400"></i>
+                                        </div>
+                                    {% else %}
+                                        <div class="relative w-9 h-9">
+                                            <input type="checkbox" name="student_ids" value="{{ item.student_id }}" class="student-checkbox peer sr-only">
+                                            <div class="w-full h-full rounded-xl border-2 border-slate-100 peer-checked:border-indigo-500 peer-checked:bg-white transition-all flex items-center justify-center">
+                                                <div class="w-4 h-4 rounded bg-indigo-600 scale-0 peer-checked:scale-100 transition-transform flex items-center justify-center">
+                                                    <i class="fas fa-check text-[8px] text-white"></i>
+                                                </div>
                                             </div>
                                         </div>
-                                    </td>
-                                    <td class="py-6 px-10 text-right">
+                                    {% endif %}
+                                </div>
+
+                                <!-- Student Details -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-0.5">
+                                        <p class="text-[11px] font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">{{ item.student.get_full_name }}</p>
+                                        <span class="text-[8px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-md border border-slate-100">{{ item.student.adm_no }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-[9px] font-medium text-slate-400 uppercase tracking-tighter">{{ item.student.gender }}</p>
+                                        <div class="w-1 h-1 rounded-full bg-slate-200"></div>
+                                        
                                         {% if item.already_promoted %}
-                                            <span class="inline-flex items-center gap-2 text-[8px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest border border-emerald-100">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                                                Migrated Out
-                                            </span>
+                                            <span class="text-[7px] font-black text-emerald-600 uppercase tracking-widest">Migrated Out</span>
                                         {% elif item.just_promoted %}
-                                            <span class="inline-flex items-center gap-2 text-[8px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full uppercase tracking-widest border border-indigo-100">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></span>
-                                                Migrated In
-                                            </span>
+                                            <span class="text-[7px] font-black text-indigo-600 uppercase tracking-widest">Migrated In</span>
                                         {% else %}
-                                            <span class="inline-flex items-center gap-2 text-[8px] font-black text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-100 group-hover:bg-white transition-colors">
-                                                Eligible
-                                            </span>
+                                            <span class="text-[7px] font-black text-slate-400 uppercase tracking-widest">Eligible</span>
                                         {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Subtle Avatar -->
+                                <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-[9px] font-black text-slate-400 border border-slate-100 opacity-40 shrink-0">
+                                    {{ item.student.first_name|first }}{{ item.student.last_name|first }}
+                                </div>
+
+                                <!-- Active Backdrop for Checkbox Hover Effect -->
+                                <div class="absolute inset-0 rounded-2xl ring-2 ring-indigo-500 ring-offset-0 opacity-0 group-hover:peer-checked:opacity-10 pointer-events-none transition-opacity"></div>
+                            </label>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -220,91 +216,196 @@
         </div>
     </form>
     {% elif selected_class %}
-    <div class="py-32 text-center bg-white rounded-[4rem] border border-slate-100 shadow-sm animate-in zoom-in-95 duration-700">
-        <div class="inline-flex w-32 h-32 bg-indigo-50 rounded-[3rem] items-center justify-center text-indigo-200 text-5xl mb-8 border-4 border-white shadow-xl">
-            <i class="fas fa-user-check"></i>
+        <div class="py-32 text-center bg-white rounded-[4rem] border border-slate-100 shadow-sm animate-in zoom-in-95 duration-700">
+            <div class="inline-flex w-32 h-32 bg-indigo-50 rounded-[3rem] items-center justify-center text-indigo-200 text-5xl mb-8 border-4 border-white shadow-xl">
+                <i class="fas fa-user-check"></i>
+            </div>
+            <h3 class="text-2xl font-black text-slate-900 mb-2">Queue is Empty</h3>
+            <p class="text-sm text-slate-400 font-medium max-w-sm mx-auto">All students in this class have either been promoted or the stream is currently inactive.</p>
         </div>
-        <h3 class="text-2xl font-black text-slate-900 mb-2">Queue is Empty</h3>
-        <p class="text-sm text-slate-400 font-medium max-w-sm mx-auto">All students in this class have either been promoted or the stream is currently inactive.</p>
-    </div>
-    {% else %}
-    <div class="py-40 text-center bg-slate-50/50 rounded-[4rem] border-4 border-dashed border-slate-100 group hover:border-indigo-100 transition-colors">
-        <div class="w-20 h-20 bg-white rounded-full mx-auto flex items-center justify-center text-slate-200 text-3xl mb-8 shadow-sm group-hover:scale-110 transition-transform">
-            <i class="fas fa-mouse-pointer"></i>
+    {% endif %}
+
+    {% if selected_class %}
+        <!-- Pending Transitions: PP2/Grade 6 students awaiting manual reshuffle -->
+        {% if pending_transitions %}
+        <div class="mt-14 space-y-8 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+            <div class="flex items-center justify-between px-8">
+                <div class="space-y-1">
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-4">
+                        <div class="w-2 h-8 bg-amber-500 rounded-full"></div>
+                        Pending Transitions
+                    </h3>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-6">
+                        PP2 → Grade 1 &amp; Grade 6 → Grade 7 &mdash; {{ pending_transitions|length }} students awaiting manual reshuffle
+                    </p>
+                </div>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="bg-white rounded-[3rem] shadow-2xl shadow-amber-200/30 border-2 border-amber-100 overflow-hidden">
+                    <div class="p-8 bg-amber-50/50 border-b border-amber-100 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-amber-100 rounded-2xl flex items-center justify-center">
+                                <i class="fas fa-random text-amber-600 text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-black text-slate-900">
+                                    <span id="reshuffle-selected-count">0</span> selected out of {{ pending_transitions|length }} students awaiting reshuffle
+                                </p>
+                            </div>
+                        </div>
+                        <label class="flex items-center gap-3 cursor-pointer group bg-white px-6 py-3 rounded-2xl border border-amber-200 shadow-sm hover:border-amber-500 transition-all">
+                            <input type="checkbox" id="select-all-transitions" class="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 transition-all cursor-pointer">
+                            <span class="text-[10px] font-black text-slate-600 uppercase tracking-widest">Select All</span>
+                        </label>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-slate-50/50">
+                                    <th class="py-5 px-10 w-20 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pick</th>
+                                    <th class="py-5 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reg No</th>
+                                    <th class="py-5 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Name</th>
+                                    <th class="py-5 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Current Grade</th>
+                                    <th class="py-5 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Target</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                {% for item in pending_transitions %}
+                                <tr class="hover:bg-amber-50/30 transition-all duration-300 group">
+                                    <td class="py-5 px-10">
+                                        <input type="checkbox" name="student_ids" value="{{ item.student_id }}" class="transition-checkbox w-5 h-5 rounded-lg border-slate-300 text-amber-600 focus:ring-amber-500 transition-all cursor-pointer">
+                                    </td>
+                                    <td class="py-5 px-10">
+                                        <span class="text-[11px] font-black text-slate-900 bg-slate-100 px-4 py-2 rounded-xl border border-transparent">{{ item.student.adm_no }}</span>
+                                    </td>
+                                    <td class="py-5 px-10">
+                                        <p class="text-xs font-bold text-slate-900">{{ item.student.get_full_name }}</p>
+                                    </td>
+                                    <td class="py-5 px-10 text-right">
+                                        <span class="text-[9px] font-black text-amber-700 bg-amber-50 px-3 py-1.5 rounded-full uppercase tracking-widest border border-amber-200">
+                                            {{ item.class_id.grade.name }}
+                                        </span>
+                                    </td>
+                                    <td class="py-5 px-10 text-right">
+                                        <span class="text-[9px] font-black text-indigo-600">
+                                            {% if item.class_id.grade.name == 'PP2' %}Grade 1{% else %}Grade 7{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-8 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-4">
+                        <div class="flex-1 relative group">
+                            <select name="target_class" class="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-amber-500 transition-all appearance-none cursor-pointer">
+                                <option value="">Choose Target Stream...</option>
+                                {% for c in target_reshuffle_classes %}
+                                    <option value="{{ c.id }}">{{ c.grade.name }} - {{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+                        </div>
+                        <button type="submit" name="action" value="promote" class="px-10 py-4 bg-amber-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl hover:bg-amber-600 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
+                            <i class="fas fa-random"></i> Reshuffle Selected
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
-        <h3 class="text-xl font-black text-slate-400 uppercase tracking-widest">Select Source Stream to Start</h3>
-        <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mt-2">Promotion Workflow Initialize</p>
-    </div>
+        {% endif %}
     {% endif %}
 
     <!-- Promotion Summary Table -->
     {% if selected_school and promotion_summary %}
-    <div class="mt-20 space-y-8 animate-in fade-in slide-in-from-bottom-12 duration-1000">
-        <div class="flex items-center justify-between px-8">
-            <div class="space-y-1">
-                <h3 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-4">
-                    <div class="w-2 h-8 bg-emerald-500 rounded-full"></div>
-                    Promotion Progress Audit
-                </h3>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-6">Cycle Analysis: {{ active_year }}</p>
+    <div class="mt-20 space-y-12 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+        <!-- Audit Table -->
+        <div class="space-y-8">
+            <div class="flex items-center justify-between px-8">
+                <div class="space-y-1">
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-4">
+                        <div class="w-2 h-8 bg-emerald-500 rounded-full"></div>
+                        Promotion Progress Audit
+                    </h3>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-6">Cycle Analysis: {{ active_year }}</p>
+                </div>
             </div>
-        </div>
 
-        <div class="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead>
-                        <tr class="bg-slate-50/50">
-                            <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest w-64">Stream Name</th>
-                            <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Promoted Out</th>
-                            <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Still Remaining</th>
-                            <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">Activity Trace</th>
-                            <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Batch Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-50">
-                        {% for item in promotion_summary %}
-                        <tr class="hover:bg-slate-50/80 transition-all duration-300 group">
-                            <td class="py-6 px-10">
-                                <p class="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{{ item.class_name }}</p>
-                            </td>
-                            <td class="py-6 px-10 text-center">
-                                <span class="text-xs font-black text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100">{{ item.promoted }}</span>
-                            </td>
-                            <td class="py-6 px-10 text-center">
-                                <span class="text-xs font-black {% if item.remaining > 0 %}text-amber-600 bg-amber-50 border-amber-100{% else %}text-slate-400 bg-slate-50 border-slate-100{% endif %} px-4 py-2 rounded-xl border">{{ item.remaining }}</span>
-                            </td>
-                            <td class="py-6 px-10">
-                                <div class="flex items-center gap-4">
-                                    <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/50 shadow-inner">
-                                        <div class="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-1000 shadow-sm" style="width: {{ item.percentage }}%"></div>
-                                    </div>
-                                    <span class="text-[11px] font-black text-slate-900 min-w-[40px]">{{ item.percentage }}%</span>
-                                </div>
-                            </td>
-                            <td class="py-6 px-10 text-right">
-                                {% if item.is_complete %}
-                                    {% if item.needs_shuffling %}
-                                        <div class="inline-flex items-center gap-2 text-[9px] font-black text-white bg-amber-500 px-4 py-2 rounded-2xl uppercase tracking-widest shadow-lg shadow-amber-100">
-                                            <i class="fas fa-random"></i> Awaiting Shuffling
+            <div class="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-slate-50/50">
+                                <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest w-64">Stream Name</th>
+                                <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Promoted Out</th>
+                                <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Still Remaining</th>
+                                <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">Activity Trace</th>
+                                <th class="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Batch Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            {% for item in promotion_summary %}
+                            <tr class="hover:bg-slate-50/80 transition-all duration-300 group">
+                                <td class="py-6 px-10">
+                                    <p class="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{{ item.class_name }}</p>
+                                </td>
+                                <td class="py-6 px-10 text-center">
+                                    <span class="text-xs font-black text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100">{{ item.promoted }}</span>
+                                </td>
+                                <td class="py-6 px-10 text-center">
+                                    <span class="text-xs font-black {% if item.remaining > 0 %}text-amber-600 bg-amber-50 border-amber-100{% else %}text-slate-400 bg-slate-50 border-slate-100{% endif %} px-4 py-2 rounded-xl border">{{ item.remaining }}</span>
+                                </td>
+                                <td class="py-6 px-10">
+                                    <div class="flex items-center gap-4">
+                                        <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/50 shadow-inner">
+                                            <div class="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-1000 shadow-sm" style="width: {{ item.percentage }}%"></div>
                                         </div>
-                                    {% else %}
+                                        <span class="text-[11px] font-black text-slate-900 min-w-[40px]">{{ item.percentage }}%</span>
+                                    </div>
+                                </td>
+                                <td class="py-6 px-10 text-right">
+                                    {% if item.is_complete %}
                                         <div class="inline-flex items-center gap-2 text-[9px] font-black text-white bg-emerald-500 px-4 py-2 rounded-2xl uppercase tracking-widest shadow-lg shadow-emerald-100">
                                             <i class="fas fa-check-double"></i> Finalized
                                         </div>
+                                    {% else %}
+                                        {% if item.needs_shuffling %}
+                                            <div class="inline-flex items-center gap-2 text-[9px] font-black text-white bg-amber-500 px-4 py-2 rounded-2xl uppercase tracking-widest shadow-lg shadow-amber-100">
+                                                <i class="fas fa-random"></i> Awaiting Shuffling
+                                            </div>
+                                        {% else %}
+                                            <div class="inline-flex items-center gap-2 text-[9px] font-black text-slate-400 bg-slate-100 px-4 py-2 rounded-2xl uppercase tracking-widest border border-slate-200">
+                                                <i class="fas fa-spinner animate-spin"></i> Active Sync
+                                            </div>
+                                        {% endif %}
                                     {% endif %}
-                                {% else %}
-                                    <div class="inline-flex items-center gap-2 text-[9px] font-black text-slate-400 bg-slate-100 px-4 py-2 rounded-2xl uppercase tracking-widest border border-slate-200">
-                                        <i class="fas fa-spinner animate-spin"></i> Active Sync
-                                    </div>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+
+        <!-- Revert Zone -->
+        <!-- <div class="bg-rose-50 rounded-[3rem] p-12 border-2 border-dashed border-rose-200 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div class="space-y-2">
+                <h4 class="text-xl font-black text-rose-900 tracking-tight">Danger Zone: Revert Migration</h4>
+                <p class="text-xs font-bold text-rose-600 max-w-xl">
+                    This will move all promoted students back to their previous year's classes, delete all created invoices for this year, and reactivate the previous academic record. 
+                    <span class="underline">This action cannot be undone.</span>
+                </p>
+            </div>
+            <form action="{% url 'core:revert-year-migration' %}" method="post" onsubmit="return confirm('CRITICAL ACTION: Are you absolutely sure you want to REVERT this entire year migration? All invoices for the new year will be DELETED.')">
+                {% csrf_token %}
+                <button type="submit" class="px-10 py-5 bg-rose-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-rose-200 hover:bg-rose-700 hover:-translate-y-1 transition-all active:scale-95 flex items-center gap-3">
+                    <i class="fas fa-history"></i> Execute Global Revert
+                </button>
+            </form>
+        </div> -->
     </div>
     {% endif %}
 </div>
@@ -318,5 +419,26 @@
             checkboxes.forEach(cb => cb.checked = selectAll.checked);
         });
     }
+
+    const selectAllTransitions = document.getElementById('select-all-transitions');
+    const transitionCheckboxes = document.querySelectorAll('.transition-checkbox');
+    const updateCount = () => {
+        const selectedCountEl = document.getElementById('reshuffle-selected-count');
+        if (selectedCountEl) {
+            selectedCountEl.textContent = document.querySelectorAll('.transition-checkbox:checked').length;
+        }
+    };
+
+    if (selectAllTransitions) {
+        selectAllTransitions.addEventListener('change', function() {
+            transitionCheckboxes.forEach(cb => cb.checked = selectAllTransitions.checked);
+            updateCount();
+        });
+    }
+
+    if (transitionCheckboxes) {
+        transitionCheckboxes.forEach(cb => cb.addEventListener('change', updateCount));
+    }
 </script>
 {% endblock %}
+```

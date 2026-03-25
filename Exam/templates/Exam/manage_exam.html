@@ -3,7 +3,9 @@
 
 {% block title %}Manage Exam: {{ exam.name }} ({{ exam.period }}) | Excel SMS{% endblock %}
 
-{% block page_header %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8">
 <div class="flex items-center justify-between gap-4">
     <div>
         <h1 class="text-3xl font-black text-slate-900 tracking-tight">Manage Exam</h1>
@@ -15,10 +17,7 @@
         </a>
     </div>
 </div>
-{% endblock %}
 
-{% block content %}
-<div class="max-w-6xl mx-auto space-y-8">
     <!-- Exam Details Section -->
     <div class="glass-card">
         <div class="flex items-center justify-between mb-6">
@@ -96,7 +95,7 @@
             </div>
 
             <!-- Form Actions -->
-            {% if request.user.is_exam_officer %}
+            {% if request.user.is_superuser or request.user.role == 'Admin' or request.user.is_exam_officer or request.user.is_exam_manager %}
             <div class="flex gap-3 pt-4">
                 <button type="submit" class="flex-grow h-12 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
                     <i class="fas fa-save text-[10px]"></i>
@@ -123,7 +122,7 @@
                 {% endif %}
             </div>
             <div class="flex items-center flex-wrap gap-2">
-                {% if request.user.is_exam_officer %}
+                {% if request.user.is_superuser or request.user.role == 'Admin' or request.user.is_exam_officer or request.user.is_exam_manager %}
                     {% if exam_is_active %}
                     <form method="post" onsubmit="return confirm('Are you sure you want to deactivate this exam? This will prevent teachers from uploading marks for this exam.');" class="mr-2">
                         {% csrf_token %}
@@ -138,6 +137,24 @@
                         <button type="submit" name="activate_exam" class="btn bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap">
                             <i class="fas fa-unlock"></i>
                             Activate for Teachers
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if exam.is_running %}
+                    <form method="post" onsubmit="return confirm('Are you sure you want to completely close this exam? This sets its status to Closed on the list view.');" class="mr-2">
+                        {% csrf_token %}
+                        <button type="submit" name="close_exam" class="btn bg-rose-600 text-white hover:bg-rose-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap">
+                            <i class="fas fa-times-circle"></i>
+                            Close Exam
+                        </button>
+                    </form>
+                    {% else %}
+                    <form method="post" onsubmit="return confirm('Are you sure you want to reopen this exam? This will set its status to Running and close any other running exams.');" class="mr-2">
+                        {% csrf_token %}
+                        <button type="submit" name="reopen_exam" class="btn bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 whitespace-nowrap">
+                            <i class="fas fa-redo-alt"></i>
+                            Reopen Exam
                         </button>
                     </form>
                     {% endif %}
