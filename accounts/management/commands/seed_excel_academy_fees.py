@@ -53,9 +53,9 @@ class Command(BaseCommand):
         for term in terms:
             self.stdout.write(f"Propagating Day Scholar fees for {term.name}...")
             for tier in tiers:
-                grade_objs = Grade.objects.filter(school=school, name__in=tier['grade_names'])
+                grade_objs = Grade.objects.filter(name__in=tier['grade_names'])
                 if not grade_objs.exists():
-                    self.stdout.write(self.style.WARNING(f"  Warning: Grades {tier['grade_names']} not found for school {school.name}"))
+                    self.stdout.write(self.style.WARNING(f"  Warning: Grades {tier['grade_names']} not found."))
                     continue
                     
                 day_amount = tier['amounts'].get(term.id)
@@ -75,7 +75,7 @@ class Command(BaseCommand):
             
             # 2. Boarder Structure (Fixed 25,000 across ALL grades)
             self.stdout.write(f"Propagating Boarder fees for {term.name}...")
-            all_grades = Grade.objects.filter(school=school)
+            all_grades = Grade.objects.all()
             fs_boarder, created = FeeStructure.objects.get_or_create(
                 school=school,
                 term=term,
@@ -89,7 +89,7 @@ class Command(BaseCommand):
             fs_boarder.save()
             
         # Additional Charges for Junior School (7, 8, 9)
-        junior_grades = Grade.objects.filter(school=school, name__in=['Grade 7', 'Grade 8', 'Grade 9'])
+        junior_grades = Grade.objects.filter(name__in=['Grade 7', 'Grade 8', 'Grade 9'])
         
         # Lab Fee
         char_lab, _ = AdditionalCharges.objects.get_or_create(

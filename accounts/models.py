@@ -321,3 +321,123 @@ def update_profile_on_payment_delete(sender, instance, **kwargs):
         profile.save()
     except StudentProfile.DoesNotExist:
         pass
+
+
+# ============================================================================
+# AUXILIARY BILLING SYSTEM
+# Completely isolated from the main fee pipeline (Invoice/Payment/fee_balance).
+# Used for services like Remedial, School Trips, Swimming, Music, etc.
+# ============================================================================
+
+class AuxiliaryServiceType(models.Model):
+    """
+    Flexible service category registry. Admins create types from configurations.
+    Includes grade targeting for fast bulk invoicing.
+    """
+    name = models.CharField(max_length=100, help_text="e.g. Remedial, School Trip, Swimming Lessons")
+    school = models.ForeignKey('core.School', on_delete=models.CASCADE)
+    grades = models.ManyToManyField('core.Grade', blank=True, help_text="Target grades for bulk invoicing")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Default charge amount per student")
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Auxiliary Service Type"
+        verbose_name_plural = "Auxiliary Service Types"
+
+    def __str__(self):
+        return f"{self.name} ({self.school.name})"
+
+
+class AuxiliaryCharge(models.Model):
+    """
+    A billing record for one student under one service type.
+    Maintains its OWN balance — completely decoupled from StudentProfile.fee_balance.
+    """
+    student = models.ForeignKey('core.Student', on_delete=models.CASCADE, related_name='auxiliary_charges')
+    service_type = models.ForeignKey(AuxiliaryServiceType, on_delete=models.CASCADE, related_name='charges')
+    description = models.CharField(max_length=200, blank=True, null=True, help_text="e.g. Term 1 Remedial Math")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    balance = models.DecimalField(max_digits=12, decimal_places=2, help_text="Outstanding amount")
+    term = models.ForeignKey('core.Term', on_delete=models.SET_NULL, null=True, blank=True)
+    academic_year = models.ForeignKey('core.AcademicYear', on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Auxiliary Charge"
+        verbose_name_plural = "Auxiliary Charges"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['student', 'service_type', 'academic_year', 'term'],
+                name='unique_auxiliary_charge_per_period'
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            # New charge: set initial balance to charged amount
+            self.balance = self.amount
+        super().save(*args, **kwargs)
+
+    @property
+    def is_paid(self):
+        return self.balance <= 0
+
+    def __str__(self):
+        desc = self.description or self.service_type.name
+        return f"{self.student.first_name} - {desc}: {self.amount}"
+
+
+class AuxiliaryPayment(models.Model):
+    """
+    Payment against a specific auxiliary charge. Decrements the charge's balance.
+    """
+    PAYMENT_METHODS = [
+        ('Cash', 'Cash'),
+        ('Mpesa', 'Mpesa'),
+        ('Bank', 'Bank Transfer'),
+        ('Cheque', 'Cheque'),
+    ]
+    charge = models.ForeignKey(AuxiliaryCharge, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    balance_before = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    balance_after = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
+    reference = models.CharField(max_length=100, blank=True, null=True)
+    date_paid = models.DateField()
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Auxiliary Payment"
+        verbose_name_plural = "Auxiliary Payments"
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            # Snapshot balances and decrement the charge balance
+            self.balance_before = self.charge.balance
+            payment_amount = Decimal(str(self.amount)) if self.amount else Decimal('0')
+            self.charge.balance -= payment_amount
+            self.charge.save()
+            self.balance_after = self.charge.balance
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Aux Payment: {self.charge.student.first_name} - {self.amount}"
+
+
+@receiver(post_delete, sender=AuxiliaryPayment)
+def restore_charge_on_aux_payment_delete(sender, instance, **kwargs):
+    """Add the payment amount back to the charge balance when deleted."""
+    try:
+        charge = instance.charge
+        payment_amount = Decimal(str(instance.amount)) if instance.amount else Decimal('0')
+        charge.balance += payment_amount
+        charge.save()
+    except AuxiliaryCharge.DoesNotExist:
+        pass

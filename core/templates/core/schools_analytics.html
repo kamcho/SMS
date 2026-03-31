@@ -181,7 +181,7 @@
                                         <th class="py-3 px-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest border-r border-slate-200 min-w-[180px]">Stream / School</th>
                                         <th class="py-3 px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest border-r border-slate-200">Students</th>
                                         {% for subject in grade_data.subjects %}
-                                            <th class="py-3 px-3 text-[10px] font-black text-slate-600 uppercase tracking-widest border-r border-slate-200 min-w-[70px]">{{ subject.name|upper|truncatechars:10|slice:":-3" }}</th>
+                                            <th class="py-3 px-3 text-[10px] font-black text-slate-600 uppercase tracking-widest border-r border-slate-200 min-w-[70px]">{{ subject.subject.name|upper }} ({{ subject.max_score }})</th>
                                         {% endfor %}
                                         <th class="py-3 px-4 text-[10px] font-black text-indigo-700 uppercase tracking-widest bg-indigo-50/50">Total Mean</th>
                                     </tr>

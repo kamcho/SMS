@@ -22,16 +22,24 @@
                 <tr class="bg-slate-50/50 border-b border-slate-100">
                     <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Student</th>
                     <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Amount</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
                     <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Message Snippet</th>
                     <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Sent Date</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 {% for notification in payment_notifications %}
-                <tr class="hover:bg-slate-50/30 transition-colors group">
+                <tr class="transition-colors group
+                    {% if notification.status == 'Success' %}bg-emerald-50/30 hover:bg-emerald-50/50
+                    {% elif notification.status == 'Failed' %}bg-rose-50/30 hover:bg-rose-50/50
+                    {% else %}bg-slate-50/10 hover:bg-slate-50/30{% endif %}">
+                    
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs
+                                {% if notification.status == 'Success' %}bg-emerald-100 text-emerald-700
+                                {% elif notification.status == 'Failed' %}bg-rose-100 text-rose-700
+                                {% else %}bg-slate-100 text-slate-600{% endif %}">
                                 {{ notification.student.first_name|first }}
                             </div>
                             <div>
@@ -41,8 +49,23 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 font-black text-slate-900 text-sm">KES {{ notification.payment.amount }}</td>
+                    <td class="px-6 py-4">
+                        {% if notification.status == 'Success' %}
+                            <span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-200">
+                                <i class="fas fa-check-circle mr-1"></i> Success
+                            </span>
+                        {% elif notification.status == 'Failed' %}
+                            <span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-rose-200">
+                                <i class="fas fa-times-circle mr-1"></i> Failed
+                            </span>
+                        {% else %}
+                            <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200">
+                                <i class="fas fa-clock mr-1"></i> Pending
+                            </span>
+                        {% endif %}
+                    </td>
                     <td class="px-6 py-4 max-w-xs">
-                        <p class="text-xs text-slate-500 line-clamp-1 italic">"{{ notification.message }}"</p>
+                        <p class="text-xs {% if notification.status == 'Failed' %}text-rose-600{% else %}text-slate-500{% endif %} line-clamp-1 italic">"{{ notification.message }}"</p>
                     </td>
                     <td class="px-6 py-4">
                         <span class="text-xs font-bold text-slate-400">{{ notification.sent_at|date:"M d, Y H:i" }}</span>
@@ -50,7 +73,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic font-medium">No payment notifications sent yet.</td>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-400 italic font-medium">No payment notifications sent yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>

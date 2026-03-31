@@ -47,7 +47,7 @@ class Command(BaseCommand):
             # 2. Create Grades for this school
             grades = []
             for g_name in grade_choices:
-                g, _ = Grade.objects.get_or_create(name=g_name, school=school)
+                g, _ = Grade.objects.get_or_create(name=g_name)
                 grades.append(g)
 
             # 3. Create Classes for this school

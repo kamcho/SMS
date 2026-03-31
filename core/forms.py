@@ -69,15 +69,7 @@ class TermForm(BaseStyledForm):
 class GradeForm(BaseStyledForm):
     class Meta:
         model = Grade
-        fields = ['name', 'school']
-        widgets = {
-            'school': forms.Select(),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['school'].queryset = School.objects.all()
-        self.fields['school'].empty_label = "Select School"
+        fields = ['name']
 
 
 class ClassForm(BaseStyledForm):
@@ -95,6 +87,12 @@ class ClassForm(BaseStyledForm):
         self.fields['school'].empty_label = "Select School"
         self.fields['grade'].queryset = Grade.objects.all()
         self.fields['grade'].empty_label = "Select Grade"
+
+
+class StreamUpdateForm(BaseStyledForm):
+    class Meta:
+        model = Class
+        fields = ['name']
 
 
 class ExamForm(BaseStyledForm):

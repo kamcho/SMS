@@ -197,3 +197,7 @@ OPENAI_API_KEY = (_env('OPENAI_API_KEY') or '').strip()
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# TextSMS Integration Settings
+TEXT_SMS_API_KEY = (_env('TEXT_SMS_API_KEY') or '').strip()
+TEXT_SMS_PARTNER_ID = (_env('TEXT_SMS_PARTNER_ID') or '').strip()
+TEXT_SMS_SHORTCODE = (_env('TEXT_SMS_SHORTCODE') or 'SENDERID').strip()

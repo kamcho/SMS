@@ -182,11 +182,11 @@
             <div
                 class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-all group shadow-sm">
                     <div>
-                        <h4 class="font-bold text-slate-800 cursor-pointer hover:text-indigo-600 transition-colors" onclick="openEditClassModal('{{ class.id }}', '{{ class.name }}', '{{ class.grade.id }}', '{{ class.school.id }}')">{{ class.name }}</h4>
+                        <h4 class="font-bold text-slate-800 cursor-pointer hover:text-indigo-600 transition-colors" onclick="openEditClassModal('{{ class.id }}', '{{ class.name }}')">{{ class.name }}</h4>
                         <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">{{ class.grade.name }} — {{ class.school.name }}</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button onclick="openEditClassModal('{{ class.id }}', '{{ class.name }}', '{{ class.grade.id }}', '{{ class.school.id }}')" class="text-indigo-500 hover:text-indigo-700 transition-colors">
+                        <button onclick="openEditClassModal('{{ class.id }}', '{{ class.name }}')" class="text-indigo-500 hover:text-indigo-700 transition-colors">
                             <i class="fas fa-edit text-xs"></i>
                         </button>
                         <form method="post" action="{% url 'core:delete-item' 'class' class.id %}" onsubmit="return confirm('Delete class?')">
@@ -297,7 +297,10 @@
                     </div>
                 </div>
 
-                <div class="pt-3 border-t border-slate-100 flex justify-end">
+                <div class="pt-3 border-t border-slate-100 flex justify-end gap-3">
+                    <button type="button" onclick="openEditFeeStructureModal('{{ structure.id }}', '{{ structure.academic_year.id|default:'' }}', '{{ structure.term.id|default:'' }}', '{{ structure.school.id|default:'' }}', '{{ structure.student_type|default:'' }}', '{{ structure.amount }}', [{% for g in structure.grade.all %}{{ g.id }}{% if not forloop.last %},{% endif %}{% endfor %}])" class="text-[11px] font-bold text-indigo-400 hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                        <i class="fas fa-edit text-[10px]"></i> Edit
+                    </button>
                     <form method="post" action="{% url 'core:delete-item' 'fee_structure' structure.id %}" onsubmit="return confirm('Delete this fee structure?')">
                         {% csrf_token %}
                         <button type="submit" class="text-[11px] font-bold text-rose-400 hover:text-rose-600 transition-colors flex items-center gap-1.5">
@@ -392,7 +395,10 @@
                     </div>
                 </div>
 
-                <div class="pt-3 border-t border-slate-100 flex justify-end">
+                <div class="pt-3 border-t border-slate-100 flex justify-end gap-3">
+                    <button type="button" onclick="openEditAdditionalChargeModal('{{ charge.id }}', '{{ charge.name }}', '{{ charge.amount }}', '{{ charge.school.id|default:'' }}', [{% for g in charge.grades.all %}{{ g.id }}{% if not forloop.last %},{% endif %}{% endfor %}])" class="text-[11px] font-bold text-indigo-400 hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                        <i class="fas fa-edit text-[10px]"></i> Edit
+                    </button>
                     <form method="post" action="{% url 'core:delete-item' 'additional_charge' charge.id %}" onsubmit="return confirm('Delete this charge?')">
                         {% csrf_token %}
                         <button type="submit" class="text-[11px] font-bold text-rose-400 hover:text-rose-600 transition-colors flex items-center gap-1.5">
@@ -405,6 +411,116 @@
             <div class="col-span-full py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
                 <i class="fas fa-plus-circle text-2xl mb-2 opacity-20"></i>
                 <p class="font-medium">No additional charges configured yet.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Auxiliary Services Section -->
+    <div class="glass-card lg:col-span-2">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-layer-group text-amber-500"></i>
+                Auxiliary Services
+            </h3>
+            <button class="btn btn-primary text-sm" onclick="toggleForm('auxiliary-service-form-container')">
+                <i class="fas fa-plus"></i> Add Service
+            </button>
+        </div>
+        
+        <div id="auxiliary-service-form-container" class="hidden mb-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
+            <form method="post" action="{% url 'core:create-auxiliary-service-type' %}">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Service Name</label>
+                        {{ auxiliary_service_type_form.name }}
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Amount (KSh)</label>
+                        {{ auxiliary_service_type_form.amount }}
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">School</label>
+                        {{ auxiliary_service_type_form.school }}
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Description</label>
+                        {{ auxiliary_service_type_form.description }}
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Applicable Grades</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                            {% for checkbox in auxiliary_service_type_form.grades %}
+                            <label class="relative flex flex-col items-center justify-center p-4 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-amber-300 transition-all group has-[:checked]:bg-amber-50/50 has-[:checked]:border-amber-500 has-[:checked]:ring-4 has-[:checked]:ring-amber-500/10">
+                                <div class="absolute top-2 right-2 flex items-center justify-center w-5 h-5 rounded-full border border-slate-200 group-hover:border-amber-300 transition-colors bg-white group-has-[:checked]:bg-amber-500 group-has-[:checked]:border-amber-500">
+                                    <i class="fas fa-check text-[8px] text-white opacity-0 group-has-[:checked]:opacity-100 transition-opacity"></i>
+                                </div>
+                                <div class="hidden">
+                                    {{ checkbox.tag }}
+                                </div>
+                                <div class="text-center mt-2">
+                                    <p class="text-sm font-bold text-slate-700 group-has-[:checked]:text-amber-700 transition-colors">{{ checkbox.choice_label }}</p>
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider group-has-[:checked]:text-amber-500">Select Grade</p>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-6">
+                    <button type="submit" class="btn btn-primary">Create Service Type</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleForm('auxiliary-service-form-container')">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for service in auxiliary_service_types %}
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 hover:border-amber-300 transition-all shadow-sm group">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h4 class="font-bold text-slate-800 leading-none mb-1">{{ service.name }}</h4>
+                        <p class="text-[11px] text-slate-500 font-bold uppercase tracking-tight">{{ service.school.name }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[15px] font-black text-amber-600">KSh {{ service.amount }}</p>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Applicable to:</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        {% for grade in service.grades.all %}
+                        <span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md border border-slate-200">{{ grade.name }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <form method="post" action="{% url 'accounts:bulk-auxiliary-invoice' %}" onsubmit="return confirm('Bill all active students in these grades for this service this term?')">
+                        {% csrf_token %}
+                        <input type="hidden" name="service_type_id" value="{{ service.id }}">
+                        <button type="submit" class="text-[10px] bg-amber-50 text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5">
+                            <i class="fas fa-file-invoice text-[10px]"></i> Bulk Bill
+                        </button>
+                    </form>
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="openEditAuxiliaryServiceModal('{{ service.id }}', '{{ service.name }}', '{{ service.amount }}', '{{ service.school.id|default:'' }}', '{{ service.description|escapejs }}', [{% for g in service.grades.all %}{{ g.id }}{% if not forloop.last %},{% endif %}{% endfor %}])" class="text-[11px] font-bold text-amber-400 hover:text-amber-600 transition-colors flex items-center gap-1.5">
+                            <i class="fas fa-edit text-[10px]"></i>
+                        </button>
+                    <form method="post" action="{% url 'core:delete-item' 'auxiliary_service_type' service.id %}" onsubmit="return confirm('Delete this service type?')">
+                        {% csrf_token %}
+                        <button type="submit" class="text-[11px] font-bold text-rose-400 hover:text-rose-600 transition-colors flex items-center gap-1.5">
+                            <i class="fas fa-trash-alt text-[10px]"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                <i class="fas fa-layer-group text-2xl mb-2 opacity-20"></i>
+                <p class="font-medium">No auxiliary services configured yet.</p>
             </div>
             {% endfor %}
         </div>
@@ -429,29 +545,9 @@
             
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Class Name</label>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Stream Name</label>
                     <input type="text" name="name" id="editClassName" required
-                           class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Grade</label>
-                    <select name="grade" id="editClassGrade" required
-                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        {% for grade in grades %}
-                            <option value="{{ grade.id }}">{{ grade.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">School</label>
-                    <select name="school" id="editClassSchool" required
-                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        {% for school in schools %}
-                            <option value="{{ school.id }}">{{ school.name }}</option>
-                        {% endfor %}
-                    </select>
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm">
                 </div>
             </div>
             
@@ -540,16 +636,128 @@
 
 <script>
 function toggleForm(formId) {
-    const form = document.getElementById(formId);
-    form.classList.toggle('hidden');
+    const container = document.getElementById(formId);
+    container.classList.toggle('hidden');
+    
+    // Convert forms back to Create state if shown
+    if (!container.classList.contains('hidden')) {
+        const form = container.querySelector('form');
+        if (form) {
+            form.reset();
+            if (formId === 'fee-structure-form-container') {
+                form.action = "{% url 'core:create-fee-structure' %}";
+                form.querySelector('button[type="submit"]').textContent = 'Create Fee Structure';
+                const idInput = document.getElementById('edit-fee-structure-id');
+                if (idInput) idInput.remove();
+            } else if (formId === 'additional-charge-form-container') {
+                form.action = "{% url 'core:create-additional-charge' %}";
+                form.querySelector('button[type="submit"]').textContent = 'Create Charge';
+                const idInput = document.getElementById('edit-additional-charge-id');
+                if (idInput) idInput.remove();
+            } else if (formId === 'auxiliary-service-form-container') {
+                form.action = "{% url 'core:create-auxiliary-service-type' %}";
+                form.querySelector('button[type="submit"]').textContent = 'Create Service Type';
+                const idInput = document.getElementById('edit-auxiliary-service-id');
+                if (idInput) idInput.remove();
+            }
+        }
+    }
 }
 
-function openEditClassModal(classId, className, gradeId, schoolId) {
+function openEditFeeStructureModal(id, year, term, school, type, amount, grades) {
+    const container = document.getElementById('fee-structure-form-container');
+    const form = container.querySelector('form');
+    
+    container.classList.remove('hidden');
+    form.action = "{% url 'core:update-fee-structure' %}";
+    
+    let idInput = document.getElementById('edit-fee-structure-id');
+    if (!idInput) {
+        idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 'structure_id';
+        idInput.id = 'edit-fee-structure-id';
+        form.appendChild(idInput);
+    }
+    idInput.value = id;
+    
+    form.querySelector('[name="academic_year"]').value = year;
+    form.querySelector('[name="term"]').value = term;
+    form.querySelector('[name="school"]').value = school;
+    form.querySelector('[name="student_type"]').value = type;
+    form.querySelector('[name="amount"]').value = amount;
+    
+    form.querySelectorAll('[name="grade"]').forEach(cb => {
+        cb.checked = grades.includes(parseInt(cb.value));
+    });
+    
+    form.querySelector('button[type="submit"]').textContent = 'Update Fee Structure';
+    container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function openEditAdditionalChargeModal(id, name, amount, school, grades) {
+    const container = document.getElementById('additional-charge-form-container');
+    const form = container.querySelector('form');
+    
+    container.classList.remove('hidden');
+    form.action = "{% url 'core:update-additional-charge' %}";
+    
+    let idInput = document.getElementById('edit-additional-charge-id');
+    if (!idInput) {
+        idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 'charge_id';
+        idInput.id = 'edit-additional-charge-id';
+        form.appendChild(idInput);
+    }
+    idInput.value = id;
+    
+    form.querySelector('[name="name"]').value = name;
+    form.querySelector('[name="amount"]').value = amount;
+    form.querySelector('[name="school"]').value = school;
+    
+    form.querySelectorAll('[name="grades"]').forEach(cb => {
+        cb.checked = grades.includes(parseInt(cb.value));
+    });
+    
+    form.querySelector('button[type="submit"]').textContent = 'Update Charge';
+    container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function openEditAuxiliaryServiceModal(id, name, amount, school, description, grades) {
+    const container = document.getElementById('auxiliary-service-form-container');
+    const form = container.querySelector('form');
+    
+    container.classList.remove('hidden');
+    form.action = "{% url 'core:update-auxiliary-service-type' %}";
+    
+    let idInput = document.getElementById('edit-auxiliary-service-id');
+    if (!idInput) {
+        idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 'service_id';
+        idInput.id = 'edit-auxiliary-service-id';
+        form.appendChild(idInput);
+    }
+    idInput.value = id;
+    
+    form.querySelector('[name="name"]').value = name;
+    form.querySelector('[name="amount"]').value = amount;
+    form.querySelector('[name="school"]').value = school;
+    form.querySelector('[name="description"]').value = description;
+    
+    form.querySelectorAll('[name="grades"]').forEach(cb => {
+        cb.checked = grades.includes(parseInt(cb.value));
+    });
+    
+    form.querySelector('button[type="submit"]').textContent = 'Update Service Type';
+    container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function openEditClassModal(classId, className) {
     document.getElementById('editClassModal').classList.remove('hidden');
     document.getElementById('editClassId').value = classId;
     document.getElementById('editClassName').value = className;
-    document.getElementById('editClassGrade').value = gradeId;
-    document.getElementById('editClassSchool').value = schoolId;
 }
 
 function closeEditClassModal() {

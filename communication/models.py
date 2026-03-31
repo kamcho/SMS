@@ -24,10 +24,36 @@ class Notification(models.Model):
         return self.title
 
 class PaymentNotification(models.Model):
+    STATUS_CHOICES = (
+        ('Pending', 'Pending'),
+        ('Success', 'Success'),
+        ('Failed', 'Failed'),
+    )
     student = models.ForeignKey('core.Student', on_delete=models.CASCADE, related_name='payment_notifications')
     payment = models.ForeignKey('accounts.Payment', on_delete=models.CASCADE, related_name='notifications')
     message = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     sent_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
         return f"Payment Notification for {self.student.first_name}"
+class SMSLog(models.Model):
+    STATUS_CHOICES = (
+        ('Pending', 'Pending'),
+        ('Success', 'Success'),
+        ('Failed', 'Failed'),
+    )
+    
+    recipient = models.CharField(max_length=20)
+    message = models.TextField()
+    response_code = models.CharField(max_length=10, null=True, blank=True)
+    response_description = models.TextField(null=True, blank=True)
+    message_id = models.CharField(max_length=50, null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    # Optional link to a broadcast notification
+    notification = models.ForeignKey(Notification, on_delete=models.SET_NULL, null=True, blank=True, related_name='sms_logs')
+    
+    def __str__(self):
+        return f"SMS to {self.recipient} - {self.status}"

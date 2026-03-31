@@ -139,15 +139,13 @@
                         <a href="{% url 'core:students-list' %}" class="menu-item py-2 text-sm {% if request.resolver_match.url_name == 'students-list' %}active{% endif %}">
                             Students
                         </a>
-                        <a href="{% url 'core:student-promotion' %}" class="menu-item py-2 text-sm {% if request.resolver_match.url_name == 'student-promotion' %}active{% endif %}">
-                            Promotion
-                        </a>
+                        
                         <a href="{% url 'core:classes-list' %}" class="menu-item py-2 text-sm {% if 'classes' in request.path %}active{% endif %}">
                             Classes
                         </a>
-                        <a href="{% url 'core:discipline-log' %}" class="menu-item py-2 text-sm {% if 'discipline' in request.path %}active{% endif %}">
+                        <!-- <a href="{% url 'core:discipline-log' %}" class="menu-item py-2 text-sm {% if 'discipline' in request.path %}active{% endif %}">
                             Discipline
-                        </a>
+                        </a> -->
                         {% if user.role == 'Admin' or user.role == 'Teacher' or user.is_superuser %}
                         <a href="{% url 'Exam:exam-list' %}" class="menu-item py-2 text-sm {% if 'exam-list' in request.path %}active{% endif %}">
                             Exams List
@@ -187,14 +185,11 @@
                             Payroll
                         </a>
                         {% endif %}
-                        <a href="{% url 'accounts:payments-list' %}" class="menu-item py-2 text-sm {% if 'payments-list' in request.path %}active{% endif %}">
+                        <!-- <a href="{% url 'accounts:payments-list' %}" class="menu-item py-2 text-sm {% if 'payments-list' in request.path %}active{% endif %}">
                             <i class="fas fa-money-bill-wave w-4 text-center"></i>
                             Paybill Transactions
-                        </a>
-                        <a href="{% url 'core:link-student' %}" class="menu-item py-2 text-sm {% if 'link-student' in request.path %}active{% endif %}">
-                            <i class="fas fa-link w-4 text-center"></i>
-                            Link Student
-                        </a>
+                        </a> -->
+                        
                     </div>
                 </div>
             </div>
@@ -213,11 +208,18 @@
                         <a href="{% url 'transport:dashboard' %}" class="menu-item py-2 text-sm {% if 'transport' in request.path %}active{% endif %}">
                             Transport
                         </a>
+                        <a href="{% url 'core:link-student' %}" class="menu-item py-2 text-sm {% if 'link-student' in request.path %}active{% endif %}">
+                            <i class="fas fa-link w-4 text-center"></i>
+                            Link Student
+                        </a>
                         <a href="{% url 'communication:dashboard' %}" class="menu-item py-2 text-sm {% if 'communication' in request.path %}active{% endif %}">
                             Broadcasts
                         </a>
                         <a href="{% url 'accounts:migrate-term' %}" class="menu-item py-2 text-sm {% if 'migrate-term' in request.path %}active{% endif %}">
                             Migrate Term
+                        </a>
+                        <a href="{% url 'core:student-promotion' %}" class="menu-item py-2 text-sm {% if request.resolver_match.url_name == 'student-promotion' %}active{% endif %}">
+                            Promotion
                         </a>
                         <a href="{% url 'accounts:revert-migrations' %}" class="menu-item py-2 text-sm {% if 'revert-migrations' in request.path %}active{% endif %}">
                             Revert Migrations

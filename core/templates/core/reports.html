@@ -58,8 +58,10 @@
 
 <!-- Filters Section -->
 <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm mb-6">
-    <form method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-end">
+    <form method="get" action="." class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-end">
         <input type="hidden" name="type" value="{{ report_type }}">
+        <input type="hidden" name="q" value="{{ search_query|default:'' }}">
+
 
         <div class="space-y-1.5">
             <label for="school" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Filter School</label>
@@ -80,7 +82,7 @@
                 <select name="grade" id="grade" onchange="this.form.submit()" class="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
                     <option value="">All Grades</option>
                     {% for g in grades %}
-                        <option value="{{ g.id }}" {% if g.id|stringformat:"s" == selected_grade %}selected{% endif %}>{{ g.name }}</option>
+                        <option value="{{ g }}" {% if g == selected_grade %}selected{% endif %}>{{ g }}</option>
                     {% endfor %}
                 </select>
                 <i class="fas fa-graduation-cap absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
@@ -100,6 +102,7 @@
             </div>
         </div>
 
+        {% if report_type == 'performance' %}
         <div class="space-y-1.5">
             <label for="exam" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Filter Exam</label>
             <div class="relative group">
@@ -112,6 +115,7 @@
                 <i class="fas fa-file-invoice absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
             </div>
         </div>
+        {% endif %}
 
         <div class="space-y-1.5">
             <label for="date_from" class="block text-[11px] font-bold text-slate-500 uppercase tracking-tighter px-1">Date From</label>
@@ -236,13 +240,29 @@
     </div>
 
     <!-- Student Directory Table -->
-    <div class="bg-white rounded-[14px] border border-slate-200 shadow-sm overflow-hidden">
-        <div class="flex items-center justify-between p-6 border-b border-slate-100">
+    <div id="student-directory" class="bg-white rounded-[14px] border border-slate-200 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between p-6 border-b border-slate-100 gap-4">
             <div>
                 <h3 class="text-[15px] font-bold text-slate-800">Student Directory</h3>
-                <p class="text-[12px] font-medium text-slate-500 mt-0.5">Showing {{ report_data|length }} of {{ total_students }} students (randomised)</p>
+                <p class="text-[12px] font-medium text-slate-500 mt-0.5">Showing {{ report_data|length }} students {% if search_query %}(matching "{{ search_query }}"){% else %}(randomised preview){% endif %}</p>
             </div>
-            <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            
+            <div class="flex items-center gap-4">
+                <form method="get" action="#student-directory" class="relative group">
+                    <input type="hidden" name="type" value="{{ report_type|default:'' }}">
+                    <input type="hidden" name="school" value="{{ selected_school|default:'' }}">
+                    <input type="hidden" name="grade" value="{{ selected_grade|default:'' }}">
+                    <input type="hidden" name="class" value="{{ selected_class|default:'' }}">
+                    <input type="hidden" name="date_from" value="{{ selected_date_from|default:'' }}">
+                    <input type="hidden" name="date_to" value="{{ selected_date_to|default:'' }}">
+                    
+                    <input type="text" name="q" value="{{ search_query|default:'' }}" 
+                           placeholder="Search name or adm no..." 
+                           class="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[12px] font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all w-64 shadow-sm">
+                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+                </form>
+                <button class="text-slate-400 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left">
@@ -300,63 +320,87 @@
 
 
 {% elif report_type == 'fees' %}
-{% elif report_type == 'fees' %}
     <!-- Stat Cards for Fees -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
         <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
-            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-50/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-            <div class="flex items-center justify-between mb-6 relative">
+            <div class="flex items-center justify-between mb-6">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
+                    <i class="fas fa-file-invoice-dollar text-lg"></i>
+                </div>
+                <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-50/50 px-3 py-1 rounded-full">Billed</div>
+            </div>
+            <h4 class="text-3xl font-black text-slate-900 tracking-tighter mb-1">KES {{ total_billed|floatformat:0 }}</h4>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                {% if active_term and not selected_date_from and not selected_date_to %}
+                    Total Billed ({{ active_term.name }})
+                {% else %}
+                    Gross Billings
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
+            <div class="flex items-center justify-between mb-6">
                 <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
                     <i class="fas fa-wallet text-lg"></i>
                 </div>
                 <div class="text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-50/50 px-3 py-1 rounded-full">Collected</div>
             </div>
-            <div class="relative">
-                <h4 class="text-3xl font-black text-slate-900 tracking-tighter mb-1">KES {{ total_collected|floatformat:0 }}</h4>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Revenue</p>
+            <h4 class="text-3xl font-black text-slate-900 tracking-tighter mb-1">KES {{ total_collected|floatformat:0 }}</h4>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                {% if active_term and not selected_date_from and not selected_date_to %}
+                    Net Revenue ({{ active_term.name }})
+                {% else %}
+                    Net Revenue ({{ collection_rate|floatformat:1 }}%)
+                {% endif %}
+            </p>
+            <div class="w-full h-1.5 bg-slate-100 rounded-full mt-4 overflow-hidden">
+                <div class="h-full bg-emerald-500 rounded-full" style="width: {{ collection_rate }}%"></div>
             </div>
         </div>
 
         <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
-            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-50/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
             <div class="flex items-center justify-between mb-6 relative">
-                <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-inner">
+                <div class="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center shadow-inner">
                     <i class="fas fa-exclamation-triangle text-lg"></i>
                 </div>
-                <div class="text-[10px] font-black text-rose-400 uppercase tracking-widest bg-rose-50/50 px-3 py-1 rounded-full">Outstandng</div>
+                <div class="text-[10px] font-black text-orange-400 uppercase tracking-widest bg-orange-50/50 px-3 py-1 rounded-full">Outstanding</div>
             </div>
-            <div class="relative">
-                <h4 class="text-3xl font-black text-rose-600 tracking-tighter mb-1">KES {{ total_debt|floatformat:0 }}</h4>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Arrears</p>
-            </div>
+            <h4 class="text-3xl font-black text-orange-600 tracking-tighter mb-1">KES {{ total_debt|floatformat:0 }}</h4>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Arrears</p>
         </div>
 
         <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
-            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-sky-50/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
             <div class="flex items-center justify-between mb-6 relative">
                 <div class="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center shadow-inner">
                     <i class="fas fa-plus-circle text-lg"></i>
                 </div>
                 <div class="text-[10px] font-black text-sky-400 uppercase tracking-widest bg-sky-50/50 px-3 py-1 rounded-full">Credit</div>
             </div>
-            <div class="relative">
-                <h4 class="text-3xl font-black text-sky-600 tracking-tighter mb-1">KES {{ total_overpaid|floatformat:0 }}</h4>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Overpayments</p>
-            </div>
+            <h4 class="text-3xl font-black text-sky-600 tracking-tighter mb-1">KES {{ total_overpaid|floatformat:0 }}</h4>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Student Credits</p>
         </div>
 
         <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
-            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-50/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div class="flex items-center justify-between mb-6 relative">
+                <div class="w-12 h-12 rounded-2xl bg-slate-50 text-slate-600 flex items-center justify-center shadow-inner">
+                    <i class="fas fa-users text-lg"></i>
+                </div>
+                <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/50 px-3 py-1 rounded-full">Coverage</div>
+            </div>
+            <h4 class="text-3xl font-black text-slate-900 tracking-tighter mb-1">{{ selection_coverage|default:"100" }}%</h4>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Reporting Span</p>
+        </div>
+
+        <div class="relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl transition-all duration-500">
             <div class="flex items-center justify-between mb-6 relative">
                 <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-inner">
                     <i class="fas fa-calculator text-lg"></i>
                 </div>
                 <div class="text-[10px] font-black text-amber-400 uppercase tracking-widest bg-amber-50/50 px-3 py-1 rounded-full">Average</div>
             </div>
-            <div class="relative">
-                <h4 class="text-3xl font-black text-amber-600 tracking-tighter mb-1">KES {{ avg_payment|floatformat:0 }}</h4>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Per Transaction</p>
-            </div>
+            <h4 class="text-3xl font-black text-amber-600 tracking-tighter mb-1">KES {{ avg_payment|floatformat:0 }}</h4>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Per Transaction</p>
         </div>
     </div>
 
@@ -382,12 +426,28 @@
         </div>
     </div>
 
+    <!-- Tab Switcher -->
+    <div class="flex items-center gap-2 mb-6 p-1 bg-slate-100 rounded-2xl w-fit">
+        <button onclick="switchTab('transactions')" id="tab-btn-transactions" class="px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-sm bg-white text-indigo-600">
+            Transaction History
+        </button>
+        <button onclick="switchTab('balances')" id="tab-btn-balances" class="px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all text-slate-500 hover:text-slate-700">
+            Student Balances
+        </button>
+    </div>
+
     <!-- Transaction Table -->
-    <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+    <div id="tab-transactions" class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
         <div class="flex items-center justify-between p-8 border-b border-slate-50">
             <div>
                 <h3 class="text-lg font-black text-slate-900 tracking-tight">Recent Transactions</h3>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Detailed Payment Audit Log</p>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">
+                    {% if active_term and not selected_date_from and not selected_date_to %}
+                        Showing {{ active_term.name }} Data
+                    {% else %}
+                        Detailed Payment Audit Log
+                    {% endif %}
+                </p>
             </div>
             <div class="bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100">
                 <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">{{ report_data|length }} Recent Payments</p>
@@ -431,18 +491,103 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="py-12 text-center">
-                            <div class="flex flex-col items-center gap-2 opacity-20">
-                                <i class="fas fa-search-dollar text-4xl"></i>
-                                <p class="text-xs font-black uppercase tracking-widest">No transactions found</p>
-                            </div>
-                        </td>
+                        <td colspan="4" class="py-12 text-center text-slate-400">No transactions recorded</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+
+    <!-- Balances Table (Hidden by default) -->
+    <div id="tab-balances" class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden hidden">
+        <div class="flex items-center justify-between p-8 border-b border-slate-50">
+            <div>
+                <h3 class="text-lg font-black text-slate-900 tracking-tight">Student Fee Balances</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Current Account Status by Student</p>
+            </div>
+            <div class="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100">
+                <p class="text-[9px] font-black text-indigo-600 uppercase tracking-widest">{{ student_balances|length }} Students Shown</p>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50/50 border-b border-slate-100">
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Class</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Balance</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for profile in student_balances %}
+                    <tr class="hover:bg-slate-50/50 transition-colors group">
+                        <td class="py-5 px-8">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-[10px] font-black text-indigo-600 border border-indigo-100">
+                                    {{ profile.student.first_name|first }}{{ profile.student.last_name|first }}
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{{ profile.student.get_full_name }}</p>
+                                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{{ profile.student.adm_no }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-5 px-8">
+                            <span class="text-[10px] font-black text-slate-500 uppercase">
+                                {{ profile.class_id.grade.name }} {{ profile.class_id.name }}
+                            </span>
+                        </td>
+                        <td class="py-5 px-8 text-right">
+                            <span class="text-xs font-black {% if profile.fee_balance > 0 %}text-rose-600{% elif profile.fee_balance < 0 %}text-emerald-600{% else %}text-slate-500{% endif %}">
+                                KES {{ profile.fee_balance|floatformat:2 }}
+                            </span>
+                        </td>
+                        <td class="py-5 px-8 text-right">
+                            {% if profile.fee_balance > 0 %}
+                                <span class="bg-rose-50 text-rose-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase">Owing</span>
+                            {% elif profile.fee_balance < 0 %}
+                                <span class="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase">Overpaid</span>
+                            {% else %}
+                                <span class="bg-slate-50 text-slate-400 text-[9px] font-black px-2 py-1 rounded-lg uppercase">Cleared</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-12 text-center text-slate-400">No balance records found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tab) {
+            const transTab = document.getElementById('tab-transactions');
+            const balTab = document.getElementById('tab-balances');
+            const transBtn = document.getElementById('tab-btn-transactions');
+            const balBtn = document.getElementById('tab-btn-balances');
+            
+            if (tab === 'transactions') {
+                transTab.classList.remove('hidden');
+                balTab.classList.add('hidden');
+                transBtn.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
+                transBtn.classList.remove('text-slate-500');
+                balBtn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
+                balBtn.classList.add('text-slate-500');
+            } else {
+                balTab.classList.remove('hidden');
+                transTab.classList.add('hidden');
+                balBtn.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
+                balBtn.classList.remove('text-slate-500');
+                transBtn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
+                transBtn.classList.add('text-slate-500');
+            }
+        }
+    </script>
 
 {% else %}
     <!-- Stream Comparison Chart (Visible when grade selected but no stream) -->
@@ -469,7 +614,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md">
             <div class="flex items-center justify-between mb-6">
-                <h3 class="text-[14px] font-black text-slate-800 uppercase tracking-tight">Grade Distribution</h3>
+                <h3 class="text-[14px] font-black text-slate-800 uppercase tracking-tight">Examination Enrollment</h3>
                 <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
                     <i class="fas fa-medal text-xs"></i>
                 </div>
@@ -481,7 +626,7 @@
         
         <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm transition-all hover:shadow-md">
             <div class="flex items-center justify-between mb-6">
-                <h3 class="text-[14px] font-black text-slate-800 uppercase tracking-tight">Subject-wise Mastery</h3>
+                <h3 class="text-[14px] font-black text-slate-800 uppercase tracking-tight">Subject Mastery</h3>
                 <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
                     <i class="fas fa-book text-xs"></i>
                 </div>
@@ -536,6 +681,20 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    <!-- Grade Performance Mastery Chart -->
+    <div class="bg-white rounded-[14px] p-8 border border-slate-200 shadow-sm transition-all hover:shadow-md mt-6">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h3 class="text-[16px] font-black text-slate-800 uppercase tracking-tight">Grade Performance Mastery</h3>
+                <p class="text-[11px] font-bold text-slate-400 capitalize mt-1">Mean Score % comparison across academic levels</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shadow-sm">
+                <i class="fas fa-chart-pie text-sm"></i>
+            </div>
+        </div>
+        <div class="h-96 relative">
+            <canvas id="perfGradePolarChart"></canvas>
         </div>
     </div>
 {% endif %}
@@ -603,7 +762,12 @@
                         x: { grid: { display: false }, ticks: { font: { size: 10 } } },
                         y: {
                             grid: { color: '#f1f5f9', drawBorder: false },
-                            ticks: { font: { size: 10 }, beginAtZero: true }
+                            ticks: { 
+                                font: { size: 10 }, 
+                                beginAtZero: true,
+                                stepSize: 1,
+                                precision: 0
+                            }
                         }
                     }
                 }
@@ -680,7 +844,7 @@
         new Chart(perfGradeCtx, {
             type: 'bar',
             data: {
-                labels: [{% for g in performance_grade_dist %}'{{ g.grade|default:"Unknown" }}',{% endfor %}],
+                labels: [{% for g in performance_grade_dist %}'{{ g.class_id__grade__name|default:"Unknown" }}',{% endfor %}],
                 datasets: [{
                     label: 'Entries',
                     data: [{% for g in performance_grade_dist %}{{ g.count }},{% endfor %}],
@@ -698,6 +862,54 @@
                     y: { 
                         grid: { color: 'rgba(0,0,0,0.03)', drawBorder: false }, 
                         ticks: { font: { size: 10 }, beginAtZero: true } 
+                    }
+                }
+            }
+        });
+        
+        // Grade Performance Mastery (Polar Area)
+        const perfPolarCtx = document.getElementById('perfGradePolarChart').getContext('2d');
+        new Chart(perfPolarCtx, {
+            type: 'polarArea',
+            data: {
+                labels: [{% for g in performance_grade_scores %}'{{ g.class_id__grade__name|default:"Unknown" }}',{% endfor %}],
+                datasets: [{
+                    data: [{% for g in performance_grade_scores %}{{ g.avg_score|floatformat:1 }},{% endfor %}],
+                    backgroundColor: [
+                        'rgba(16, 185, 129, 0.7)', 
+                        'rgba(99, 102, 241, 0.7)', 
+                        'rgba(245, 158, 11, 0.7)'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 10,
+                            font: { size: 9, weight: 'bold' }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.label}: ${context.parsed.r}% Avg`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        suggestedMin: 0,
+                        suggestedMax: 100,
+                        ticks: { display: false },
+                        grid: { color: 'rgba(0,0,0,0.03)' }
                     }
                 }
             }
@@ -742,7 +954,7 @@
         new Chart(streamCtx, {
             type: 'bar',
             data: {
-                labels: [{% for s in stream_comparison %}'{{ s.class_id__name }}',{% endfor %}],
+                labels: [{% for s in stream_comparison %}'{{ s.class_id__school__name }} - {{ s.class_id__name }}',{% endfor %}],
                 datasets: [{
                     label: 'Mean Score %',
                     data: [{% for s in stream_comparison %}{{ s.avg_score|floatformat:1 }},{% endfor %}],

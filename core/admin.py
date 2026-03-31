@@ -38,8 +38,8 @@ class SchoolAdmin(admin.ModelAdmin):
 
 @admin.register(Grade)
 class GradeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'school')
-    list_filter = ('school',)
+    list_display = ('name',)
+    search_fields = ('name',)
 
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):

@@ -11,7 +11,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
 from .models import Student, StudentProfile, School,StudentDiscipline, Class, Grade, AcademicYear, Term, ExamMode, TeacherClassProfile, AttendanceSession, StudentAttendance, PromotionHistory
-from .forms import StudentForm, StudentProfileForm, AcademicYearForm, TermForm, GradeForm, ClassForm, ExamForm, ExamModeForm, PaymentForm, AttendanceSessionForm, StudentAttendanceForm
+from .forms import StudentForm, StudentProfileForm, AcademicYearForm, TermForm, GradeForm, ClassForm, StreamUpdateForm, ExamForm, ExamModeForm, PaymentForm, AttendanceSessionForm, StudentAttendanceForm
 from Exam.models import ExamSUbjectScore, Exam, Subject, ExamSubjectConfiguration, ScoreRanking
 from decimal import Decimal
 from accounts.models import Payment, FeeStructure, Invoice, AdditionalCharges
@@ -268,6 +268,7 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
                 'total': total,
                 'rate': rate,
             })
+        context['recent_attendance'] = attendance_summary
         
         # School name
         school_name = ''
@@ -461,7 +462,7 @@ class StudentsListView(LoginRequiredMixin, ListView):
             from .models import Class, Grade
             from django.db.models import Q
             # Get grades that contextually belong to this school
-            context['grades'] = Grade.objects.filter(Q(school_id=selected_school_id) | Q(school__isnull=True))
+            context['grades'] = Grade.objects.all()
             
             if selected_grade_id:
                 # Filter streams by grade AND school to ensure relevance
@@ -771,6 +772,31 @@ class StudentPromotionView(LoginRequiredMixin, UserPassesTestMixin, TemplateView
                                 description=f"{ac.name} for {target_class.grade.name} - Academic Year {active_year}"
                             )
                             invoice_count += 1
+                
+                    # 3. Handle Auxiliary Charges
+                    from accounts.models import AuxiliaryServiceType, AuxiliaryCharge
+                    aux_services = AuxiliaryServiceType.objects.filter(
+                        school=profile.school,
+                        grades=target_class.grade,
+                        is_active=True
+                    )
+                    for aux in aux_services:
+                        # Prevent double billing for the same term and academic year
+                        if not AuxiliaryCharge.objects.filter(
+                            student=profile.student,
+                            service_type=aux,
+                            academic_year=active_year,
+                            term=active_term
+                        ).exists():
+                            AuxiliaryCharge.objects.create(
+                                student=profile.student,
+                                service_type=aux,
+                                description=f"{aux.name} for {target_class.grade.name} - {active_term.name}",
+                                amount=aux.amount,
+                                term=active_term,
+                                academic_year=active_year,
+                                created_by=request.user
+                            )
                 
             elif action == 'graduate':
                 profile.status = 'Graduated'
@@ -1333,9 +1359,15 @@ class StudentDetailView(DetailView):
         context['financial_log'] = all_transactions[::-1][:15] # Keep the old one for breadcrumbs if needed
         context['payments'] = student_payments.order_by('-date_paid')
         
+        # Auxiliary Billing (completely separate from main fee system)
+        from accounts.models import AuxiliaryCharge
+        context['auxiliary_charges'] = AuxiliaryCharge.objects.filter(
+            student=self.object
+        ).select_related('service_type').prefetch_related('payments').order_by('-created_at')
+        
         # Data for Subject Performance Chart (Progress Bars & Radar)
         context['subject_names'] = [score.subject.name for score in scores]
-        context['subject_values'] = [int(score.score) for score in scores]
+        context['subject_values'] = [int(score.percentage) for score in scores]
         context['subject_names_json'] = json.dumps(context['subject_names'])
         context['subject_values_json'] = json.dumps(context['subject_values'])
         
@@ -1554,15 +1586,8 @@ class ClassesListView(LoginRequiredMixin, ListView):
             context['schools'] = []
             context['selected_school'] = ''
         
-        # Get grades for the selected school
-        selected_school_id = self.request.GET.get('school')
-        if selected_school_id:
-            context['grades'] = Grade.objects.filter(school_id=selected_school_id)
-        elif self.request.user.school:
-            # Filter grades by user's linked school
-            context['grades'] = Grade.objects.filter(school=self.request.user.school)
-        else:
-            context['grades'] = []
+        # Grades are standard across all schools
+        context['grades'] = Grade.objects.all().order_by('name')
         
         context['selected_grade'] = self.request.GET.get('grade', '')
         
@@ -1847,7 +1872,7 @@ def configurations(request):
     context = {
         'academic_years': AcademicYear.objects.all().order_by('-start_date'),
         'terms': Term.objects.all().order_by('id'),
-        'grades': Grade.objects.all().select_related('school').order_by('name', 'school__name'),
+        'grades': Grade.objects.all().order_by('name'),
         'classes': Class.objects.all().select_related('school', 'grade').order_by('grade__name', 'name'),
         'exams': Exam.objects.all().select_related('year', 'term').order_by('-year__start_date', 'term__name'),
         'exam_modes': ExamMode.objects.all(),
@@ -1863,11 +1888,13 @@ def configurations(request):
     context['exam_form'] = ExamForm()
     context['exam_mode_form'] = ExamModeForm()
     
-    from accounts.forms import FeeStructureForm, AdditionalChargesForm
-    from accounts.models import AdditionalCharges
+    from accounts.forms import FeeStructureForm, AdditionalChargesForm, AuxiliaryServiceTypeForm
+    from accounts.models import AdditionalCharges, AuxiliaryServiceType
     context['fee_structure_form'] = FeeStructureForm()
     context['additional_charge_form'] = AdditionalChargesForm()
     context['additional_charges'] = AdditionalCharges.objects.all().select_related('school', 'term').prefetch_related('grades')
+    context['auxiliary_service_type_form'] = AuxiliaryServiceTypeForm()
+    context['auxiliary_service_types'] = AuxiliaryServiceType.objects.all().select_related('school').prefetch_related('grades')
     
     return render(request, 'core/configurations.html', context)
 
@@ -1905,6 +1932,88 @@ def create_additional_charge(request):
     return redirect('core:configurations')
 
 
+def create_auxiliary_service_type(request):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'Permission denied.')
+        return redirect('core:configurations')
+    
+    if request.method == 'POST':
+        from accounts.forms import AuxiliaryServiceTypeForm
+        form = AuxiliaryServiceTypeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Auxiliary service type created successfully!')
+        else:
+            messages.error(request, f'Error creating auxiliary service type: {form.errors}')
+            
+    return redirect('core:configurations')
+
+def update_fee_structure(request):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'Permission denied.')
+        return redirect('core:configurations')
+    
+    if request.method == 'POST':
+        from accounts.models import FeeStructure
+        from accounts.forms import FeeStructureForm
+        structure_id = request.POST.get('structure_id')
+        try:
+            instance = FeeStructure.objects.get(id=structure_id)
+            form = FeeStructureForm(request.POST, instance=instance)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Fee structure updated successfully!')
+            else:
+                messages.error(request, 'Error updating fee structure. Validate your input.')
+        except FeeStructure.DoesNotExist:
+            messages.error(request, 'Fee structure not found.')
+            
+    return redirect('core:configurations')
+
+
+def update_additional_charge(request):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'Permission denied.')
+        return redirect('core:configurations')
+    
+    if request.method == 'POST':
+        from accounts.models import AdditionalCharges
+        from accounts.forms import AdditionalChargesForm
+        charge_id = request.POST.get('charge_id')
+        try:
+            instance = AdditionalCharges.objects.get(id=charge_id)
+            form = AdditionalChargesForm(request.POST, instance=instance)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Additional charge updated successfully!')
+            else:
+                messages.error(request, 'Error updating additional charge.')
+        except AdditionalCharges.DoesNotExist:
+            messages.error(request, 'Additional charge not found.')
+            
+    return redirect('core:configurations')
+
+def update_auxiliary_service_type(request):
+    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+        messages.error(request, 'Permission denied.')
+        return redirect('core:configurations')
+    
+    if request.method == 'POST':
+        from accounts.models import AuxiliaryServiceType
+        from accounts.forms import AuxiliaryServiceTypeForm
+        service_id = request.POST.get('service_id')
+        try:
+            instance = AuxiliaryServiceType.objects.get(id=service_id)
+            form = AuxiliaryServiceTypeForm(request.POST, instance=instance)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Auxiliary service type updated successfully!')
+            else:
+                messages.error(request, f'Error updating auxiliary service type: {form.errors}')
+        except AuxiliaryServiceType.DoesNotExist:
+            messages.error(request, 'Auxiliary service type not found.')
+            
+    return redirect('core:configurations')
 
 def activate_academic_year(request, year_id):
     if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
@@ -2025,7 +2134,7 @@ def update_class(request):
         class_id = request.POST.get('class_id')
         class_obj = get_object_or_404(Class, id=class_id)
         
-        form = ClassForm(request.POST, instance=class_obj)
+        form = StreamUpdateForm(request.POST, instance=class_obj)
         if form.is_valid():
             form.save()
             messages.success(request, 'Class updated successfully!')
@@ -2112,6 +2221,11 @@ def delete_item(request, model_type, item_id):
             item = get_object_or_404(AdditionalCharges, id=item_id)
             item.delete()
             messages.success(request, 'Additional charge deleted successfully!')
+        elif model_type == 'auxiliary_service_type':
+            from accounts.models import AuxiliaryServiceType
+            item = get_object_or_404(AuxiliaryServiceType, id=item_id)
+            item.delete()
+            messages.success(request, 'Auxiliary service type deleted successfully!')
         elif model_type == 'exam_mode':
             messages.warning(request, 'Exam mode cannot be deleted. Use the exam management page to activate/deactivate exams.')
     
@@ -2761,12 +2875,14 @@ def manage_fee_payments(request):
     
     # Apply filters
     if search_query:
-        students = students.filter(
-            Q(student__first_name__icontains=search_query) |
-            Q(student__middle_name__icontains=search_query) |
-            Q(student__last_name__icontains=search_query) |
-            Q(student__adm_no__icontains=search_query)
-        )
+        query_parts = search_query.split()
+        for part in query_parts:
+            students = students.filter(
+                Q(student__first_name__icontains=part) |
+                Q(student__middle_name__icontains=part) |
+                Q(student__last_name__icontains=part) |
+                Q(student__adm_no__icontains=part)
+            )
     
     if date_from or date_to:
         payment_q = Q()
@@ -2787,8 +2903,14 @@ def manage_fee_payments(request):
     # Order by name
     students = students.order_by('student__first_name', 'student__last_name')
     
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(students, 50)  # Show 50 students per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
     context = {
-        'students': students,
+        'students': page_obj,
         'search_query': search_query,
         'date_from': date_from,
         'date_to': date_to,
@@ -2819,11 +2941,34 @@ def process_payment(request, student_id):
                 payment.save()
                 
                 # Automatically log a payment notification
-                PaymentNotification.objects.create(
+                p_notif = PaymentNotification.objects.create(
                     student=student,
                     payment=payment,
                     message=f"Dear Parent, we have received KES {payment.amount} for {student.first_name}. Your new balance is KES {student_profile.fee_balance}."
                 )
+                
+                # Send SMS to Guardians
+                try:
+                    from communication.sms_utils import TextSMSAPI
+                    sms_api = TextSMSAPI()
+                    guardians = student.guardians.filter(phone_number__isnull=False)
+                    
+                    success_count = 0
+                    for guardian in guardians:
+                        success, _ = sms_api.send_sms(guardian.phone_number, p_notif.message)
+                        if success:
+                            success_count += 1
+                    
+                    if success_count > 0:
+                        p_notif.status = 'Success'
+                        p_notif.save()
+                    elif guardians.exists():
+                        p_notif.status = 'Failed'
+                        p_notif.save()
+                except Exception as sms_err:
+                    print(f"SMS Failed for payment {payment.id}: {sms_err}")
+                    p_notif.status = 'Failed'
+                    p_notif.save()
 
                 messages.success(request, f'Payment of {payment.amount} recorded successfully for {student.first_name} {student.last_name}')
                 
@@ -3803,16 +3948,19 @@ def schools_analytics(request):
         )
         
         for grade_name in sorted_grade_names:
-            subjects = Subject.objects.filter(grade=grade_name).order_by('name')
+            subject_configs = ExamSubjectConfiguration.objects.filter(
+                exam=selected_exam,
+                subject__grade=grade_name
+            ).select_related('subject').order_by('subject__name')
             
-            if not subjects.exists():
+            if not subject_configs.exists():
                 continue
             
             classes = Class.objects.filter(grade__name=grade_name).select_related('school', 'grade')
             
             grade_data = {
                 'grade_name': grade_name,
-                'subjects': subjects,
+                'subjects': subject_configs,
                 'streams': [],
                 'top_students': [],  # top 3 across ALL streams/schools for this grade
             }
@@ -3836,11 +3984,11 @@ def schools_analytics(request):
                 has_any_score = False
                 total_sum = 0
                 
-                for subject in subjects:
+                for config in subject_configs:
                     student_subject_totals = ExamSUbjectScore.objects.filter(
                         student_id__in=student_ids,
                         paper__exam_subject__exam=selected_exam,
-                        paper__exam_subject__subject=subject
+                        paper__exam_subject__subject=config.subject
                     ).values('student_id').annotate(total_score=Sum('score'))
                     
                     if student_subject_totals:
@@ -3855,12 +4003,12 @@ def schools_analytics(request):
                 if not has_any_score:
                     continue
                 
-                stream['total_mean'] = round(total_sum, 2)
+                stream['total_mean'] = round(total_sum / subject_configs.count(), 2) if subject_configs.exists() else 0
                 grade_data['streams'].append(stream)
             
             if grade_data['streams']:
                 # Tag highest scores per subject column
-                for i in range(len(subjects)):
+                for i in range(subject_configs.count()):
                     col_scores = [s['scores'][i] for s in grade_data['streams'] if s['scores'][i] > 0]
                     highest = max(col_scores) if col_scores else 0
                     for s in grade_data['streams']:
@@ -3992,14 +4140,22 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         from datetime import datetime
         report_type = self.request.GET.get('type', 'students')
         school_id = self.request.GET.get('school')
+        if school_id == 'None': school_id = None
         grade_id = self.request.GET.get('grade')
+        if grade_id == 'None': grade_id = None
         class_id = self.request.GET.get('class')
+        if class_id == 'None': class_id = None
         date_from_str = self.request.GET.get('date_from')
+        if date_from_str == 'None': date_from_str = None
         date_to_str = self.request.GET.get('date_to')
+        if date_to_str == 'None': date_to_str = None
         exam_id = self.request.GET.get('exam')
+        if exam_id == 'None': exam_id = None
+        query = self.request.GET.get('q')
         
         context['report_type'] = report_type
         context['selected_exam'] = exam_id
+        context['search_query'] = query
         context['exams'] = Exam.objects.all().order_by('-id')
         context['selected_school'] = school_id
         context['selected_grade'] = grade_id
@@ -4008,12 +4164,14 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         context['selected_date_to'] = date_to_str
         context['schools'] = School.objects.all().order_by('name')
         
-        grades_qs = Grade.objects.all().order_by('name')
-        if school_id:
-            grades_qs = grades_qs.filter(school_id=school_id)
-        context['grades'] = grades_qs
+        # Get unique grade names for the filter
+        grade_order = [c[0] for c in Grade.choices]
+        existing_grade_names = Grade.objects.values_list('name', flat=True).distinct()
+        context['grades'] = [g for g in grade_order if g in existing_grade_names]
+        
         if grade_id:
-            context['selected_grade_obj'] = grades_qs.filter(id=grade_id).first()
+            # Picking any representative grade object for the name since it's common
+            context['selected_grade_obj'] = Grade.objects.filter(name=grade_id).first()
         context['selected_school'] = school_id
         context['selected_grade'] = grade_id
         context['selected_class'] = class_id
@@ -4035,7 +4193,7 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
         if school_id:
             classes_qs = classes_qs.filter(school_id=school_id)
         if grade_id:
-            classes_qs = classes_qs.filter(grade_id=grade_id)
+            classes_qs = classes_qs.filter(grade__name=grade_id)
         context['classes'] = classes_qs
 
         if report_type == 'students':
@@ -4043,7 +4201,7 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             if school_id:
                 queryset = queryset.filter(school_id=school_id)
             if grade_id:
-                queryset = queryset.filter(class_id__grade_id=grade_id)
+                queryset = queryset.filter(class_id__grade__name=grade_id)
             if class_id:
                 queryset = queryset.filter(class_id_id=class_id)
             if date_from:
@@ -4051,29 +4209,41 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             if date_to:
                 queryset = queryset.filter(student__joined_date__lte=date_to)
             
-            # Stat Cards Data
+            # Stat Cards Data - Unaffected by search query
             context['total_students'] = queryset.count()
             context['active_students'] = queryset.filter(status='Active').count()
             context['graduated_students'] = queryset.filter(status='Graduated').count()
             context['inactive_students'] = queryset.filter(status='Inactive').count()
 
-            # Distribution by School (for Chart)
+            # Distribution by School (for Chart) - Unaffected by search query
             context['school_distribution'] = list(queryset.values('school__name').annotate(count=Count('id')).order_by('-count'))
             
-            # Distribution by Grade (for Chart)
+            # Distribution by Grade (for Chart) - Unaffected by search query
             context['grade_distribution'] = list(queryset.values('class_id__grade__name').annotate(count=Count('id')).order_by('-count'))
             
-            context['report_data'] = queryset.order_by('?')[:100]
+            # Table results - Affected by search query
+            table_queryset = queryset
+            if query:
+                table_queryset = table_queryset.filter(
+                    Q(student__first_name__icontains=query) |
+                    Q(student__last_name__icontains=query) |
+                    Q(student__adm_no__icontains=query)
+                )
+                context['report_data'] = table_queryset.order_by('student__first_name', 'student__last_name')[:100]
+            else:
+                context['report_data'] = table_queryset.order_by('?')[:100]
             
         elif report_type == 'fees':
             balance_status = self.request.GET.get('balance_status')
+            active_term = Term.objects.filter(is_active=True).first()
+            context['active_term'] = active_term
             
             # Start with all students to calculate balances, then filter for payments later
             all_profiles = StudentProfile.objects.all().select_related('student', 'school', 'class_id')
             if school_id:
                 all_profiles = all_profiles.filter(school_id=school_id)
             if grade_id:
-                all_profiles = all_profiles.filter(class_id__grade_id=grade_id)
+                all_profiles = all_profiles.filter(class_id__grade__name=grade_id)
             if class_id:
                 all_profiles = all_profiles.filter(class_id_id=class_id)
             
@@ -4082,13 +4252,22 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             if school_id:
                 queryset = queryset.filter(student__studentprofile__school_id=school_id)
             if grade_id:
-                queryset = queryset.filter(student__studentprofile__class_id__grade_id=grade_id)
+                queryset = queryset.filter(student__studentprofile__class_id__grade__name=grade_id)
             if class_id:
                 queryset = queryset.filter(student__studentprofile__class_id_id=class_id)
-            if date_from:
-                queryset = queryset.filter(date_paid__gte=date_from)
-            if date_to:
-                queryset = queryset.filter(date_paid__lte=date_to)
+            
+            # Date/Term Filtering for Payments
+            if date_from or date_to:
+                if date_from:
+                    queryset = queryset.filter(date_paid__gte=date_from)
+                if date_to:
+                    queryset = queryset.filter(date_paid__lte=date_to)
+            elif active_term:
+                # Default to active term range if dates not provided
+                if active_term.opening_date:
+                    queryset = queryset.filter(date_paid__gte=active_term.opening_date)
+                if active_term.closing_date:
+                    queryset = queryset.filter(date_paid__lte=active_term.closing_date)
             
             # Apply balance status filter to profiles if requested
             if balance_status == 'owing':
@@ -4104,10 +4283,35 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
                 queryset = queryset.filter(student_id__in=student_ids)
                 context['selected_balance_status'] = balance_status
             
-            # Stat Cards Data
+            total_students_in_scope = all_profiles.count()
+            students_with_payments = queryset.values('student').distinct().count()
+            context['selection_coverage'] = (students_with_payments / total_students_in_scope * 100) if total_students_in_scope > 0 else 0
+            
             context['total_collected'] = queryset.aggregate(Sum('amount'))['amount__sum'] or 0
             context['transaction_count'] = queryset.count()
             context['avg_payment'] = context['total_collected'] / context['transaction_count'] if context['transaction_count'] > 0 else 0
+            
+            # New Detailed Financial Stats (Gross Billing)
+            total_billed = Invoice.objects.all()
+            if school_id:
+                total_billed = total_billed.filter(student__studentprofile__school_id=school_id)
+            if grade_id:
+                total_billed = total_billed.filter(student__studentprofile__class_id__grade__name=grade_id)
+            if class_id:
+                total_billed = total_billed.filter(student__studentprofile__class_id_id=class_id)
+            
+            # Date/Term Filtering for Invoices
+            if date_from or date_to:
+                if date_from:
+                    total_billed = total_billed.filter(created_at__date__gte=date_from)
+                if date_to:
+                    total_billed = total_billed.filter(created_at__date__lte=date_to)
+            elif active_term:
+                # Default to invoices for active term
+                total_billed = total_billed.filter(term=active_term)
+                
+            context['total_billed'] = total_billed.aggregate(Sum('amount'))['amount__sum'] or 0
+            context['collection_rate'] = (context['total_collected'] / context['total_billed'] * 100) if context['total_billed'] > 0 else 0
             
             # Collection Trend (Last 6 Months)
             six_months_ago = timezone.now() - timedelta(days=180)
@@ -4133,6 +4337,7 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             context['owing_count'] = all_profiles.filter(fee_balance__gt=0).count()
             
             context['report_data'] = queryset.order_by('-date_paid')
+            context['student_balances'] = all_profiles.order_by('-fee_balance')[:100]
             
         elif report_type == 'performance':
             # Basic performance overview
@@ -4140,7 +4345,7 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
             if school_id:
                 queryset = queryset.filter(student__studentprofile__school_id=school_id)
             if grade_id:
-                queryset = queryset.filter(class_id__grade_id=grade_id)
+                queryset = queryset.filter(class_id__grade__name=grade_id)
             if class_id:
                 queryset = queryset.filter(class_id_id=class_id)
             if exam_id:
@@ -4161,7 +4366,12 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
 
             # NEW: Distribution data for charts
             # 1. Grade-level counts
-            context['performance_grade_dist'] = list(queryset.values('grade').annotate(count=Count('id')).order_by('grade'))
+            context['performance_grade_dist'] = list(queryset.values('class_id__grade__name').annotate(count=Count('id')).order_by('class_id__grade__name'))
+            
+            # 1b. Grade-level average performance (for Polar Area Chart)
+            context['performance_grade_scores'] = list(queryset.values('class_id__grade__name').annotate(
+                avg_score=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField()))
+            ).order_by('class_id__grade__name'))
             
             # 2. Subject-wise performance
             context['performance_subject_dist'] = list(queryset.values('paper__exam_subject__subject__name').annotate(
@@ -4170,9 +4380,9 @@ class ReportDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
 
             # 3. Stream comparison (if grade is selected but No stream is chosen)
             if grade_id and not class_id:
-                context['stream_comparison'] = list(queryset.values('class_id__name').annotate(
+                context['stream_comparison'] = list(queryset.values('class_id__name', 'class_id__school__name').annotate(
                     avg_score=Avg(ExpressionWrapper(F('score') * 100.0 / F('paper__out_of'), output_field=FloatField()))
-                ).order_by('class_id__name'))
+                ).order_by('class_id__school__name', 'class_id__name'))
 
         return context
 

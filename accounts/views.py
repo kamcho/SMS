@@ -489,6 +489,30 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
                             amount=ac.amount,
                             description=f"{ac.name} for {profile.class_id.grade.name} - {active_term.name}"
                         )
+                
+                # 3. Auxiliary Charges
+                from .models import AuxiliaryServiceType, AuxiliaryCharge
+                aux_services = AuxiliaryServiceType.objects.filter(
+                    school=profile.school,
+                    grades=profile.class_id.grade,
+                    is_active=True
+                )
+                for aux in aux_services:
+                    if not AuxiliaryCharge.objects.filter(
+                        student=profile.student,
+                        service_type=aux,
+                        academic_year=active_year,
+                        term=active_term
+                    ).exists():
+                        AuxiliaryCharge.objects.create(
+                            student=profile.student,
+                            service_type=aux,
+                            description=f"{aux.name} for {profile.class_id.grade.name} - {active_term.name}",
+                            amount=aux.amount,
+                            term=active_term,
+                            academic_year=active_year,
+                            created_by=request.user
+                        )
             
             msg = f"Successfully created {invoice_count} invoices."
             if missing_structure_count > 0:
@@ -540,7 +564,32 @@ class MigrateFeesView(LoginRequiredMixin, ListView):
                         amount=ac.amount,
                         description=f"{ac.name} for {profile.class_id.grade.name} - {active_term.name}"
                     )
-            else:
+            
+            # 3. Auxiliary Charges
+            from .models import AuxiliaryServiceType, AuxiliaryCharge
+            aux_services = AuxiliaryServiceType.objects.filter(
+                school=profile.school,
+                grades=profile.class_id.grade,
+                is_active=True
+            )
+            for aux in aux_services:
+                if not AuxiliaryCharge.objects.filter(
+                    student=student,
+                    service_type=aux,
+                    academic_year=active_year,
+                    term=active_term
+                ).exists():
+                    AuxiliaryCharge.objects.create(
+                        student=student,
+                        service_type=aux,
+                        description=f"{aux.name} for {profile.class_id.grade.name} - {active_term.name}",
+                        amount=aux.amount,
+                        term=active_term,
+                        academic_year=active_year,
+                        created_by=request.user
+                    )
+            
+            if not fee_structure and not add_charges and not aux_services:
                 msg = f"{student.get_full_name()} has already been invoiced."
                 if is_ajax:
                     return JsonResponse({'status': 'info', 'message': msg})
@@ -661,6 +710,31 @@ class MigrateTermView(LoginRequiredMixin, TemplateView):
                         description=f"{ac.name} for {profile.class_id.grade.name} - {selected_term.name}"
                     )
                     additional_invoice_count += 1
+            
+            # 3. Handle Auxiliary Charges
+            from .models import AuxiliaryServiceType, AuxiliaryCharge
+            aux_services = AuxiliaryServiceType.objects.filter(
+                school=profile.school,
+                grades=profile.class_id.grade,
+                is_active=True
+            )
+            for aux in aux_services:
+                # Prevent double billing
+                if not AuxiliaryCharge.objects.filter(
+                    student=profile.student,
+                    service_type=aux,
+                    academic_year=active_year,
+                    term=selected_term
+                ).exists():
+                    AuxiliaryCharge.objects.create(
+                        student=profile.student,
+                        service_type=aux,
+                        description=f"{aux.name} for {profile.class_id.grade.name} - {selected_term.name}",
+                        amount=aux.amount,
+                        term=selected_term,
+                        academic_year=active_year,
+                        created_by=request.user
+                    )
 
         msg = f"Successfully created {invoice_count} tuition invoices and {additional_invoice_count} additional charge invoices across all schools for {selected_term.name}."
         if missing_structure_count > 0:
@@ -1269,3 +1343,110 @@ def process_pulled_payment(request):
         return JsonResponse({'success': False, 'error': f"Object not found: {str(e)}"}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ============================================================================
+# AUXILIARY BILLING VIEWS
+# ============================================================================
+
+@login_required
+def bulk_auxiliary_invoice(request):
+    """Bulk-invoice students for an auxiliary service type based on grade."""
+    if not request.user.is_superuser and request.user.role not in ['Admin', 'Accountant']:
+        messages.error(request, "Permission denied.")
+        return redirect('core:configurations')
+
+    if request.method == 'POST':
+        from .models import AuxiliaryServiceType, AuxiliaryCharge
+        from core.models import Term, AcademicYear
+
+        service_type_id = request.POST.get('service_type_id')
+        active_term = Term.objects.filter(is_active=True).first()
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+
+        try:
+            service_type = AuxiliaryServiceType.objects.get(id=service_type_id)
+        except AuxiliaryServiceType.DoesNotExist:
+            messages.error(request, "Service type not found.")
+            return redirect('core:configurations')
+
+        # Get all students in targeted grades for this school
+        target_grades = service_type.grades.all()
+        profiles = StudentProfile.objects.filter(
+            school=service_type.school,
+            class_id__grade__in=target_grades,
+            status='Active'
+        ).select_related('student', 'class_id__grade')
+
+        charge_count = 0
+        skip_count = 0
+        for profile in profiles:
+            # Prevent duplicate charges for the same service/student/term
+            if AuxiliaryCharge.objects.filter(
+                student=profile.student,
+                service_type=service_type,
+                term=active_term,
+                academic_year=active_year
+            ).exists():
+                skip_count += 1
+                continue
+
+            AuxiliaryCharge.objects.create(
+                student=profile.student,
+                service_type=service_type,
+                description=f"{service_type.name} - {active_term.name if active_term else 'N/A'}",
+                amount=service_type.amount,
+                term=active_term,
+                academic_year=active_year,
+                created_by=request.user,
+            )
+            charge_count += 1
+
+        msg = f"Successfully created {charge_count} auxiliary charges for '{service_type.name}'."
+        if skip_count > 0:
+            msg += f" {skip_count} students skipped (already charged)."
+        messages.success(request, msg)
+
+    return redirect('core:configurations')
+
+
+@login_required
+def record_auxiliary_payment(request):
+    """Record a payment against a specific auxiliary charge."""
+    if request.method == 'POST':
+        from .models import AuxiliaryCharge, AuxiliaryPayment
+
+        charge_id = request.POST.get('charge_id')
+        amount_str = request.POST.get('amount', '0')
+        method = request.POST.get('method', 'Cash')
+        reference = request.POST.get('reference', '')
+        date_paid = request.POST.get('date_paid') or timezone.now().date()
+
+        try:
+            charge = AuxiliaryCharge.objects.get(id=charge_id)
+        except AuxiliaryCharge.DoesNotExist:
+            messages.error(request, "Charge not found.")
+            return redirect(request.META.get('HTTP_REFERER', '/'))
+
+        try:
+            amount = Decimal(amount_str)
+        except Exception:
+            amount = Decimal('0')
+
+        if amount <= 0:
+            messages.error(request, "Payment amount must be greater than zero.")
+            return redirect(request.META.get('HTTP_REFERER', '/'))
+
+        AuxiliaryPayment.objects.create(
+            charge=charge,
+            amount=amount,
+            method=method,
+            reference=reference,
+            date_paid=date_paid,
+            recorded_by=request.user,
+        )
+
+        messages.success(request, f"Auxiliary payment of KES {amount} recorded successfully.")
+        return redirect(request.META.get('HTTP_REFERER', '/'))
+
+    return redirect('/')

@@ -34,4 +34,8 @@ urlpatterns = [
     # Reconciliation APIs
     path('reconciliation/student/<int:student_id>/', views.get_student_by_id, name='get-student-by-id'),
     path('reconciliation/process-payment/', views.process_pulled_payment, name='process-pulled-payment'),
+    
+    # Auxiliary Billing
+    path('auxiliary/bulk-invoice/', views.bulk_auxiliary_invoice, name='bulk-auxiliary-invoice'),
+    path('auxiliary/record-payment/', views.record_auxiliary_payment, name='record-auxiliary-payment'),
 ]

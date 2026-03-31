@@ -324,28 +324,80 @@
 
 <!-- Modal: Assign Student -->
 <div id="assignModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-[2rem] w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+    <div class="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
         <div class="p-8">
             <h3 class="text-2xl font-black text-slate-900 mb-6">Transport Assignment</h3>
             <form method="post" action="{% url 'transport:assign-transport' %}?school={{ selected_school|default:'' }}&class={{ selected_class|default:'' }}" class="space-y-4">
                 {% csrf_token %}
-                <div id="student_select_div">
+                <div id="student_select_div" class="relative">
                     <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Student</label>
-                    <select name="student_id" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
-                        {% for student in dropdown_students %}
-                            <option value="{{ student.id }}">{{ student.first_name }} {{ student.last_name }} ({{ student.adm_no }})</option>
-                        {% endfor %}
-                    </select>
+                    
+                    <!-- Hidden input for the form submission -->
+                    <input type="hidden" name="student_id" id="student_id_input" required>
+                    
+                    <!-- Visual Toggle -->
+                    <div id="student_select_toggle" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between cursor-pointer focus:ring-2 focus:ring-indigo-500 outline-none transition-all group" tabindex="0">
+                        <span id="student_select_text" class="text-sm font-medium text-slate-400">Search & Select Student...</span>
+                        <i class="fas fa-chevron-down text-slate-400 text-xs transition-transform duration-200 group-focus:-rotate-180" id="student_select_icon"></i>
+                    </div>
+                    
+                    <!-- Dropdown Panel -->
+                    <div id="student_select_dropdown" class="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden hidden transform origin-top transition-all duration-200 opacity-0 scale-95">
+                        <div class="p-3 border-b border-slate-100 bg-slate-50 relative">
+                            <i class="fas fa-search absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="student_search_input" placeholder="Type name or ADM number..." class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow">
+                        </div>
+                        <ul id="student_options_list" class="max-h-68 overflow-y-auto custom-scrollbar p-2 space-y-1.5">
+                            {% for student in dropdown_students %}
+                            <li class="student-option px-3.5 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-indigo-50 cursor-pointer transition-all flex items-center justify-between gap-4 border border-transparent hover:border-indigo-100 hover:shadow-sm group" 
+                                data-value="{{ student.id }}" 
+                                data-text="{{ student.first_name }} {{ student.last_name }} ({{ student.adm_no }}) - {{ student.studentprofile.class_id.name|default:'Unassigned Stream' }}"
+                                data-search="{{ student.first_name|lower }} {{ student.last_name|lower }} {{ student.adm_no|lower }} {{ student.studentprofile.class_id.name|lower }}">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-slate-100/80 group-hover:bg-indigo-100/80 text-slate-500 group-hover:text-indigo-600 flex items-center justify-center shrink-0 uppercase tracking-tighter text-[11px] shadow-sm border border-slate-200 group-hover:border-indigo-200 transition-colors">
+                                        {{ student.first_name|first }}{{ student.last_name|first }}
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="leading-tight text-[15px] group-hover:text-indigo-700 transition-colors">{{ student.first_name }} {{ student.last_name }}</span>
+                                        <div class="flex items-center gap-2 mt-1 hidden sm:flex">
+                                            <span class="text-[10px] text-slate-400 font-bold tracking-widest bg-slate-50 px-2 py-0.5 rounded border border-slate-100 shadow-inner group-hover:border-indigo-100 transition-colors"><i class="fas fa-id-badge mr-1 opacity-70"></i>{{ student.adm_no }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-end text-right shrink-0">
+                                    <span class="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1 group-hover:text-indigo-300 transition-colors">Stream / Class</span>
+                                    <span class="px-3 py-1 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm group-hover:border-indigo-200 group-hover:bg-indigo-50/50 group-hover:text-indigo-600 transition-colors max-w-[120px] truncate">
+                                        {{ student.studentprofile.class_id.name|default:"Unassigned" }} {{ student.studentprofile.class_id.grade|default:"Unassigned" }}
+                                        
+                                    </span>
+                                </div>
+                            </li>
+                            {% empty %}
+                            <li class="px-3 py-6 text-center">
+                                <i class="fas fa-user-slash text-2xl text-slate-200 mb-2 block"></i>
+                                <span class="text-xs font-bold text-slate-400">No students available.</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        <div id="student_no_results" class="hidden px-3 py-6 text-center border-t border-slate-100">
+                            <i class="fas fa-search-minus text-2xl text-slate-200 mb-2 block"></i>
+                            <span class="text-xs font-bold text-slate-400">No matching students found.</span>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Route</label>
-                    <select name="route_id" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
-                        {% for route in routes %}
-                            <option value="{{ route.id }}">{{ route.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-2">
+                    <!-- Route -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Route</label>
+                        <select name="route_id" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                            {% for route in routes %}
+                                <option value="{{ route.id }}">{{ route.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Vehicle -->
                     <div>
                         <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Select Vehicle</label>
                         <select name="vehicle_id" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -355,6 +407,8 @@
                             {% endfor %}
                         </select>
                     </div>
+
+                    <!-- Trip Type -->
                     <div>
                         <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Trip Type</label>
                         <select name="trip_type" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -362,19 +416,23 @@
                             <option value="one_way">One Way</option>
                         </select>
                     </div>
+
+                    <!-- Pickup Point -->
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Pickup Point</label>
+                        <input type="text" name="pickup_point" placeholder="e.g. Near Mall Gate" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <!-- Custom Fee -->
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Custom Price <span class="text-slate-400 font-medium normal-case">(Optional Override)</span></label>
+                        <input type="number" name="custom_fee" step="0.01" placeholder="Override standard route fee" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Pickup Point</label>
-                    <input type="text" name="pickup_point" placeholder="e.g. Near Mall Gate" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Custom Price (Optional)</label>
-                    <input type="number" name="custom_fee" step="0.01" placeholder="Override standard fee" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
-                    <p class="text-[9px] text-slate-400 mt-1 font-bold">Leave blank to use the standard route fee.</p>
-                </div>
-                <div class="flex gap-3 mt-6">
-                    <button type="button" onclick="toggleModal('assignModal')" class="flex-1 py-3 bg-slate-100 text-slate-600 font-black rounded-xl text-xs uppercase">Cancel</button>
-                    <button type="submit" class="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl text-xs uppercase shadow-lg shadow-indigo-200">Assign Student</button>
+
+                <div class="flex gap-3 pt-6 border-t border-slate-100 mt-6">
+                    <button type="button" onclick="toggleModal('assignModal')" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs uppercase tracking-widest transition-colors">Cancel</button>
+                    <button type="submit" class="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-indigo-200 transition-all active:scale-[0.98]">Assign Transport</button>
                 </div>
             </form>
         </div>
@@ -382,6 +440,114 @@
 </div>
 
 <script>
+// ── Hybrid Student Search Select Logic ─────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.getElementById('student_select_toggle');
+    const dropdown = document.getElementById('student_select_dropdown');
+    const searchInput = document.getElementById('student_search_input');
+    const hiddenInput = document.getElementById('student_id_input');
+    const textDisplay = document.getElementById('student_select_text');
+    const icon = document.getElementById('student_select_icon');
+    const options = document.querySelectorAll('.student-option');
+    const noResults = document.getElementById('student_no_results');
+    const listContainer = document.getElementById('student_options_list');
+
+    let isOpen = false;
+
+    function openDropdown() {
+        isOpen = true;
+        dropdown.classList.remove('hidden');
+        setTimeout(() => {
+            dropdown.classList.remove('opacity-0', 'scale-95');
+            icon.classList.add('rotate-180');
+        }, 10);
+        searchInput.focus();
+        
+        searchInput.value = '';
+        triggerSearch('');
+        
+        // Ensure selected item is into view
+        const active = Array.from(options).find(o => o.classList.contains('bg-indigo-50'));
+        if(active) {
+            active.scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    function closeDropdown() {
+        isOpen = false;
+        dropdown.classList.add('opacity-0', 'scale-95');
+        icon.classList.remove('rotate-180');
+        setTimeout(() => {
+            if(!isOpen) dropdown.classList.add('hidden');
+        }, 200);
+    }
+
+    toggle.addEventListener('click', () => {
+        if (isOpen) closeDropdown();
+        else openDropdown();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!toggle.contains(e.target) && !dropdown.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+
+    function triggerSearch(query) {
+        query = query.toLowerCase();
+        let visibleCount = 0;
+        
+        options.forEach(opt => {
+            const searchData = opt.getAttribute('data-search');
+            if (searchData.includes(query)) {
+                opt.style.display = 'flex';
+                visibleCount++;
+            } else {
+                opt.style.display = 'none';
+            }
+        });
+
+        if (visibleCount === 0) {
+            noResults.classList.remove('hidden');
+            listContainer.classList.add('hidden');
+        } else {
+            noResults.classList.add('hidden');
+            listContainer.classList.remove('hidden');
+        }
+    }
+
+    searchInput.addEventListener('input', (e) => triggerSearch(e.target.value));
+
+    options.forEach(opt => {
+        opt.addEventListener('click', () => {
+            const val = opt.getAttribute('data-value');
+            const txt = opt.getAttribute('data-text');
+            setStudentSelection(val, txt);
+            closeDropdown();
+        });
+    });
+
+    window.setStudentSelection = function(val, textOverride = null) {
+        hiddenInput.value = val;
+        
+        options.forEach(o => o.classList.remove('bg-indigo-50', 'ring-1', 'ring-indigo-100'));
+        
+        if (val) {
+            const selectedOpt = Array.from(options).find(o => o.getAttribute('data-value') === val);
+            if (selectedOpt) {
+                selectedOpt.classList.add('bg-indigo-50', 'ring-1', 'ring-indigo-100');
+                textDisplay.textContent = textOverride || selectedOpt.getAttribute('data-text');
+                textDisplay.classList.remove('text-slate-400');
+                textDisplay.classList.add('text-slate-900', 'font-bold');
+            }
+        } else {
+            textDisplay.textContent = 'Search & Select Student...';
+            textDisplay.classList.add('text-slate-400');
+            textDisplay.classList.remove('text-slate-900', 'font-bold');
+        }
+    }
+});
+
 function toggleModal(id) {
     const modal = document.getElementById(id);
     modal.classList.toggle('hidden');
@@ -390,8 +556,6 @@ function toggleModal(id) {
 function openRouteModal(id = null, name = '', desc = '', ow = '', rt = '') {
     const modal = document.getElementById('routeModal');
     const form = modal.querySelector('form');
-    
-    // Find the right elements
     const titleEl = modal.querySelector('h3');
     const submitBtnEl = modal.querySelector('button[type="submit"]');
     
@@ -409,7 +573,6 @@ function openRouteModal(id = null, name = '', desc = '', ow = '', rt = '') {
         form.action = "{% url 'transport:add-route' %}";
         form.reset();
     }
-    
     modal.classList.remove('hidden');
 }
 
@@ -418,8 +581,15 @@ function openAssignModal(studentId = '', routeId = '', vehicleId = '', tripType 
     const form = modal.querySelector('form');
     const titleEl = modal.querySelector('h3');
     
-    // Set values
-    form.querySelector('[name="student_id"]').value = studentId;
+    // Set hybrid search input safely if function exists
+    if(window.setStudentSelection) {
+        window.setStudentSelection(studentId);
+    } else {
+        // Fallback for some reason
+        const hidInput = form.querySelector('[name="student_id"]');
+        if(hidInput) hidInput.value = studentId;
+    }
+
     form.querySelector('[name="route_id"]').value = routeId;
     form.querySelector('[name="vehicle_id"]').value = vehicleId;
     form.querySelector('[name="trip_type"]').value = tripType;
