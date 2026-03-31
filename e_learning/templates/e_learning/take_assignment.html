@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% load static quiz_extras %}
+{% block title %}{{ assignment.title }} — Take Assignment{% endblock %}
+
+{% block extra_css %}
+<style>
+    .question-card { transition: all 0.3s ease; }
+    .question-card:hover { transform: translateY(-2px); }
+    .option-label { cursor: pointer; transition: all 0.2s ease; }
+    .option-label:hover { background: rgba(16, 185, 129, 0.05); }
+    .option-label input:checked + span { color: #10b981; font-weight: 600; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-6">
+    <!-- Assignment Header -->
+    <div class="glass-card mb-6 sticky top-16 z-30">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ assignment.title }}</h1>
+                <p class="text-sm text-slate-500">{{ assignment.subject.name|default:"General" }} · {{ assignment.questions.count }} questions</p>
+            </div>
+            {% if time_remaining is not None %}
+            <div class="text-right">
+                <div id="timerDisplay" class="text-3xl font-black text-emerald-600 tabular-nums tracking-wider"></div>
+                <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Time Left</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Progress bar -->
+        <div class="mt-4 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div id="progressBar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+        <p class="text-xs text-slate-400 mt-1" id="progressText">0 / {{ questions|length }} answered</p>
+    </div>
+
+    <!-- Questions -->
+    <form id="assignmentForm" method="post" action="{% url 'e_learning:submit_assignment' attempt.pk %}">
+        {% csrf_token %}
+
+        <div class="space-y-6">
+            {% for q in questions %}
+            <div class="question-card glass-card" data-question-id="{{ q.pk }}" id="question-{{ q.pk }}">
+                <div class="flex items-start gap-3 mb-4">
+                    <span class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                        {{ forloop.counter }}
+                    </span>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            {% if q.question_type == 'multiple_choice' %}
+                            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-500/10 text-blue-600 uppercase">MCQ</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-500/10 text-purple-600 uppercase">Short Answer</span>
+                            {% endif %}
+                            <span class="text-xs text-slate-400">{{ q.marks }} mark{{ q.marks|pluralize }}</span>
+                        </div>
+                        <p class="text-slate-900 dark:text-white font-medium text-[15px]">{{ q.question }}</p>
+
+                        {% if q.images.all %}
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            {% for qi in q.images.all %}
+                            <img src="{{ qi.image.url }}" alt="Question image" class="rounded-xl max-h-64 object-contain border border-slate-200 dark:border-slate-700">
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if q.question_type == 'multiple_choice' %}
+                <div class="space-y-2 ml-11">
+                    {% for opt in q.options.all %}
+                    <label class="option-label flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700">
+                        <input type="radio" name="mcq_{{ q.pk }}" value="{{ opt.pk }}"
+                               data-question="{{ q.pk }}" data-type="mcq"
+                               class="text-emerald-500 focus:ring-emerald-500"
+                               {% if q.pk in existing_answers %}
+                                   {% with ea=existing_answers|get_item:q.pk %}
+                                       {% if ea.selected_option_id == opt.pk %}checked{% endif %}
+                                   {% endwith %}
+                               {% endif %}>
+                        <span class="text-sm text-slate-700 dark:text-slate-300">{{ opt.option }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="ml-11">
+                    <textarea name="text_{{ q.pk }}" rows="4"
+                               data-question="{{ q.pk }}" data-type="short"
+                               class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm text-slate-900 dark:text-white"
+                               placeholder="Type your answer here…">{% if q.pk in existing_answers %}{% with ea=existing_answers|get_item:q.pk %}{{ ea.text_answer|default:'' }}{% endwith %}{% endif %}</textarea>
+                    <p class="text-xs text-slate-400 mt-1">
+                        <i class="fas fa-robot mr-1"></i> This answer will be graded by AI
+                    </p>
+                </div>
+                {% endif %}
+
+                <!-- Save indicator -->
+                <div class="ml-11 mt-2">
+                    <span class="save-indicator text-xs text-emerald-500 font-medium hidden" data-for="{{ q.pk }}">
+                        <i class="fas fa-check-circle mr-1"></i> Saved
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Submit -->
+        <div class="glass-card mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p class="text-sm text-slate-500">
+                <i class="fas fa-info-circle text-emerald-500 mr-1"></i>
+                Answers are auto-saved. Click submit when you're done.
+            </p>
+            <button type="submit" id="submitBtn"
+                    class="btn bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg shadow-emerald-500/30 hover:shadow-xl px-8"
+                    onclick="return confirm('Are you sure you want to submit? You cannot change answers after submission.')">
+                <i class="fas fa-paper-plane mr-2"></i> Submit Assignment
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const attemptId = '{{ attempt.pk }}';
+    const csrfToken = '{{ csrf_token }}';
+    const totalQuestions = {{ questions|length }};
+    let answeredSet = new Set();
+
+    // ─── Timer ───
+    {% if time_remaining is not None %}
+    let remaining = {{ time_remaining }};
+    const timerEl = document.getElementById('timerDisplay');
+
+    function updateTimer() {
+        if (remaining <= 0) {
+            timerEl.textContent = '00:00';
+            document.getElementById('assignmentForm').submit();
+            return;
+        }
+        const m = Math.floor(remaining / 60);
+        const s = remaining % 60;
+        timerEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        if (remaining <= 60) timerEl.classList.add('text-rose-500', 'animate-pulse');
+        remaining--;
+    }
+    updateTimer();
+    setInterval(updateTimer, 1000);
+    {% endif %}
+
+    // ─── Auto-save answers ───
+    function saveAnswer(questionId, optionId, textAnswer) {
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', csrfToken);
+        formData.append('attempt_id', attemptId);
+        formData.append('question_id', questionId);
+        if (optionId) formData.append('option_id', optionId);
+        if (textAnswer !== undefined) formData.append('text_answer', textAnswer);
+
+        fetch('{% url "e_learning:save_assignment_answer" %}', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.saved) {
+                    answeredSet.add(questionId);
+                    const indicator = document.querySelector(`.save-indicator[data-for="${questionId}"]`);
+                    if (indicator) {
+                        indicator.classList.remove('hidden');
+                        setTimeout(() => indicator.classList.add('hidden'), 2000);
+                    }
+                    updateProgress();
+                }
+            });
+    }
+
+    // MCQ radio clicks
+    document.querySelectorAll('input[data-type="mcq"]').forEach(input => {
+        input.addEventListener('change', function() {
+            saveAnswer(this.dataset.question, this.value, null);
+        });
+    });
+
+    // Short answer — debounced
+    let debounceTimers = {};
+    document.querySelectorAll('textarea[data-type="short"]').forEach(textarea => {
+        textarea.addEventListener('input', function() {
+            const qId = this.dataset.question;
+            clearTimeout(debounceTimers[qId]);
+            debounceTimers[qId] = setTimeout(() => {
+                saveAnswer(qId, null, this.value);
+            }, 1000);
+        });
+    });
+
+    function updateProgress() {
+        // Count already answered on load
+        document.querySelectorAll('input[data-type="mcq"]:checked').forEach(i => answeredSet.add(i.dataset.question));
+        document.querySelectorAll('textarea[data-type="short"]').forEach(i => { if(i.value.trim()) answeredSet.add(i.dataset.question); });
+
+        const pct = Math.round((answeredSet.size / totalQuestions) * 100);
+        document.getElementById('progressBar').style.width = pct + '%';
+        document.getElementById('progressText').textContent = answeredSet.size + ' / ' + totalQuestions + ' answered';
+    }
+    updateProgress();
+})();
+</script>
+{% endblock %}

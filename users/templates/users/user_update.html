@@ -1,288 +1,263 @@
 {% extends 'base.html' %}
 
-{% block title %}Update User | Excel SMS{% endblock %}
+{% block title %}Update User | {{ user_profile.get_full_name }} | Excel SMS{% endblock %}
 
 {% block page_header %}
-<div class="flex items-center gap-4">
-    <div>
-        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Update User</h1>
-        <p class="text-slate-500 mt-1 font-medium">Modify user information and settings</p>
-    </div>
-    <a href="{% url 'users:user-profile' user.id %}" class="btn bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm">
-        <i class="fas fa-arrow-left"></i>
-        Back to Profile
-    </a>
+<div class="space-y-2">
+    <h1 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-4">
+        Update User Account
+    </h1>
+    <p class="text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+        Modify permissions and account details for {{ user_profile.get_full_name }}
+    </p>
 </div>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-    <div class="glass-card">
-        <div class="flex items-center justify-between mb-6">
-            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <i class="fas fa-user-edit text-indigo-500"></i>
-                    Update User Information
+<div class="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+    
+    <!-- Navigation / Breadcrumbs -->
+    <div class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <a href="{% url 'core:dashboard' %}" class="hover:text-indigo-600 transition-colors">Dashboard</a>
+        <i class="fas fa-chevron-right text-[8px]"></i>
+        <a href="{% url 'users:user-profile' user_profile.id %}" class="hover:text-indigo-600 transition-colors">{{ user_profile.get_full_name }}</a>
+        <i class="fas fa-chevron-right text-[8px]"></i>
+        <span class="text-indigo-600 font-black">Edit</span>
+    </div>
+
+    <form method="post" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {% csrf_token %}
+        
+        <!-- Left Column: Settings and Permissions -->
+        <div class="lg:col-span-4 space-y-8 order-2 lg:order-1">
+            
+            <!-- Quick Actions / Role -->
+            <div class="bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white shadow-2xl shadow-indigo-950/5">
+                <h3 class="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs">
+                        <i class="fas fa-user-tag"></i>
+                    </div>
+                    Account Role
                 </h3>
-            </div>
-            
-            <form method="post" class="space-y-6">
-                {% csrf_token %}
-            
-            {% if form.non_field_errors %}
-            <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-6">
-                <div class="flex items-center gap-3 text-rose-600 mb-2">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h4 class="font-bold text-sm">Please correct the following errors:</h4>
+                
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label for="{{ form.role.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Access Level</label>
+                        <div class="relative group">
+                            {{ form.role }}
+                            <i class="fas fa-chevron-down absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-600 pointer-events-none transition-colors text-[10px]"></i>
+                        </div>
+                        {% if form.role.errors %}
+                            <p class="text-[9px] font-bold text-rose-500 mt-1 px-2">{{ form.role.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="space-y-2" id="school-container">
+                        <label for="{{ form.school.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Assigned School</label>
+                        <div class="relative group">
+                            {{ form.school }}
+                            <i class="fas fa-school absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors text-[10px]"></i>
+                        </div>
+                    </div>
                 </div>
-                <ul class="list-disc list-inside text-rose-500 text-xs ml-6 space-y-1">
-                    {% for error in form.non_field_errors %}
-                    <li>{{ error }}</li>
+            </div>
+
+            <!-- Permissions (Only shown for Teachers) -->
+            <div class="bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white shadow-2xl shadow-indigo-950/5 hidden transition-all duration-500" id="field-container-permissions">
+                <h3 class="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xs">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    Extended Permissions
+                </h3>
+                
+                <div class="space-y-6">
+                    {% for field in form %}
+                        {% if field.name == 'is_exam_manager' or field.name == 'is_exam_officer' or field.name == 'is_headteacher' or field.name == 'is_active' %}
+                        <div class="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-indigo-100 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2 h-2 rounded-full bg-slate-200 group-hover:bg-indigo-400 transition-colors"></div>
+                                <label for="{{ field.id_for_label }}" class="text-[10px] font-black text-slate-600 uppercase tracking-wider cursor-pointer">{{ field.label }}</label>
+                            </div>
+                            <div class="relative inline-flex items-center cursor-pointer">
+                                {{ field }}
+                            </div>
+                        </div>
+                        {% endif %}
                     {% endfor %}
-                </ul>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-slate-950/20">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Account Integrity</h3>
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-[10px]">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <div>
+                            <p class="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Last Login</p>
+                            <p class="text-[10px] font-bold text-white">{{ user_profile.last_login|default:"Never logged in" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Personal & Security Details -->
+        <div class="lg:col-span-8 space-y-8 order-1 lg:order-2">
+            
+            <!-- Global Feedback -->
+            {% if form.non_field_errors %}
+            <div class="bg-rose-50 border border-rose-100 rounded-3xl p-6 flex items-start gap-4 animate-in slide-in-from-top-4 duration-500">
+                <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                    <i class="fas fa-exclamation-circle text-lg"></i>
+                </div>
+                <div>
+                    <h4 class="text-xs font-black text-rose-900 uppercase tracking-widest mb-1">Validation Errors</h4>
+                    {% for error in form.non_field_errors %}
+                        <p class="text-sm font-bold text-rose-600">{{ error }}</p>
+                    {% endfor %}
+                </div>
             </div>
             {% endif %}
-            
-            <!-- Personal Information -->
-                <div class="bg-slate-50 rounded-xl p-6 mb-6">
-                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Personal Information</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
-                            {{ form.email }}
-                            {% if form.email.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.email.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">First Name</label>
-                            {{ form.first_name }}
-                            {% if form.first_name.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.first_name.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Last Name</label>
-                            {{ form.last_name }}
-                            {% if form.last_name.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.last_name.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Contact Information -->
-                <div class="bg-slate-50 rounded-xl p-6 mb-6">
-                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Contact Information</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="{{ form.phone_number.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Phone Number</label>
-                            {{ form.phone_number }}
-                            {% if form.phone_number.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.phone_number.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label for="{{ form.school.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">School</label>
-                            {{ form.school }}
-                            {% if form.school.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.school.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Account Settings -->
-                <div class="bg-slate-50 rounded-xl p-6 mb-6">
-                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Account Settings</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="{{ form.role.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Role</label>
-                            {{ form.role }}
-                            {% if form.role.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.role.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label for="{{ form.is_active.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Account Status</label>
-                            <div class="flex items-center gap-3">
-                                {{ form.is_active }}
-                                <label class="text-sm font-medium text-slate-600">
-                                    <span class="px-3 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200">
-                                        Active
-                                    </span>
-                                </label>
-                            </div>
-                            {% if form.is_active.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.is_active.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Permissions -->
-                <div class="bg-slate-50 rounded-xl p-6 mb-6" id="field-container-permissions">
-                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Permissions</h4>
-                    <div class="space-y-4">
-                        <div class="flex items-center gap-3">
-                            <label for="{{ form.is_exam_manager.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Exam Manager</label>
-                            <div class="flex items-center gap-3">
-                                {{ form.is_exam_manager }}
-                                <label class="text-sm font-medium text-slate-600">
-                                    <span class="px-3 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200">
-                                        Enable
-                                    </span>
-                                </label>
-                            </div>
-                            {% if form.is_exam_manager.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.is_exam_manager.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="flex items-center gap-3">
-                            <label for="{{ form.is_exam_officer.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Exam Officer</label>
-                            <div class="flex items-center gap-3">
-                                {{ form.is_exam_officer }}
-                                <label class="text-sm font-medium text-slate-600">
-                                    <span class="px-3 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200">
-                                        Enable
-                                    </span>
-                                </label>
-                            </div>
-                            {% if form.is_exam_officer.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.is_exam_officer.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
 
-                        <div class="flex items-center gap-3">
-                            <label for="{{ form.is_headteacher.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">Head Teacher</label>
-                            <div class="flex items-center gap-3">
-                                {{ form.is_headteacher }}
-                                <label class="text-sm font-medium text-slate-600">
-                                    <span class="px-3 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200">
-                                        Enable
-                                    </span>
-                                </label>
-                            </div>
-                            {% if form.is_headteacher.errors %}
-                                <div class="mt-2 space-y-1">
-                                    {% for error in form.is_headteacher.errors %}
-                                        <p class="text-xs font-bold text-rose-500 flex items-center gap-1">
-                                            <i class="fas fa-exclamation-circle"></i>
-                                            {{ error }}
-                                        </p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+            <!-- Core Information -->
+            <div class="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                
+                <h3 class="text-xs font-black text-slate-900 uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10">
+                    <div class="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-sm shadow-lg shadow-indigo-100">
+                        <i class="fas fa-user-edit"></i>
+                    </div>
+                    Update Profile
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                    <!-- Email -->
+                    <div class="space-y-2 md:col-span-2">
+                        <label for="{{ form.email.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">E-mail Address</label>
+                        <div class="relative group">
+                            {{ form.email }}
+                            <i class="fas fa-envelope absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors"></i>
                         </div>
+                        {% if form.email.errors %}
+                            <p class="text-[9px] font-bold text-rose-500 mt-1 px-2">{{ form.email.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- First Name -->
+                    <div class="space-y-2">
+                        <label for="{{ form.first_name.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">First Name</label>
+                        <div class="relative group">
+                            {{ form.first_name }}
+                            <i class="fas fa-id-card-alt absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors"></i>
+                        </div>
+                        {% if form.first_name.errors %}
+                            <p class="text-[9px] font-bold text-rose-500 mt-1 px-2">{{ form.first_name.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Last Name -->
+                    <div class="space-y-2">
+                        <label for="{{ form.last_name.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Last Name</label>
+                        <div class="relative group">
+                            {{ form.last_name }}
+                            <i class="fas fa-id-card-alt absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors"></i>
+                        </div>
+                        {% if form.last_name.errors %}
+                            <p class="text-[9px] font-bold text-rose-500 mt-1 px-2">{{ form.last_name.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Phone Number -->
+                    <div class="space-y-2">
+                        <label for="{{ form.phone_number.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Phone Number</label>
+                        <div class="relative group">
+                            {{ form.phone_number }}
+                            <i class="fas fa-phone absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors"></i>
+                        </div>
+                        {% if form.phone_number.errors %}
+                            <p class="text-[9px] font-bold text-rose-500 mt-1 px-2">{{ form.phone_number.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Password -->
+                    <div class="space-y-2">
+                        <label for="{{ form.password.id_for_label }}" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">
+                            Reset Password
+                        </label>
+                        <div class="relative group">
+                            {{ form.password }}
+                            <i class="fas fa-lock absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors"></i>
+                        </div>
+                        <p class="text-[9px] font-medium text-slate-400 mt-1 px-2 italic text-center">Leave blank to keep existing password</p>
+                        {% if form.password.errors %}
+                            <p class="text-[9px] font-bold text-rose-500 mt-1 px-2 text-center">{{ form.password.errors.0 }}</p>
+                        {% endif %}
                     </div>
                 </div>
-                
-                <!-- Submit Buttons -->
-                <div class="flex gap-4 pt-6">
-                    <button type="submit" class="btn btn-primary shadow-lg shadow-primary/20">
-                        <i class="fas fa-save"></i>
-                        Update User
-                    </button>
-                    <a href="{% url 'users:user-profile' user.id %}" class="btn bg-slate-100 text-slate-600 hover:bg-slate-200">
-                        <i class="fas fa-times"></i>
-                        Cancel
-                    </a>
+
+                <!-- Footer Actions -->
+                <div class="flex items-center justify-between gap-4 mt-12 pt-8 border-t border-slate-100">
+                    <p class="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] hidden sm:block">
+                        <i class="fas fa-info-circle mr-1"></i> Changes take effect immediately
+                    </p>
+                    <div class="flex items-center gap-3 ml-auto">
+                        <a href="{% url 'users:user-profile' user_profile.id %}" class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors bg-slate-50 hover:bg-slate-100 rounded-2xl">
+                            Cancel
+                        </a>
+                        <button type="submit" class="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:-translate-y-1 transition-all active:scale-95 flex items-center gap-3">
+                            <i class="fas fa-save"></i>
+                            Update Account
+                        </button>
+                    </div>
                 </div>
-            </form>
+            </div>
         </div>
-    </div>
+    </form>
 </div>
 
 <script>
     // Add Tailwind classes to form inputs
     document.querySelectorAll('input:not([type="checkbox"]), select').forEach(el => {
-        el.classList.add('w-full', 'px-4', 'py-3', 'rounded-xl', 'bg-slate-50', 'border', 'border-slate-200', 'text-slate-700', 'font-medium', 'transition-all', 'duration-200', 'focus:outline-none', 'focus:ring-4', 'focus:ring-indigo-500/10', 'focus:border-primary', 'placeholder:text-slate-400');
+        el.className = 'w-full pl-6 pr-12 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder-slate-400 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm appearance-none';
     });
 
-    // Add Tailwind classes to checkboxes
+    // Special styling for checkbox
     document.querySelectorAll('input[type="checkbox"]').forEach(el => {
-        el.classList.add('w-4', 'h-4', 'text-indigo-600', 'bg-white', 'border-slate-300', 'rounded', 'focus:ring-indigo-500');
+        el.className = 'w-5 h-5 text-indigo-600 border-2 border-slate-300 rounded-lg focus:ring-indigo-500 transition-all cursor-pointer';
     });
 
     // Role-based toggle logic
     const roleSelect = document.querySelector('select[name="role"]');
     const permissionsContainer = document.getElementById('field-container-permissions');
+    const schoolContainer = document.getElementById('school-container');
 
-    function togglePermissions() {
-        if (roleSelect.value === 'Teacher') {
+    function handleRoleDisplay() {
+        const role = roleSelect.value;
+        
+        // Permissions visibility
+        if (role === 'Teacher') {
             permissionsContainer.classList.remove('hidden');
         } else {
             permissionsContainer.classList.add('hidden');
         }
+
+        // School relevance
+        if (role === 'Guardian') {
+            schoolContainer.classList.add('opacity-40', 'pointer-events-none');
+            document.querySelector('select[name="school"]').value = "";
+        } else {
+            schoolContainer.classList.remove('opacity-40', 'pointer-events-none');
+        }
     }
 
-    if (roleSelect && permissionsContainer) {
-        roleSelect.addEventListener('change', togglePermissions);
+    if (roleSelect) {
+        roleSelect.addEventListener('change', handleRoleDisplay);
         // Run on load
-        togglePermissions();
+        handleRoleDisplay();
     }
 </script>
 {% endblock %}

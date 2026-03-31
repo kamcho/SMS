@@ -222,7 +222,7 @@
         {% endif %}
     </div>
 
-    <!-- List 2: Recent Enrollments / Schedule History -->
+    <!-- List 2: Recent Student Assignments -->
     <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col h-[420px]">
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-[15px] font-bold text-slate-800">Recent assignments</h3>
@@ -233,53 +233,55 @@
                 <thead class="sticky top-0 bg-white z-10">
                     <tr>
                         <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter w-12 border-b border-slate-100">S/N</th>
-                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Teacher ID</th>
-                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Class Assigned</th>
-                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right">Date</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100">Assignment Title</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-center">Class / Subject</th>
+                        <th class="py-2 text-[11px] font-bold text-slate-500 uppercase tracking-tighter border-b border-slate-100 text-right uppercase tracking-[0.05em]">Due Date</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
-                    <!-- Placeholder rows matching the 'Budget history' visual -->
-                    <tr class="hover:bg-slate-50/50">
-                        <td class="py-3 text-[12px] font-semibold text-slate-800">01</td>
-                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-00211</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-600">Form 4 Alpha</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">25/10/2025</td>
+                    {% for assignment in recent_assignments %}
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="py-3 text-[12px] font-semibold text-slate-800 tracking-tighter">{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td class="py-3">
+                            <div class="text-[13px] font-bold text-slate-800 leading-tight">{{ assignment.title }}</div>
+                            <p class="text-[10px] text-slate-400 font-medium italic mt-0.5">{{ assignment.quiz.title|default:"Custom Assignment" }}</p>
+                        </td>
+                        <td class="py-3 text-center">
+                            <div class="text-[12px] font-bold text-slate-700 leading-none mb-1">
+                                {% for c in assignment.target_class.all %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% empty %}---{% endfor %}
+                            </div>
+                            <div class="text-[10px] font-black text-indigo-600/60 uppercase tracking-widest leading-none">{% if assignment.quiz %}{{ assignment.quiz.subject.name }}{% else %}{{ assignment.questions.first.quiz_set.first.subject.name|default:"General" }}{% endif %}</div>
+                        </td>
+                        <td class="py-3 text-[12px] font-black text-slate-500 text-right uppercase tracking-tighter">
+                            {% if assignment.due_date %}
+                                {{ assignment.due_date|date:"d/m/Y" }}
+                            {% else %}
+                                No Limit
+                            {% endif %}
+                        </td>
                     </tr>
-                    <tr class="hover:bg-slate-50/50">
-                        <td class="py-3 text-[12px] font-semibold text-slate-800">02</td>
-                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-30211</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-600">Grade 8 East</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">22/10/2025</td>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-12 text-center">
+                            <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-slate-100">
+                                <i class="fas fa-file-invoice text-slate-300"></i>
+                            </div>
+                            <p class="text-slate-400 font-bold text-xs uppercase tracking-widest">No recent assignments</p>
+                            <p class="text-[10px] text-slate-400 mt-1">Assignments will appear here once published</p>
+                        </td>
                     </tr>
-                    <tr class="hover:bg-slate-50/50">
-                        <td class="py-3 text-[12px] font-semibold text-slate-800">03</td>
-                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-00514</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-600">Grade 1 Blue</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">20/10/2025</td>
-                    </tr>
-                    <tr class="hover:bg-slate-50/50">
-                        <td class="py-3 text-[12px] font-semibold text-slate-800">04</td>
-                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-00214</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-600">PP2 North</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">20/10/2025</td>
-                    </tr>
-                    <tr class="hover:bg-slate-50/50">
-                        <td class="py-3 text-[12px] font-semibold text-slate-800">05</td>
-                        <td class="py-3 text-[13px] font-bold text-slate-800">TCH-01255</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-600">Form 1 Science</td>
-                        <td class="py-3 text-[12px] font-medium text-slate-500 text-right">18/10/2025</td>
-                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
         <div class="pt-4 mt-auto border-t border-slate-100 flex justify-center">
-            <button class="text-[12px] font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-lg px-4 py-2 hover:bg-slate-50 transition-colors">
-                View history
-            </button>
+            <a href="{% url 'e_learning:quiz_list' %}" class="text-[12px] font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-lg px-4 py-2 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                <i class="fas fa-history text-[10px]"></i> View all assignments
+            </a>
         </div>
     </div>
 </div>
+
 
 <!-- Assign Invigilator Modal -->
 <div id="assignInvigilatorModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm overflow-y-auto w-full h-full flex items-center justify-center p-4">

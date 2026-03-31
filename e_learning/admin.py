@@ -101,6 +101,11 @@ class QuizAttemptAdmin(admin.ModelAdmin):
 
 @admin.register(Assignment)
 class AssignmentAdmin(admin.ModelAdmin):
-    list_display = ['title', 'quiz', 'target_class', 'due_date', 'is_active']
-    list_filter = ['is_active', 'target_class', 'due_date']
+    list_display = ['title', 'quiz', 'get_target_classes', 'due_date', 'created_by', 'is_active']
+    list_filter = ['is_active', 'due_date', 'created_at']
     search_fields = ['title', 'quiz__title']
+    filter_horizontal = ['target_class', 'questions']
+
+    def get_target_classes(self, obj):
+        return ", ".join([c.name for c in obj.target_class.all()])
+    get_target_classes.short_description = 'Target Classes'

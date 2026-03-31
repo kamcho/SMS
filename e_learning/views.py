@@ -11,10 +11,10 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core.models import Student, Class
+from core.models import Student, Class, Grade
 from .models import (
     Quiz, Question, Option, QuestionImage, QuizAttempt, StudentAnswer,
-    Strand, Substrand,
+    Strand, Substrand, Assignment, AssignmentAttempt, AssignmentAnswer
 )
 
 logger = logging.getLogger(__name__)
@@ -114,44 +114,166 @@ def quiz_list(request):
 
 @login_required
 def assignment_create(request):
-    """View to assign a quiz to a class as an assignment."""
+    """View to assign a quiz to multiple classes or create a custom assignment."""
     from .models import Assignment
+    from Exam.models import Subject
     
-    # Get quizzes that are published
+    # Get quizzes created by teacher (or all for admin)
     if request.user.is_superuser:
         quizzes = Quiz.objects.filter(status='published')
     else:
         quizzes = Quiz.objects.filter(status='published', created_by=request.user)
     
-    classes = Class.objects.all()
+    classes = Class.objects.select_related('grade', 'school').all()
+    all_subjects = Subject.objects.all()
 
     if request.method == 'POST':
         title = request.POST.get('title')
         description = request.POST.get('description', '')
+        subject_id = request.POST.get('subject')
         quiz_id = request.POST.get('quiz')
-        class_id = request.POST.get('target_class')
+        class_ids = request.POST.getlist('target_class')
         due_date = request.POST.get('due_date')
+        
+        # New fields
+        time_limit = request.POST.get('time_limit_minutes', 0)
+        max_attempts = request.POST.get('max_attempts', 1)
+        pass_percentage = request.POST.get('pass_percentage', 50)
+        shuffle = request.POST.get('shuffle_questions') == 'on'
+        available_from = request.POST.get('available_from')
+        available_until = request.POST.get('available_until')
 
-        if not title or not quiz_id or not class_id:
-            messages.error(request, "Please fill in all required fields.")
+        if not title or not class_ids:
+            messages.error(request, "Please provide a title and select at least one class.")
             return redirect('e_learning:assignment_create')
 
-        Assignment.objects.create(
+        assignment = Assignment.objects.create(
             title=title,
             description=description,
-            quiz_id=quiz_id,
-            target_class_id=class_id,
+            subject_id=subject_id if subject_id else None,
+            quiz_id=quiz_id if quiz_id else None,
             due_date=due_date if due_date else None,
+            available_from=available_from if available_from else None,
+            available_until=available_until if available_until else None,
+            time_limit_minutes=int(time_limit),
+            max_attempts=int(max_attempts),
+            pass_percentage=int(pass_percentage),
+            shuffle_questions=shuffle,
+            created_by=request.user,
             is_active=True
         )
-        messages.success(request, f"Assignment '{title}' created successfully!")
-        return redirect('e_learning:quiz_list')
+        
+        if class_ids:
+            assignment.target_class.set(class_ids)
+            
+        messages.success(request, f"Assignment '{title}' created successfully! Now add questions.")
+        return redirect('e_learning:assignment_manage', assignment_id=assignment.id)
 
     return render(request, 'e_learning/assignment_create.html', {
         'quizzes': quizzes,
-        'classes': classes
+        'classes': classes,
+        'subjects': all_subjects
     })
 
+
+@login_required
+def assignment_manage(request, assignment_id):
+    """Manage a specific assignment: add/remove questions, edit metadata."""
+    from .models import Assignment, Question, Option, QuestionImage
+    from Exam.models import Subject
+    assignment = get_object_or_404(Assignment, id=assignment_id)
+    
+    # Check permission (owner or admin)
+    if not request.user.is_superuser and assignment.created_by != request.user:
+        messages.error(request, "Permission denied.")
+        return redirect('e_learning:quiz_list')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'add_questions':
+            q_ids = request.POST.getlist('questions')
+            assignment.questions.add(*q_ids)
+            messages.success(request, "Questions added to assignment.")
+            
+        elif action == 'remove_question':
+            q_id = request.POST.get('question_id')
+            assignment.questions.remove(q_id)
+            messages.success(request, "Question removed from assignment.")
+
+        elif action == 'create_question':
+            q_text = request.POST.get('question_text')
+            q_type = request.POST.get('question_type')
+            marks = request.POST.get('marks', 1)
+            expected_answer = request.POST.get('expected_answer', '')
+
+            # Create the question
+            new_q = Question.objects.create(
+                question=q_text,
+                question_type=q_type,
+                marks=marks,
+                expected_answer=expected_answer,
+                is_active=True
+            )
+            
+            # Handle MCQ options
+            if q_type == 'multiple_choice':
+                options = request.POST.getlist('option_text')
+                correct_indices = request.POST.getlist('is_correct')
+                for i, opt_text in enumerate(options):
+                    if opt_text.strip():
+                        Option.objects.create(
+                            question=new_q,
+                            option=opt_text,
+                            is_correct=str(i) in correct_indices,
+                            order=i
+                        )
+            
+            # Handle Images
+            images = request.FILES.getlist('images')
+            for i, img in enumerate(images):
+                QuestionImage.objects.create(question=new_q, image=img, order=i)
+
+            # Link to assignment
+            assignment.questions.add(new_q)
+            messages.success(request, "New question created and added to assignment.")
+            
+        elif action == 'update_settings':
+            assignment.title = request.POST.get('title')
+            assignment.description = request.POST.get('description', '')
+            assignment.due_date = request.POST.get('due_date') or None
+            assignment.available_from = request.POST.get('available_from') or None
+            assignment.available_until = request.POST.get('available_until') or None
+            assignment.time_limit_minutes = int(request.POST.get('time_limit_minutes', 0))
+            assignment.max_attempts = int(request.POST.get('max_attempts', 1))
+            assignment.pass_percentage = int(request.POST.get('pass_percentage', 50))
+            assignment.shuffle_questions = request.POST.get('shuffle_questions') == 'on'
+            
+            # Update target classes
+            class_ids = request.POST.getlist('target_class')
+            if class_ids:
+                assignment.target_class.set(class_ids)
+                
+            assignment.save()
+            messages.success(request, "Assignment settings updated successfully.")
+
+        return redirect('e_learning:assignment_manage', assignment_id=assignment.id)
+
+    # Fetch available questions not already in the assignment, with prefetching for faster filtering
+    available_questions = Question.objects.exclude(
+        id__in=assignment.questions.all().values_list('id', flat=True)
+    ).select_related('substrand__strand__subject').order_by('-id')[:200]
+
+    all_subjects = Subject.objects.all()
+    all_grades = Grade.objects.all()
+
+    return render(request, 'e_learning/assignment_manage.html', {
+        'assignment': assignment,
+        'available_questions': available_questions,
+        'questions': assignment.questions.all(),
+        'subjects': all_subjects,
+        'grades': all_grades
+    })
 
 
 @login_required
@@ -390,6 +512,79 @@ def delete_question(request, question_id):
     return redirect('e_learning:quiz_questions', quiz_id=quiz_id)
 
 
+@login_required
+def edit_question(request, question_id):
+    """Edit an existing question (GET returns JSON data, POST updates)."""
+    question = get_object_or_404(Question, pk=question_id)
+    
+    if request.method == 'GET':
+        options = []
+        for opt in question.options.all().order_by('order'):
+            options.append({
+                'id': opt.id,
+                'option': opt.option,
+                'is_correct': opt.is_correct
+            })
+        
+        data = {
+            'id': question.id,
+            'question_type': question.question_type,
+            'question_text': question.question,
+            'marks': question.marks,
+            'expected_answer': question.expected_answer,
+            'options': options,
+        }
+        return JsonResponse(data)
+
+    if request.method == 'POST':
+        q_type = request.POST.get('question_type')
+        q_text = request.POST.get('question_text')
+        q_marks = int(request.POST.get('marks', 1))
+        expected = request.POST.get('expected_answer', '')
+        
+        # Update core fields
+        question.question_type = q_type
+        question.question = q_text
+        question.marks = q_marks
+        question.expected_answer = expected if q_type == 'short_answer' else ''
+        question.save()
+
+        # Handle options for MCQs
+        if q_type == 'multiple_choice':
+            option_texts = request.POST.getlist('option_text')
+            correct_indices = request.POST.getlist('is_correct')
+            
+            # Clear old and create new to keep it simple (or match by ID)
+            question.options.all().delete()
+            for i, opt_text in enumerate(option_texts):
+                if opt_text.strip():
+                    Option.objects.create(
+                        question=question,
+                        option=opt_text.strip(),
+                        is_correct=(str(i) in correct_indices),
+                        order=i,
+                    )
+        else:
+            # If changed from MC to Short, clear options
+            question.options.all().delete()
+
+        # Support adding new images (optional)
+        images = request.FILES.getlist('images')
+        for i, img in enumerate(images):
+            QuestionImage.objects.create(
+                question=question,
+                image=img,
+                order=question.images.count() + i,
+            )
+
+        messages.success(request, 'Question updated successfully!')
+        # Redirect back to where user came from, or quiz_list
+        next_url = request.GET.get('next') or request.POST.get('next')
+        if next_url:
+            return redirect(next_url)
+        return redirect('e_learning:quiz_questions', quiz_id=request.POST.get('quiz_id'))
+
+
 # ──────────────────────────────────────────────
 #  STUDENT workflow
 # ──────────────────────────────────────────────
@@ -440,7 +635,6 @@ def student_quiz_list(request):
         active_assignments = Assignment.objects.filter(
             target_class=profile.class_id,
             is_active=True,
-            quiz__status='published'
         ).select_related('quiz', 'quiz__subject')
 
     quiz_data = []
@@ -453,6 +647,7 @@ def student_quiz_list(request):
         assignment = next((a for a in active_assignments if a.quiz_id == quiz.id), None)
         
         quiz_data.append({
+            'type': 'quiz',
             'quiz': quiz,
             'assignment': assignment,
             'attempts_count': attempts.count(),
@@ -460,13 +655,40 @@ def student_quiz_list(request):
             'can_attempt': can_attempt and quiz.is_available,
         })
 
+    # Add standalone assignments (those without a quiz)
+    for assignment in active_assignments.filter(quiz__isnull=True):
+        attempts = AssignmentAttempt.objects.filter(assignment=assignment, student=student)
+        best = attempts.order_by('-percentage').first()
+        can_attempt = assignment.max_attempts == 0 or attempts.count() < assignment.max_attempts
+        
+        quiz_data.append({
+            'type': 'assignment',
+            'assignment': assignment,
+            'quiz': assignment, # poly-morphism for template
+            'attempts_count': attempts.count(),
+            'best_score': best.percentage if best else None,
+            'can_attempt': can_attempt and assignment.is_available,
+        })
+
     # All attempts for the student (for History section)
-    all_attempts = QuizAttempt.objects.filter(student=student).select_related('quiz', 'quiz__subject').order_by('-submitted_at')
+    quiz_attempts = QuizAttempt.objects.filter(student=student).select_related('quiz', 'quiz__subject')
+    ass_attempts = AssignmentAttempt.objects.filter(student=student).select_related('assignment', 'assignment__subject')
+    
+    # Add a 'type' attribute to each attempt for the template
+    for qa in quiz_attempts: qa.attempt_type = 'quiz'
+    for aa in ass_attempts: aa.attempt_type = 'assignment'
+
+    import itertools
+    all_attempts = sorted(
+        itertools.chain(quiz_attempts, ass_attempts),
+        key=lambda x: x.submitted_at or x.started_at,
+        reverse=True
+    )
 
     # Calculate average score
     avg_score = 0
-    if all_attempts.exists():
-        avg_score = sum(a.percentage for a in all_attempts) / all_attempts.count()
+    if all_attempts:
+        avg_score = sum(a.percentage for a in all_attempts) / len(all_attempts)
 
     # Metadata for filters
     from core.models import Grade
@@ -591,6 +813,110 @@ def quiz_result_student(request, attempt_id):
     # If student didn't get results yet but they are allowed, show them
     answers = attempt.answers.select_related('question').order_by('question__order')
     return render(request, 'e_learning/quiz_result_student.html', {
+        'attempt': attempt,
+        'answers': answers,
+    })
+
+
+@login_required
+def take_assignment(request, assignment_id):
+    """Take/resume a standalone assignment."""
+    student = _get_student(request)
+    if not student:
+        return redirect('core:dashboard')
+
+    assignment = get_object_or_404(Assignment, pk=assignment_id, is_active=True)
+    if not assignment.is_available:
+        return redirect('e_learning:student_quiz_list')
+
+    # Check if student is in target class
+    profile = getattr(student, 'studentprofile', None)
+    if not profile or not assignment.target_class.filter(id=profile.class_id_id).exists():
+        messages.error(request, "You are not eligible for this assignment.")
+        return redirect('e_learning:student_quiz_list')
+
+    attempt = AssignmentAttempt.objects.filter(assignment=assignment, student=student, status='in_progress').first()
+    if not attempt:
+        existing_count = AssignmentAttempt.objects.filter(assignment=assignment, student=student).count()
+        if assignment.max_attempts > 0 and existing_count >= assignment.max_attempts: 
+            return redirect('e_learning:student_quiz_list')
+        attempt = AssignmentAttempt.objects.create(assignment=assignment, student=student, attempt_number=existing_count+1)
+
+    if attempt.is_timed_out:
+        attempt.status = 'timed_out'
+        attempt.submitted_at = timezone.now()
+        attempt.save()
+        attempt.calculate_score()
+        return redirect('e_learning:assignment_result_student', attempt_id=attempt.pk)
+
+    questions = assignment.questions.filter(is_active=True).prefetch_related('options', 'images')
+    if assignment.shuffle_questions:
+        questions = questions.order_by('?')
+    else:
+        questions = questions.order_by('order')
+
+    existing_answers = {a.question_id: a for a in attempt.answers.all()}
+
+    return render(request, 'e_learning/take_assignment.html', {
+        'assignment': assignment,
+        'attempt': attempt,
+        'questions': questions,
+        'existing_answers': existing_answers,
+        'time_remaining': attempt.time_remaining_seconds,
+    })
+
+
+@login_required
+@require_POST
+def save_assignment_answer(request):
+    """Auto-save assignment answer via AJAX."""
+    attempt_id = request.POST.get('attempt_id')
+    question_id = request.POST.get('question_id')
+    option_id = request.POST.get('option_id')
+    text_answer = request.POST.get('text_answer', '')
+
+    attempt = get_object_or_404(AssignmentAttempt, pk=attempt_id, status='in_progress')
+    question = get_object_or_404(Question, pk=question_id)
+
+    answer, _ = AssignmentAnswer.objects.update_or_create(
+        attempt=attempt,
+        question=question,
+        defaults={
+            'selected_option_id': option_id if question.question_type == 'multiple_choice' else None,
+            'text_answer': text_answer if question.question_type == 'short_answer' else '',
+        }
+    )
+    if question.question_type == 'multiple_choice':
+        answer.is_graded = False
+        answer.save()
+
+    return JsonResponse({'status': 'ok', 'saved': True})
+
+
+@login_required
+@require_POST
+def submit_assignment(request, attempt_id):
+    """Final submission and grading for assignment."""
+    attempt = get_object_or_404(AssignmentAttempt, pk=attempt_id, status='in_progress')
+    attempt.status = 'submitted'
+    attempt.submitted_at = timezone.now()
+    attempt.save()
+
+    for answer in attempt.answers.filter(question__question_type='multiple_choice'):
+        answer.auto_grade()
+
+    _grade_short_answers_with_ai(attempt)
+
+    attempt.calculate_score()
+    return redirect('e_learning:assignment_result_student', attempt_id=attempt.pk)
+
+
+@login_required
+def assignment_result_student(request, attempt_id):
+    """Student views their assignment score."""
+    attempt = get_object_or_404(AssignmentAttempt, pk=attempt_id)
+    answers = attempt.answers.select_related('question').order_by('question__order')
+    return render(request, 'e_learning/assignment_result_student.html', {
         'attempt': attempt,
         'answers': answers,
     })

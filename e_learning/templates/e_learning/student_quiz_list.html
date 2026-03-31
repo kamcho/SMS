@@ -149,11 +149,19 @@
                         <!-- CTA Area -->
                         <div class="p-6">
                             {% if item.can_attempt %}
-                            <a href="{% url 'e_learning:take_quiz' item.quiz.pk %}"
-                               class="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-100 dark:shadow-none flex items-center justify-center gap-3 transition-all transform active:scale-[0.98]">
-                                <i class="fas fa-play text-[9px]"></i>
-                                {% if item.attempts_count > 0 %}Retake Attempt{% else %}Start Session{% endif %}
-                            </a>
+                                {% if item.type == 'quiz' %}
+                                <a href="{% url 'e_learning:take_quiz' item.quiz.pk %}"
+                                   class="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-100 dark:shadow-none flex items-center justify-center gap-3 transition-all transform active:scale-[0.98]">
+                                    <i class="fas fa-play text-[9px]"></i>
+                                    {% if item.attempts_count > 0 %}Retake Attempt{% else %}Start Session{% endif %}
+                                </a>
+                                {% else %}
+                                <a href="{% url 'e_learning:take_assignment' item.assignment.id %}"
+                                   class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-emerald-100 dark:shadow-none flex items-center justify-center gap-3 transition-all transform active:scale-[0.98]">
+                                    <i class="fas fa-play text-[9px]"></i>
+                                    {% if item.attempts_count > 0 %}Retake Attempt{% else %}Start Session{% endif %}
+                                </a>
+                                {% endif %}
                             {% else %}
                             <button disabled class="w-full py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 cursor-not-allowed">
                                 <i class="fas fa-lock text-[9px]"></i> Assessment Locked
@@ -208,8 +216,13 @@
                                                 <i class="fas fa-file-invoice text-xs"></i>
                                             </div>
                                             <div>
-                                                <p class="text-xs font-black text-slate-900 dark:text-white">{{ attempt.quiz.title }}</p>
-                                                <p class="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{{ attempt.quiz.subject.name }}</p>
+                                                {% if attempt.attempt_type == 'quiz' %}
+                                                    <p class="text-xs font-black text-slate-900 dark:text-white">{{ attempt.quiz.title }}</p>
+                                                    <p class="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{{ attempt.quiz.subject.name }}</p>
+                                                {% else %}
+                                                    <p class="text-xs font-black text-slate-900 dark:text-white">{{ attempt.assignment.title }}</p>
+                                                    <p class="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{{ attempt.assignment.subject.name|default:"General" }}</p>
+                                                {% endif %}
                                             </div>
                                         </div>
                                     </td>
@@ -231,10 +244,17 @@
                                         {% endif %}
                                     </td>
                                     <td class="px-8 py-5 text-right">
+                                        {% if attempt.attempt_type == 'quiz' %}
                                         <a href="{% url 'e_learning:quiz_result_student' attempt.id %}" 
                                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all border border-slate-100 dark:border-slate-800">
                                             <i class="fas fa-arrow-right text-[11px]"></i>
                                         </a>
+                                        {% else %}
+                                        <a href="{% url 'e_learning:assignment_result_student' attempt.id %}" 
+                                           class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-400 hover:text-emerald-600 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm transition-all border border-emerald-100/50 dark:border-emerald-500/10">
+                                            <i class="fas fa-arrow-right text-[11px]"></i>
+                                        </a>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}

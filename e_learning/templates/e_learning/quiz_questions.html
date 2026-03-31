@@ -94,12 +94,17 @@
                         {% endif %}
                     </div>
 
-                    <form method="post" action="{% url 'e_learning:delete_question' q.pk %}?quiz_id={{ quiz.pk }}" onsubmit="return confirm('Remove this question?')" class="shrink-0">
-                        {% csrf_token %}
-                        <button class="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all sm:opacity-0 sm:group-hover:opacity-100">
-                            <i class="fas fa-trash-alt"></i>
+                    <div class="flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-all shrink-0">
+                        <button onclick="openEditModal({{ q.pk }})" class="w-10 h-10 flex items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all">
+                            <i class="fas fa-edit"></i>
                         </button>
-                    </form>
+                        <form method="post" action="{% url 'e_learning:delete_question' q.pk %}?quiz_id={{ quiz.pk }}" onsubmit="return confirm('Remove this question?')">
+                            {% csrf_token %}
+                            <button class="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
             {% empty %}
@@ -189,6 +194,64 @@
     </div>
 </div>
 
+<!-- 1.5 EDIT QUESTION MODAL -->
+<div id="editModal" class="fixed inset-y-0 right-0 w-full md:w-[500px] bg-white dark:bg-slate-900 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col h-full">
+    <div class="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <h2 class="text-xl font-black text-slate-900 dark:text-white">Edit Question</h2>
+        <button onclick="closeAllModals()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center hover:bg-rose-100 hover:text-rose-500 transition-all">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="p-6 overflow-y-auto custom-scrollbar flex-1">
+        <div id="editLoading" class="flex justify-center py-20">
+            <i class="fas fa-spinner fa-spin text-indigo-500 text-4xl"></i>
+        </div>
+        <form id="editForm" method="post" enctype="multipart/form-data" class="space-y-6 hidden">
+            {% csrf_token %}
+            <input type="hidden" name="quiz_id" value="{{ quiz.pk }}">
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <div>
+                <label class="block text-sm font-bold mb-2">Question Type</label>
+                <select name="question_type" id="editQuestionType" class="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium">
+                    <option value="multiple_choice">Multiple Choice</option>
+                    <option value="short_answer">Short Answer</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-bold mb-2">Question Content</label>
+                <textarea name="question_text" id="editQuestionText" rows="4" required placeholder="Type your question here..." class="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium resize-none"></textarea>
+            </div>
+            
+            <div class="flex gap-4">
+                <div class="flex-1">
+                    <label class="block text-sm font-bold mb-2">Marks</label>
+                    <input type="number" name="marks" id="editMarks" value="1" min="1" class="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 text-sm font-medium">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-bold mb-2">Images (Optional)</label>
+                    <input type="file" name="images" multiple class="w-full text-xs file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100">
+                </div>
+            </div>
+
+            <div id="editMcqOptions" class="bg-indigo-50/50 dark:bg-slate-800/50 p-5 rounded-2xl border border-indigo-100 dark:border-slate-700">
+                <label class="block text-sm font-bold mb-4 text-indigo-900 dark:text-indigo-300">Multiple Choice Options</label>
+                <div id="editOptionsContainer" class="space-y-3">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+
+            <div id="editShortAnswer" class="hidden bg-emerald-50/50 dark:bg-slate-800/50 p-5 rounded-2xl border border-emerald-100 dark:border-slate-700">
+                <label class="block text-sm font-bold mb-2 text-emerald-900 dark:text-emerald-300">Model Answer (AI Grading)</label>
+                <textarea name="expected_answer" id="editExpectedAnswer" rows="3" placeholder="Provide the ideal answer..." class="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+            </div>
+
+            <button type="submit" class="w-full btn btn-primary justify-center shadow-lg shadow-indigo-500/30 py-3 text-base">
+                <i class="fas fa-check mr-2"></i> Update Question
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- 2. ADD EXISTING MODAL -->
 <div id="existingModal" class="fixed inset-y-0 right-0 w-full md:w-[600px] bg-white dark:bg-slate-900 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col h-full">
     <div class="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
@@ -261,7 +324,7 @@ function openModal(modalId) {
 }
 
 function closeAllModals() {
-    const modals = [document.getElementById('newModal'), document.getElementById('existingModal')];
+    const modals = [document.getElementById('newModal'), document.getElementById('existingModal'), document.getElementById('editModal')];
     const overlay = document.getElementById('modalOverlay');
     
     modals.forEach(m => m.classList.add('translate-x-full'));
@@ -277,6 +340,60 @@ document.getElementById('questionType').addEventListener('change', function() {
     document.getElementById('mcqOptions').classList.toggle('hidden', this.value !== 'multiple_choice');
     document.getElementById('shortAnswer').classList.toggle('hidden', this.value === 'multiple_choice');
 });
+
+document.getElementById('editQuestionType').addEventListener('change', function() {
+    document.getElementById('editMcqOptions').classList.toggle('hidden', this.value !== 'multiple_choice');
+    document.getElementById('editShortAnswer').classList.toggle('hidden', this.value === 'multiple_choice');
+});
+
+function openEditModal(questionId) {
+    openModal('editModal');
+    const form = document.getElementById('editForm');
+    const loader = document.getElementById('editLoading');
+    
+    form.classList.add('hidden');
+    loader.classList.remove('hidden');
+    
+    form.action = `/e-learning/questions/${questionId}/edit/`;
+    
+    fetch(`/e-learning/questions/${questionId}/edit/`)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('editQuestionType').value = data.question_type;
+            document.getElementById('editQuestionText').value = data.question_text;
+            document.getElementById('editMarks').value = data.marks;
+            document.getElementById('editExpectedAnswer').value = data.expected_answer || '';
+            
+            const optionsContainer = document.getElementById('editOptionsContainer');
+            optionsContainer.innerHTML = '';
+            
+            // For editing, we'll provide 4 slots exactly as the create form does
+            // but we'll fill with existing text if available
+            for (let i = 0; i < 4; i++) {
+                let opt = { option: '', is_correct: false };
+                if (data.options && data.options[i]) {
+                    opt = data.options[i];
+                }
+                optionsContainer.innerHTML += `
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center">
+                            <input type="checkbox" name="is_correct" value="${i}" 
+                                ${opt.is_correct ? 'checked' : ''}
+                                class="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-600 cursor-pointer">
+                        </div>
+                        <input type="text" name="option_text" value="${opt.option}" placeholder="Option ${i+1}" 
+                            class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                `;
+            }
+            
+            document.getElementById('editMcqOptions').classList.toggle('hidden', data.question_type !== 'multiple_choice');
+            document.getElementById('editShortAnswer').classList.toggle('hidden', data.question_type === 'multiple_choice');
+            
+            loader.classList.add('hidden');
+            form.classList.remove('hidden');
+        });
+}
 
 // ── Grade and Subject filtering map ─────────────
 const subjectsMap = {};

@@ -83,6 +83,57 @@
         </div>
 
         <nav class="flex-grow mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar shadow-inner pb-20">
+            <!-- RESTRICTED TEACHERS: Simple Sidebar -->
+            {% if user.role == 'Teacher' and not user.is_exam_manager and not user.is_exam_officer and not user.is_headteacher and not user.is_superuser %}
+                <div class="space-y-1">
+                    <a href="{% url 'core:teacher-dashboard' %}" class="menu-item {% if request.resolver_match.url_name == 'teacher-dashboard' %}active{% endif %}">
+                        <i class="fas fa-th-large w-5 text-lg opacity-70"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{% url 'core:schools-analytics' %}" class="menu-item {% if 'schools-analytics' in request.path %}active{% endif %}">
+                        <i class="fas fa-chart-line w-5 text-lg opacity-70"></i>
+                        <span>Schools Analytics</span>
+                    </a>
+                    <a href="{% url 'core:classes-list' %}" class="menu-item {% if 'classes' in request.path %}active{% endif %}">
+                        <i class="fas fa-graduation-cap w-5 text-lg opacity-70"></i>
+                        <span>Classes</span>
+                    </a>
+                    <a href="{% url 'e_learning:quiz_list' %}" class="menu-item {% if 'e-learning/quizzes' in request.path %}active{% endif %}">
+                        <i class="fas fa-laptop-code w-5 text-lg opacity-70"></i>
+                        <span>E-Learning</span>
+                    </a>
+                </div>
+            <!-- GUARDIANS: Simple Sidebar -->
+            {% elif user.role == 'Guardian' %}
+                <div class="space-y-1">
+                    <a href="{% url 'core:guardian-dashboard' %}" class="menu-item {% if 'guardian/dashboard' in request.path %}active{% endif %}">
+                        <i class="fas fa-user-shield w-5 text-lg opacity-70"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <div class="dropdown-group">
+                        <button class="dropdown-toggle menu-item w-full" data-group="elearning_guardian">
+                            <i class="fas fa-laptop-code w-5 text-lg opacity-70"></i>
+                            <span>E-Learning</span>
+                            <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
+                        </button>
+                        <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
+                            <div class="pl-11 py-1 space-y-1">
+                                <a href="{% url 'e_learning:student_quiz_list' %}" class="menu-item py-2 text-sm {% if 'e-learning/my-quizzes' in request.path and not request.GET.student_id %}active{% endif %}">
+                                    Main Portal
+                                </a>
+                                {% for student in user.students.all %}
+                                <a href="{% url 'e_learning:student_quiz_list' %}?student_id={{ student.id }}" 
+                                   class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-400 hover:bg-white/5 hover:text-white transition-all {% if request.GET.student_id == student.id|stringformat:'z' %}bg-white/5 text-white{% endif %}">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></div>
+                                    <span class="truncate">{{ student.first_name }}'s Portal</span>
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+            <!-- FULL ACCESS USERS (Admins, Managers, Guardians etc) -->
             <!-- Overview Group -->
             <div class="dropdown-group">
                 <button class="dropdown-toggle menu-item w-full" data-group="overview">
@@ -102,8 +153,8 @@
                 </div>
             </div>
 
-            <!-- System Control Group (Admin Only) -->
-            {% if user.role == 'Admin' or user.is_superuser %}
+            <!-- System Control Group (Admin or Managers Only) -->
+            {% if user.role == 'Admin' or user.is_superuser or user.role == 'Teacher' %}
             <div class="dropdown-group">
                 <button class="dropdown-toggle menu-item w-full" data-group="system">
                     <i class="fas fa-sliders-h w-5 text-lg"></i>
@@ -112,15 +163,21 @@
                 </button>
                 <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
                     <div class="pl-11 py-1 space-y-1">
+                        {% if user.role == 'Admin' or user.is_superuser %}
                         <a href="{% url 'core:configurations' %}" class="menu-item py-2 text-sm {% if 'configurations' in request.path %}active{% endif %}">
                             Configurations
                         </a>
+                        {% endif %}
+                        
                         <a href="{% url 'core:schools-analytics' %}" class="menu-item py-2 text-sm {% if 'schools-analytics' in request.path %}active{% endif %}">
                             Schools Analytics
                         </a>
+
+                        {% if user.role == 'Admin' or user.is_superuser %}
                         <a href="{% url 'users:create-user' %}" class="menu-item py-2 text-sm {% if 'create-user' in request.path %}active{% endif %}">
                             Create User
                         </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -143,18 +200,16 @@
                         <a href="{% url 'core:classes-list' %}" class="menu-item py-2 text-sm {% if 'classes' in request.path %}active{% endif %}">
                             Classes
                         </a>
-                        <!-- <a href="{% url 'core:discipline-log' %}" class="menu-item py-2 text-sm {% if 'discipline' in request.path %}active{% endif %}">
-                            Discipline
-                        </a> -->
+
                         {% if user.role == 'Admin' or user.role == 'Teacher' or user.is_superuser %}
-                        <a href="{% url 'Exam:exam-list' %}" class="menu-item py-2 text-sm {% if 'exam-list' in request.path %}active{% endif %}">
-                            Exams List
-                        </a>
+                            <a href="{% url 'Exam:exam-list' %}" class="menu-item py-2 text-sm {% if 'exam-list' in request.path %}active{% endif %}">
+                                Exams List
+                            </a>
                         {% endif %}
-                        {% if user.is_exam_officer %}
-                        <a href="{% url 'Exam:create-exam' %}" class="menu-item py-2 text-sm {% if 'create-exam' in request.path %}active{% endif %}">
-                            Create Exam
-                        </a>
+                        {% if user.is_exam_officer or user.is_superuser %}
+                            <a href="{% url 'Exam:create-exam' %}" class="menu-item py-2 text-sm {% if 'create-exam' in request.path %}active{% endif %}">
+                                Create Exam
+                            </a>
                         {% endif %}
                     </div>
                 </div>
@@ -185,11 +240,6 @@
                             Payroll
                         </a>
                         {% endif %}
-                        <!-- <a href="{% url 'accounts:payments-list' %}" class="menu-item py-2 text-sm {% if 'payments-list' in request.path %}active{% endif %}">
-                            <i class="fas fa-money-bill-wave w-4 text-center"></i>
-                            Paybill Transactions
-                        </a> -->
-                        
                     </div>
                 </div>
             </div>
@@ -197,6 +247,7 @@
 
             <!-- Operations Group -->
             {% if user.role != 'Guardian' %}
+            {% if user.role == 'Admin' or user.is_superuser or user.is_exam_manager or user.is_exam_officer or user.is_headteacher %}
             <div class="dropdown-group">
                 <button class="dropdown-toggle menu-item w-full" data-group="operations">
                     <i class="fas fa-server w-5 text-lg"></i>
@@ -228,6 +279,7 @@
                 </div>
             </div>
             {% endif %}
+            {% endif %}
 
             <!-- E-Learning Section -->
             <div class="dropdown-group">
@@ -244,31 +296,28 @@
                         </a>
                         {% endif %}
                         <a href="{% url 'e_learning:student_quiz_list' %}" class="menu-item py-2 text-sm {% if 'e-learning/my-quizzes' in request.path %}active{% endif %}">
-                            Student Assessments
+                            Portal Dashboard
                         </a>
+                        
+                        {% if user.students.exists %}
+                        <div class="pt-2 pb-1 px-1 border-t border-white/5 mt-2">
+                            <p class="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2 px-2">Linked Students</p>
+                            <div class="space-y-1">
+                                {% for student in user.students.all %}
+                                <a href="{% url 'e_learning:student_quiz_list' %}?student_id={{ student.id }}" 
+                                   class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+                                    <div class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+                                    <span class="truncate">{{ student.get_full_name }}</span>
+                                    <span class="ml-auto text-[9px] text-gray-600">{{ student.studentprofile.class_id.grade.name|default:"" }}</span>
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
 
-            <!-- Guardian Portal -->
-            {% if user.role == 'Guardian' %}
-            <div class="dropdown-group">
-                <button class="dropdown-toggle menu-item w-full" data-group="guardian">
-                    <i class="fas fa-user-shield w-5 text-lg"></i>
-                    <span>Guardian Portal</span>
-                    <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
-                </button>
-                <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
-                    <div class="pl-11 py-1 space-y-1">
-                        <a href="{% url 'core:guardian-dashboard' %}" class="menu-item py-2 text-sm {% if 'guardian/dashboard' in request.path %}active{% endif %}">
-                            Guardian Home
-                        </a>
-                        <a href="#" class="menu-item py-2 text-sm">
-                            Fee Statements
-                        </a>
-                    </div>
-                </div>
-            </div>
             {% endif %}
         </nav>
 
@@ -334,8 +383,55 @@
 
                 <div class="h-10 w-px bg-slate-200 dark:bg-slate-800 hidden md:block"></div>
 
-                <!-- User Profile -->
+                <!-- User Profile & Quick Switcher -->
                 <div class="flex items-center gap-3 pl-2">
+                    {% if request.user.is_superuser %}
+                    <div class="relative group">
+                        <button class="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all border border-amber-200/50 dark:border-amber-800/50 shadow-sm">
+                            <i class="fas fa-user-shield text-sm"></i>
+                        </button>
+                        
+                        <!-- Switcher Dropdown (Mega-ish for clarity) -->
+                        <div class="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                            <div class="mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Switch User Role</h4>
+                                <div class="grid grid-cols-1 gap-1.5">
+                                    {% for role_code, role_label in request.user.ROLE_CHOICES %}
+                                    <form action="{% url 'users:quick-update-role' %}" method="post" class="m-0 p-0">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="role" value="{{ role_code }}">
+                                        <button type="submit" class="w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all {% if request.user.role == role_code %}bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400{% else %}text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800{% endif %}">
+                                            {{ role_label }}
+                                            {% if request.user.role == role_code %}
+                                            <i class="fas fa-check float-right mt-0.5"></i>
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Toggle Status Flags</h4>
+                                <div class="space-y-2">
+                                    {% for flag, label, status in flags_info %}
+                                    <form action="{% url 'users:quick-update-role' %}" method="post" class="m-0 p-0">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="flag" value="{{ flag }}">
+                                        <button type="submit" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold border transition-all {% if status %}border-indigo-200 bg-indigo-50/50 text-indigo-700 dark:border-indigo-800/50 dark:bg-indigo-900/20 dark:text-indigo-400{% else %}border-slate-100 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-800/30 dark:text-slate-500{% endif %}">
+                                            <span>{{ label }}</span>
+                                            <div class="w-7 h-4 rounded-full relative transition-all {% if status %}bg-indigo-600{% else %}bg-slate-300 dark:bg-slate-700{% endif %}">
+                                                <div class="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-all transform {% if status %}translate-x-3{% endif %}"></div>
+                                            </div>
+                                        </button>
+                                    </form>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="text-right hidden sm:block">
                         <a href="{% url 'users:user-profile' request.user.id %}" class="text-xs font-black text-slate-900 dark:text-slate-100 leading-none hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">
                             {{ request.user.email|truncatechars:18 }}

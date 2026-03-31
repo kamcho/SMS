@@ -34,38 +34,101 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="quiz" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Select Quiz</label>
+                <label for="subject" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Subject</label>
+                <div class="relative group">
+                    <select name="subject" id="subject"
+                            class="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all appearance-none cursor-pointer" required>
+                        <option value="">Select Subject</option>
+                        {% for sub in subjects %}
+                        <option value="{{ sub.id }}">{{ sub.name }} ({{ sub.grade }})</option>
+                        {% endfor %}
+                    </select>
+                    <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-rose-500 transition-colors">
+                        <i class="fas fa-chevron-down text-[10px]"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                    <label for="quiz" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Link a Pre-built Quiz (Optional)</label>
                     <div class="relative group">
-                        <select name="quiz" id="quiz" required
+                        <select name="quiz" id="quiz"
                                 class="w-full h-12 pl-4 pr-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none appearance-none focus:ring-2 focus:ring-rose-500 transition-all">
-                            <option value="">Choose a Quiz</option>
+                            <option value="">No linked quiz (Manual Selection)</option>
                             {% for q in quizzes %}
                             <option value="{{ q.id }}">{{ q.title }} ({{ q.subject.name }})</option>
                             {% endfor %}
                         </select>
                         <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none group-hover:text-rose-500"></i>
                     </div>
+                    <p class="text-[10px] text-slate-400 font-medium mt-1.5 px-1 truncate">Linking a quiz will pull all its questions automatically.</p>
                 </div>
 
                 <div>
-                    <label for="target_class" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assign to Class</label>
+                    <label for="target_class" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Select Target Classes</label>
                     <div class="relative group">
-                        <select name="target_class" id="target_class" required
-                                class="w-full h-12 pl-4 pr-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none appearance-none focus:ring-2 focus:ring-rose-500 transition-all">
-                            <option value="">Choose a Class</option>
+                        <select name="target_class" id="target_class" required multiple
+                                class="w-full min-h-[120px] p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all custom-scrollbar">
                             {% for c in classes %}
-                            <option value="{{ c.id }}">{{ c.name }} ({{ c.school.name }})</option>
+                            <option value="{{ c.id }}" class="py-1 px-2 rounded-lg mb-1">{{ c.name }} - {{ c.grade.name }} ({{ c.school.name }})</option>
                             {% endfor %}
                         </select>
-                        <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none group-hover:text-rose-500"></i>
                     </div>
                 </div>
             </div>
 
-            <div>
-                <label for="due_date" class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Due Date (Optional)</label>
-                <input type="datetime-local" name="due_date" id="due_date"
-                       class="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div class="space-y-4">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2rem] mb-4">Assessment Rules</h3>
+                    
+                    <div>
+                        <label for="time_limit_minutes" class="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Time Limit (Min)</label>
+                        <input type="number" name="time_limit_minutes" id="time_limit_minutes" value="0" min="0"
+                               class="w-full h-11 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all font-bold">
+                        <p class="text-[9px] text-slate-400 font-medium mt-1 px-1">Set 0 for unlimited time.</p>
+                    </div>
+
+                    <div>
+                        <label for="max_attempts" class="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Max Attempts</label>
+                        <input type="number" name="max_attempts" id="max_attempts" value="1" min="0"
+                               class="w-full h-11 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all font-bold">
+                        <p class="text-[9px] text-slate-400 font-medium mt-1 px-1">Set 0 for unlimited attempts.</p>
+                    </div>
+
+                    <div>
+                        <label for="pass_percentage" class="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Pass Benchmark (%)</label>
+                        <input type="number" name="pass_percentage" id="pass_percentage" value="50" min="0" max="100"
+                               class="w-full h-11 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all font-bold">
+                    </div>
+
+                    <div class="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <input type="checkbox" name="shuffle_questions" id="shuffle_questions"
+                               class="w-4 h-4 text-rose-500 border-slate-300 rounded focus:ring-rose-500">
+                        <label for="shuffle_questions" class="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">Shuffle Questions</label>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2rem] mb-4">Availability</h3>
+                    
+                    <div>
+                        <label for="available_from" class="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Open Date</label>
+                        <input type="datetime-local" name="available_from" id="available_from"
+                               class="w-full h-11 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500 transition-all">
+                    </div>
+
+                    <div>
+                        <label for="available_until" class="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Close Date</label>
+                        <input type="datetime-local" name="available_until" id="available_until"
+                               class="w-full h-11 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500 transition-all">
+                    </div>
+
+                    <div>
+                        <label for="due_date" class="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Recommended Deadline</label>
+                        <input type="datetime-local" name="due_date" id="due_date"
+                               class="w-full h-11 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500 transition-all">
+                    </div>
+                </div>
             </div>
 
             <div class="pt-4 flex gap-3">

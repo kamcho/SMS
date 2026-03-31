@@ -17,6 +17,7 @@ from decimal import Decimal
 from accounts.models import Payment, FeeStructure, Invoice, AdditionalCharges
 from communication.models import Notification, PaymentNotification
 from django.views.generic import TemplateView
+from e_learning.models import Assignment
 
 class DashboardView(LoginRequiredMixin, ListView):
     model = Student
@@ -38,13 +39,16 @@ class DashboardView(LoginRequiredMixin, ListView):
     
     def get_queryset(self):
         queryset = Student.objects.all().select_related('studentprofile__school').order_by('-joined_date')
-        query = self.request.GET.get('q')
+        query = self.request.GET.get('q', '').strip()
         if query:
-            queryset = queryset.filter(
-                Q(first_name__icontains=query) | 
-                Q(last_name__icontains=query) | 
-                Q(adm_no__icontains=query)
-            )
+            query_parts = query.split()
+            for part in query_parts:
+                queryset = queryset.filter(
+                    Q(first_name__icontains=part) | 
+                    Q(middle_name__icontains=part) | 
+                    Q(last_name__icontains=part) | 
+                    Q(adm_no__icontains=part)
+                )
         return queryset[:7]
 
     def get_context_data(self, **kwargs):
@@ -208,6 +212,7 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
     
     def get_context_data(self, **kwargs):
         from Exam.models import Exam
+        from e_learning.models import Assignment
         context = super().get_context_data(**kwargs)
         
         # Get all class & subject assignments for this teacher
@@ -318,6 +323,12 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
         context['female_count'] = female_count
         context['recent_attendance'] = attendance_summary
         context['school_name'] = school_name
+        
+        # Homework/Assignments created by this teacher
+        from django.db.models import Q
+        context['teacher_homework'] = Assignment.objects.filter(
+            Q(quiz__created_by=self.request.user) | Q(created_by=self.request.user)
+        ).distinct().prefetch_related('target_class').select_related('quiz__subject').order_by('-created_at')[:8]
         # Determine active exam: prioritize ExamMode, fall back to latest running exam
         exam_mode = ExamMode.objects.select_related('exam').first()
         active_exam = None
@@ -389,13 +400,18 @@ class StudentsListView(LoginRequiredMixin, ListView):
         queryset = Student.objects.all().order_by('first_name', 'last_name')
         
         # Get search query
-        query = self.request.GET.get('q')
+        query = self.request.GET.get('q', '').strip()
         if query:
-            queryset = queryset.filter(
-                Q(first_name__icontains=query) | 
-                Q(last_name__icontains=query) | 
-                Q(adm_no__icontains=query)
-            )
+            # Allow searching for multiple name parts (e.g. "Onchiri Anyona")
+            # Each part should appear in at least ONE of the fields (AND logic between parts)
+            query_parts = query.split()
+            for part in query_parts:
+                queryset = queryset.filter(
+                    Q(first_name__icontains=part) | 
+                    Q(middle_name__icontains=part) | 
+                    Q(last_name__icontains=part) | 
+                    Q(adm_no__icontains=part)
+                )
         
         # Filter by school if user is linked to one and is not a superuser
         if not self.request.user.is_superuser and self.request.user.school:
@@ -1547,11 +1563,11 @@ class ClassesListView(LoginRequiredMixin, ListView):
         return redirect('core:classes-list')
     
     def get_queryset(self):
-        queryset = Class.objects.all().select_related('grade', 'grade__school')
+        queryset = Class.objects.all().select_related('grade', 'school')
         
         # Filter by school if user is linked to one
-        if self.request.user.school:
-            queryset = queryset.filter(grade__school=self.request.user.school)
+        if hasattr(self.request.user, 'school') and self.request.user.school:
+            queryset = queryset.filter(school=self.request.user.school)
         elif not self.request.user.is_superuser:
             # Non-admins without a linked school might see nothing or get an error
             # For now, let's keep them scoped to empty if no school is found
@@ -1561,7 +1577,7 @@ class ClassesListView(LoginRequiredMixin, ListView):
         if self.request.user.is_superuser:
             school_id = self.request.GET.get('school')
             if school_id:
-                queryset = queryset.filter(grade__school_id=school_id)
+                queryset = queryset.filter(school_id=school_id)
         
         # Filter by grade if specified
         grade_id = self.request.GET.get('grade')
@@ -1640,7 +1656,7 @@ class ClassesListView(LoginRequiredMixin, ListView):
         if not self.request.user.is_superuser:
             try:
                 user_school = self.request.user.profile.school
-                att_sessions = att_sessions.filter(class_id__grade__school=user_school)
+                att_sessions = att_sessions.filter(class_id__school=user_school)
             except AttributeError:
                 pass
         
@@ -1686,6 +1702,12 @@ class ClassesListView(LoginRequiredMixin, ListView):
         from users.models import MyUser
         context['teachers'] = MyUser.objects.filter(role='Teacher', is_active=True).order_by('first_name', 'last_name')
         
+        # Recent Student Assignments
+        queryset = self.get_queryset()
+        context['recent_assignments'] = Assignment.objects.filter(
+            target_class__in=queryset
+        ).select_related('target_class', 'quiz__subject').order_by('-created_at')[:5]
+
         return context
 
 
@@ -1730,15 +1752,12 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
         return redirect('core:class-detail', pk=kwargs.get('pk'))
     
     def get_queryset(self):
-        queryset = Class.objects.all().select_related('grade', 'grade__school')
+        queryset = Class.objects.all().select_related('grade', 'school')
         
         # Filter by school if user is not admin
         if not self.request.user.is_superuser:
-            try:
-                user_school = self.request.user.profile.school
-                queryset = queryset.filter(grade__school=user_school)
-            except AttributeError:
-                pass
+            if hasattr(self.request.user, 'school') and self.request.user.school:
+                queryset = queryset.filter(school=self.request.user.school)
         
         return queryset
     
@@ -4432,7 +4451,7 @@ class AttendanceAnalyticsView(LoginRequiredMixin, TemplateView):
         # 3. Analytics for the selected range
         sessions = AttendanceSession.objects.filter(date__gte=date_from, date__lte=date_to)
         if school:
-            sessions = sessions.filter(class_id__grade__school=school)
+            sessions = sessions.filter(class_id__school=school)
             
         stats = StudentAttendance.objects.filter(session__in=sessions).aggregate(
             present=Count("id", filter=Q(status="Present")),
@@ -4463,9 +4482,9 @@ class AttendanceAnalyticsView(LoginRequiredMixin, TemplateView):
         context["non_present_students"] = non_present_records
         
         # 5. Classes with missing attendance for target_date
-        all_classes = Class.objects.all().select_related("grade__school")
+        all_classes = Class.objects.all().select_related("grade", "school")
         if school:
-            all_classes = all_classes.filter(grade__school=school)
+            all_classes = all_classes.filter(school=school)
             
         marked_classes_ids = sessions.filter(date=target_date).values_list("class_id_id", flat=True)
         missing_attendance_classes = all_classes.exclude(id__in=marked_classes_ids)

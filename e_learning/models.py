@@ -331,16 +331,144 @@ class Assignment(models.Model):
     """Specific instance of a Quiz assigned to a Class"""
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='assignments')
-    target_class = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='assignments')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='assignments', null=True, blank=True)
+    quiz = models.ForeignKey(Quiz, on_delete=models.SET_NULL, related_name='assignments', null=True, blank=True)
+    target_class = models.ManyToManyField(Class, related_name='assignments')
     due_date = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name='created_assignments')
+    questions = models.ManyToManyField(Question, blank=True, related_name='assignments')
+    
+    # Configuration fields for standalone assignments
+    time_limit_minutes = models.PositiveIntegerField(default=0, help_text="0 = unlimited")
+    max_attempts = models.PositiveIntegerField(default=1, help_text="0 = unlimited")
+    pass_percentage = models.PositiveIntegerField(default=50)
+    shuffle_questions = models.BooleanField(default=False)
+    available_from = models.DateTimeField(null=True, blank=True)
+    available_until = models.DateTimeField(null=True, blank=True)
+    
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.title} ({self.target_class.name})"
+        return f"{self.title}"
 
+    @property
+    def is_available(self):
+        """Check if assignment is currently available for students"""
+        now = timezone.now()
+        if not self.is_active:
+            return False
+        if self.available_from and now < self.available_from:
+            return False
+        if self.available_until and now > self.available_until:
+            return False
+        return True
+
+
+class AssignmentAttempt(models.Model):
+    """Tracks each time a student takes an assignment"""
+    STATUS_CHOICES = (
+        ('in_progress', 'In Progress'),
+        ('submitted', 'Submitted'),
+        ('graded', 'Graded'),
+        ('timed_out', 'Timed Out'),
+    )
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name='attempts')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='assignment_attempts')
+    attempt_number = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_progress')
+    started_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    total_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    total_possible = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    passed = models.BooleanField(default=False)
+    ai_grading_complete = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ['assignment', 'student', 'attempt_number']
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"{self.student} - {self.assignment.title} (Attempt {self.attempt_number})"
+
+    @property
+    def is_timed_out(self):
+        """Check if this attempt has exceeded the time limit"""
+        if self.assignment.time_limit_minutes == 0:
+            return False
+        if self.status in ('submitted', 'graded', 'timed_out'):
+            return True
+        elapsed = (timezone.now() - self.started_at).total_seconds() / 60
+        return elapsed > self.assignment.time_limit_minutes
+
+    @property
+    def time_remaining_seconds(self):
+        """Seconds remaining for this attempt"""
+        if self.assignment.time_limit_minutes == 0:
+            return None
+        elapsed = (timezone.now() - self.started_at).total_seconds()
+        remaining = (self.assignment.time_limit_minutes * 60) - elapsed
+        return max(0, int(remaining))
+
+    def calculate_score(self):
+        answers = self.answers.all()
+        self.total_score = sum(a.score_awarded for a in answers)
+        self.total_possible = sum(q.marks for q in self.assignment.questions.all())
+        if self.total_possible > 0:
+            self.percentage = (self.total_score / self.total_possible) * 100
+        else:
+            self.percentage = 0
+            
+        pass_pct = self.assignment.pass_percentage
+        self.passed = self.percentage >= pass_pct
+        ungraded = answers.filter(
+            question__question_type='short_answer',
+            is_graded=False
+        ).exists()
+        self.ai_grading_complete = not ungraded
+        if self.ai_grading_complete and self.status == 'submitted':
+            self.status = 'graded'
+        self.save()
+
+
+class AssignmentAnswer(models.Model):
+    """Individual student answer within an assignment attempt"""
+    attempt = models.ForeignKey(AssignmentAttempt, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='assignment_answers')
+    selected_option = models.ForeignKey(Option, on_delete=models.SET_NULL,
+                                        null=True, blank=True, related_name='assignment_selections')
+    text_answer = models.TextField(blank=True, null=True)
+    score_awarded = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    is_graded = models.BooleanField(default=False)
+    ai_feedback = models.TextField(blank=True, null=True)
+    ai_confidence = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    answered_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['attempt', 'question']
+
+    def __str__(self):
+        return f"{self.attempt.student} → {self.question.question[:30]}"
+
+    def auto_grade(self):
+        if self.question.question_type == 'multiple_choice' and self.selected_option:
+            if self.selected_option.is_correct:
+                self.score_awarded = self.question.marks
+            else:
+                self.score_awarded = 0
+            self.is_graded = True
+            self.save()
+
+    def save(self, *args, **kwargs):
+        if self.question.question_type == 'multiple_choice' and self.selected_option and not self.is_graded:
+            if self.selected_option.is_correct:
+                self.score_awarded = self.question.marks
+            else:
+                self.score_awarded = 0
+            self.is_graded = True
+        super().save(*args, **kwargs)

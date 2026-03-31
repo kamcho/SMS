@@ -156,19 +156,17 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-50/50 border-b border-slate-100">
-                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest w-16">S/N</th>
-                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Info</th>
-                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:table-cell">Reg No</th>
-                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:table-cell">Gender</th>
-                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">School</th>
-                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Class</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest w-16 text-center">S/N</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student identity</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:table-cell text-center">Gender</th>
+                        <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Level & School</th>
                         <th class="py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     {% for student in students %}
                     <tr class="hover:bg-slate-50/50 transition-colors group">
-                        <td class="py-5 px-8 whitespace-nowrap">
+                        <td class="py-5 px-8 whitespace-nowrap text-center">
                             <span class="text-[11px] font-black text-slate-300 group-hover:text-indigo-600 transition-colors">
                                 {{ page_obj.start_index|add:forloop.counter0|stringformat:"02d" }}
                             </span>
@@ -178,46 +176,46 @@
                                 <div class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-sm font-black text-indigo-600 border border-indigo-100 shadow-sm transition-transform group-hover:scale-110">
                                     {{ student.first_name|first }}{{ student.last_name|first }}
                                 </div>
-                                <div>
-                                    <p class="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{{ student.first_name }} {{ student.last_name }}</p>
-                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider md:hidden">{{ student.adm_no }}</p>
+                                <div class="space-y-1">
+                                    <p class="text-[13px] font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{{ student.first_name }} {{ student.middle_name|default:"" }} {{ student.last_name }}</p>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[9px] font-black text-indigo-500 bg-indigo-50/50 px-2 py-0.5 rounded-lg border border-indigo-100/50">{{ student.adm_no }}</span>
+                                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest lg:hidden">• {{ student.gender|title }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </td>
-                        <td class="py-5 px-8 hidden md:table-cell">
-                            <span class="text-xs font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">{{ student.adm_no }}</span>
-                        </td>
-                        <td class="py-5 px-8 hidden lg:table-cell">
+                        <td class="py-5 px-8 hidden lg:table-cell text-center">
                             <span class="inline-flex items-center gap-1.5 text-[10px] font-black {% if student.gender == 'male' %}text-sky-600 bg-sky-50{% else %}text-rose-600 bg-rose-50{% endif %} px-3 py-1.5 rounded-xl uppercase tracking-wider">
                                 <i class="fas {% if student.gender == 'male' %}fa-mars{% else %}fa-venus{% endif %} mt-0.5"></i>
                                 {{ student.get_gender_display|default:student.gender|title }}
                             </span>
                         </td>
                         <td class="py-5 px-8">
-                            <p class="text-xs font-bold text-slate-700 truncate max-w-[150px]">{{ student.studentprofile.school.name|default:"Excel Academy" }}</p>
-                        </td>
-                        <td class="py-5 px-8">
-                            <div class="flex flex-col gap-1.5">
-                                <span class="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl tracking-tight text-center">
-                                    {% if student.studentprofile.class_id %}
-                                        {{ student.studentprofile.class_id.grade.name }} - {{ student.studentprofile.class_id.name }}
-                                    {% else %}
-                                        GRADUATED
+                            <div class="space-y-1.5">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-xl tracking-tight">
+                                        {% if student.studentprofile.class_id %}
+                                            {{ student.studentprofile.class_id.grade.name }} - {{ student.studentprofile.class_id.name }}
+                                        {% else %}
+                                            GRADUATED
+                                        {% endif %}
+                                    </span>
+                                    {% if student.studentprofile.status != 'Active' %}
+                                    <span class="text-[8px] font-black px-2 py-0.5 rounded-lg uppercase tracking-widest
+                                        {% if student.studentprofile.status == 'Graduated' %}bg-emerald-100 text-emerald-700
+                                        {% elif student.studentprofile.status == 'Transferred' %}bg-amber-100 text-amber-700
+                                        {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                        {{ student.studentprofile.status }}
+                                    </span>
                                     {% endif %}
-                                </span>
-                                {% if student.studentprofile.status != 'Active' %}
-                                <span class="text-[9px] font-black px-2 py-0.5 rounded-lg uppercase tracking-widest text-center
-                                    {% if student.studentprofile.status == 'Graduated' %}bg-emerald-100 text-emerald-700
-                                    {% elif student.studentprofile.status == 'Transferred' %}bg-amber-100 text-amber-700
-                                    {% else %}bg-slate-100 text-slate-700{% endif %}">
-                                    {{ student.studentprofile.status }}
-                                </span>
-                                {% endif %}
+                                </div>
+                                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] px-1">{{ student.studentprofile.school.name|default:"Excel Academy" }}</p>
                             </div>
                         </td>
                         <td class="py-5 px-8 text-right">
-                            <a href="{% url 'core:student-detail' student.pk %}" class="inline-flex py-3 px-6 bg-white text-indigo-600 border border-indigo-100 rounded-2xl hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:-translate-y-1 transition-all text-xs font-black shadow-sm">
-                                View Profile
+                            <a href="{% url 'core:student-detail' student.pk %}" class="inline-flex py-3 px-6 bg-white text-indigo-600 border border-indigo-100 rounded-2xl hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:-translate-y-1 transition-all text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                Profile
                             </a>
                         </td>
                     </tr>

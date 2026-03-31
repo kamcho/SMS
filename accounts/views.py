@@ -158,11 +158,14 @@ class PaymentListView(LoginRequiredMixin, ListView):
         method = self.request.GET.get('method')
 
         if query:
-            queryset = queryset.filter(
-                Q(student__first_name__icontains=query) | 
-                Q(student__last_name__icontains=query) | 
-                Q(student__adm_no__icontains=query)
-            )
+            query_parts = query.strip().split()
+            for part in query_parts:
+                queryset = queryset.filter(
+                    Q(student__first_name__icontains=part) | 
+                    Q(student__middle_name__icontains=part) | 
+                    Q(student__last_name__icontains=part) | 
+                    Q(student__adm_no__icontains=part)
+                )
         
         if school_id:
             queryset = queryset.filter(student__studentprofile__school_id=school_id)
