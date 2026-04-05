@@ -390,10 +390,18 @@ class TeacherDashboardView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class StudentsListView(LoginRequiredMixin, ListView):
+class StudentsListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = Student
     template_name = 'core/students_list.html'
     context_object_name = 'students'
+    
+    def test_func(self):
+        # Admin, Receptionist, and Headteacher only
+        return (
+            self.request.user.is_superuser or 
+            self.request.user.role in ['Admin', 'Receptionist'] or 
+            self.request.user.is_headteacher
+        )
     paginate_by = 100
     
     def get_queryset(self):
@@ -1380,6 +1388,7 @@ class StudentDetailView(DetailView):
         context['auxiliary_charges'] = AuxiliaryCharge.objects.filter(
             student=self.object
         ).select_related('service_type').prefetch_related('payments').order_by('-created_at')
+        context['aux_balance'] = context['auxiliary_charges'].aggregate(Sum('balance'))['balance__sum'] or 0
         
         # Data for Subject Performance Chart (Progress Bars & Radar)
         context['subject_names'] = [score.subject.name for score in scores]
@@ -1494,6 +1503,21 @@ class StudentDetailView(DetailView):
         # Financial Summary
         context['total_paid'] = context['payments'].aggregate(Sum('amount'))['amount__sum'] or 0
 
+        # Determine if the user can see fee/financial sections
+        # Authorized: Admins, Headmasters, Secretary (Receptionist), and linked Guardians
+        context['is_linked_guardian'] = self.request.user in context['guardians']
+        context['can_view_fees'] = (
+            self.request.user.is_superuser or 
+            self.request.user.role == 'Admin' or 
+            self.request.user.is_headteacher or 
+            self.request.user.role == 'Receptionist' or
+            context['is_linked_guardian']
+        )
+        
+        # Receptionist Role Check for Status Editing
+        context['can_edit_status'] = self.request.user.role == 'Receptionist' or self.request.user.is_superuser
+        context['fee_categories'] = Student.FEE_CATEGORIES
+
         return context
 
 
@@ -1507,10 +1531,10 @@ class ClassesListView(LoginRequiredMixin, ListView):
         action = request.POST.get('action')
         
         if action == 'assign_invigilator':
-            # Only superusers, admins, and exam officers can assign invigilators
-            if not request.user.is_superuser and not (hasattr(request.user, 'role') and request.user.role == 'Admin' or request.user.is_exam_officer):
+            # Role check: ONLY Exam Manager or Exam Officer
+            if not (request.user.is_exam_manager or request.user.is_exam_officer):
                 from django.contrib import messages
-                messages.error(request, "Only administrators and exam officers can assign invigilators.")
+                messages.error(request, "Only exam managers and exam officers can assign invigilators.")
                 return redirect('core:classes-list')
                 
             class_id = request.POST.get('class_id')
@@ -1534,10 +1558,10 @@ class ClassesListView(LoginRequiredMixin, ListView):
                     messages.error(request, f"Error assigning invigilator: {str(e)}")
                     
         elif action == 'assign_class_teacher':
-            # Only superusers, admins, and head teachers can assign class teachers
-            if not request.user.is_superuser and not (hasattr(request.user, 'role') and request.user.role == 'Admin' or request.user.is_headteacher):
+            # Role check: ONLY Headteacher
+            if not request.user.is_headteacher:
                 from django.contrib import messages
-                messages.error(request, "Only administrators and head teachers can assign class teachers.")
+                messages.error(request, "Only head teachers can assign class teachers.")
                 return redirect('core:classes-list')
                 
             class_id = request.POST.get('class_id')
@@ -1565,15 +1589,11 @@ class ClassesListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         queryset = Class.objects.all().select_related('grade', 'school')
         
-        # Filter by school if user is linked to one
-        if hasattr(self.request.user, 'school') and self.request.user.school:
+        # Filter by school if user is linked to one and is not a superuser
+        if not self.request.user.is_superuser and self.request.user.school:
             queryset = queryset.filter(school=self.request.user.school)
-        elif not self.request.user.is_superuser:
-            # Non-admins without a linked school might see nothing or get an error
-            # For now, let's keep them scoped to empty if no school is found
-            queryset = queryset.none()
         
-        # Filter by school if specified (admin only)
+        # Filter by school if specified in GET (available for superusers)
         if self.request.user.is_superuser:
             school_id = self.request.GET.get('school')
             if school_id:
@@ -1594,6 +1614,16 @@ class ClassesListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_query'] = self.request.GET.get('q', '')
+        
+        # Identify which school is being viewed for the header
+        school_id = self.request.GET.get('school')
+        if not self.request.user.is_superuser and self.request.user.school:
+            context['school_viewing'] = self.request.user.school
+        elif school_id:
+            from .models import School
+            context['school_viewing'] = School.objects.filter(id=school_id).first()
+        else:
+            context['school_viewing'] = None
         
         if self.request.user.is_superuser:
             context['schools'] = School.objects.all()
@@ -1706,7 +1736,7 @@ class ClassesListView(LoginRequiredMixin, ListView):
         queryset = self.get_queryset()
         context['recent_assignments'] = Assignment.objects.filter(
             target_class__in=queryset
-        ).select_related('target_class', 'quiz__subject').order_by('-created_at')[:5]
+        ).select_related('quiz__subject').order_by('-created_at')[:5]
 
         return context
 
@@ -1813,7 +1843,9 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
             # Fetch all subjects for this grade
             # Subject model has a 'grade' charfield (e.g. 'Grade 1', 'Grade 2')
             grade_name = self.object.grade.name
-            subjects = Subject.objects.filter(grade=grade_name).order_by('name')
+            # If the grade name starts with "Grade ", also check for the number alone
+            grade_query = grade_name.replace("Grade ", "").strip()
+            subjects = Subject.objects.filter(Q(grade__icontains=grade_name) | Q(grade=grade_query)).order_by('name')
             
             # Get current assignments for this class
             class_assignments = TeacherClassProfile.objects.filter(
@@ -1884,20 +1916,28 @@ class ClassDetailView(LoginRequiredMixin, DetailView):
 
 
 def configurations(request):
-    if not request.user.is_superuser and hasattr(request.user, 'role') and request.user.role != 'Admin':
+    if not request.user.is_superuser and request.user.role not in ['Admin', 'Receptionist']:
         messages.error(request, 'You do not have permission to access configurations.')
         return redirect('core:dashboard')
+    
+    # Superusers see everything, others may be restricted by school
+    user_school = request.user.school if not request.user.is_superuser else None
     
     context = {
         'academic_years': AcademicYear.objects.all().order_by('-start_date'),
         'terms': Term.objects.all().order_by('id'),
         'grades': Grade.objects.all().order_by('name'),
-        'classes': Class.objects.all().select_related('school', 'grade').order_by('grade__name', 'name'),
         'exams': Exam.objects.all().select_related('year', 'term').order_by('-year__start_date', 'term__name'),
         'exam_modes': ExamMode.objects.all(),
-        'schools': School.objects.all(),
-        'fee_structures': FeeStructure.objects.all().select_related('term').prefetch_related('grade'),
+        'schools': School.objects.filter(id=user_school.id) if user_school else School.objects.all(),
     }
+    
+    if user_school:
+        context['classes'] = Class.objects.filter(school=user_school).select_related('school', 'grade').order_by('grade__name', 'name')
+        context['fee_structures'] = FeeStructure.objects.filter(school=user_school).select_related('term').prefetch_related('grade')
+    else:
+        context['classes'] = Class.objects.all().select_related('school', 'grade').order_by('grade__name', 'name')
+        context['fee_structures'] = FeeStructure.objects.all().select_related('term').prefetch_related('grade')
     
     # Get forms for each model
     context['academic_year_form'] = AcademicYearForm()
@@ -1911,9 +1951,13 @@ def configurations(request):
     from accounts.models import AdditionalCharges, AuxiliaryServiceType
     context['fee_structure_form'] = FeeStructureForm()
     context['additional_charge_form'] = AdditionalChargesForm()
-    context['additional_charges'] = AdditionalCharges.objects.all().select_related('school', 'term').prefetch_related('grades')
+    if user_school:
+        context['additional_charges'] = AdditionalCharges.objects.filter(school=user_school).select_related('school', 'term').prefetch_related('grades')
+        context['auxiliary_service_types'] = AuxiliaryServiceType.objects.filter(school=user_school).select_related('school').prefetch_related('grades')
+    else:
+        context['additional_charges'] = AdditionalCharges.objects.all().select_related('school', 'term').prefetch_related('grades')
+        context['auxiliary_service_types'] = AuxiliaryServiceType.objects.all().select_related('school').prefetch_related('grades')
     context['auxiliary_service_type_form'] = AuxiliaryServiceTypeForm()
-    context['auxiliary_service_types'] = AuxiliaryServiceType.objects.all().select_related('school').prefetch_related('grades')
     
     return render(request, 'core/configurations.html', context)
 
@@ -4821,3 +4865,26 @@ def migrate_year(request):
         'academic_years': academic_years,
         'classes': classes
     })
+
+@login_required
+def update_student_status(request, pk):
+    if request.user.role != 'Receptionist' and not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Strict Role Check Failed: Only Receptionists can edit these status fields.'}, status=403)
+    
+    student = get_object_or_404(Student, pk=pk)
+    if request.method == 'POST':
+        is_boarder = request.POST.get('is_boarder') == 'true'
+        fee_category = request.POST.get('fee_category')
+        
+        valid_categories = [cat[0] for cat in Student.FEE_CATEGORIES]
+        if fee_category not in valid_categories:
+            return JsonResponse({'success': False, 'error': f'Invalid fee category: {fee_category}'}, status=400)
+            
+        student.is_boarder = is_boarder
+        student.fee_category = fee_category
+        student.save()
+        
+        messages.success(request, f'Updated status for {student.get_full_name()} successfully.')
+        return JsonResponse({'success': True, 'message': 'Status updated successfully'})
+        
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)

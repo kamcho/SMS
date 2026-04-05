@@ -83,8 +83,28 @@
         </div>
 
         <nav class="flex-grow mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar shadow-inner pb-20">
-            <!-- RESTRICTED TEACHERS: Simple Sidebar -->
-            {% if user.role == 'Teacher' and not user.is_exam_manager and not user.is_exam_officer and not user.is_headteacher and not user.is_superuser %}
+            {% if user.role == 'Teacher' and user.students.exists %}
+            <div class="dropdown-group">
+                <button class="dropdown-toggle menu-item w-full" data-group="teacher_students">
+                    <i class="fas fa-user-friends w-5 text-lg opacity-70"></i>
+                    <span>Linked Students</span>
+                    <i class="fas fa-chevron-right ml-auto text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div class="dropdown-content overflow-hidden transition-all duration-300 max-h-0">
+                    <div class="pl-11 py-1 space-y-1">
+                        {% for student in user.students.all %}
+                        <a href="{% url 'core:student-detail' student.id %}" 
+                           class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-400 hover:bg-white/5 hover:text-white transition-all {% if student.id|stringformat:'i' in request.path %}bg-white/5 text-white{% endif %}">
+                            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></div>
+                            <span class="truncate">{{ student.get_full_name }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if user.role == 'Teacher' and not user.is_headteacher %}
                 <div class="space-y-1">
                     <a href="{% url 'core:teacher-dashboard' %}" class="menu-item {% if request.resolver_match.url_name == 'teacher-dashboard' %}active{% endif %}">
                         <i class="fas fa-th-large w-5 text-lg opacity-70"></i>
@@ -92,23 +112,32 @@
                     </a>
                     <a href="{% url 'core:schools-analytics' %}" class="menu-item {% if 'schools-analytics' in request.path %}active{% endif %}">
                         <i class="fas fa-chart-line w-5 text-lg opacity-70"></i>
-                        <span>Schools Analytics</span>
+                        <span>School Analytics</span>
                     </a>
                     <a href="{% url 'core:classes-list' %}" class="menu-item {% if 'classes' in request.path %}active{% endif %}">
                         <i class="fas fa-graduation-cap w-5 text-lg opacity-70"></i>
                         <span>Classes</span>
                     </a>
-                    <a href="{% url 'e_learning:quiz_list' %}" class="menu-item {% if 'e-learning/quizzes' in request.path %}active{% endif %}">
+                    {% if user.is_exam_manager or user.is_exam_officer %}
+                    <a href="{% url 'Exam:exam-list' %}" class="menu-item {% if 'exam-list' in request.path %}active{% endif %}">
+                        <i class="fas fa-file-invoice w-5 text-lg opacity-70"></i>
+                        <span>Exams List</span>
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'e_learning:quiz_list' %}" class="menu-item {% if 'e-learning' in request.path %}active{% endif %}">
                         <i class="fas fa-laptop-code w-5 text-lg opacity-70"></i>
                         <span>E-Learning</span>
                     </a>
                 </div>
-            <!-- GUARDIANS: Simple Sidebar -->
             {% elif user.role == 'Guardian' %}
                 <div class="space-y-1">
                     <a href="{% url 'core:guardian-dashboard' %}" class="menu-item {% if 'guardian/dashboard' in request.path %}active{% endif %}">
                         <i class="fas fa-user-shield w-5 text-lg opacity-70"></i>
                         <span>Dashboard</span>
+                    </a>
+                    <a href="{% url 'core:classes-list' %}" class="menu-item {% if 'classes' in request.path %}active{% endif %}">
+                        <i class="fas fa-graduation-cap w-5 text-lg opacity-70"></i>
+                        <span>Classes</span>
                     </a>
                     <div class="dropdown-group">
                         <button class="dropdown-toggle menu-item w-full" data-group="elearning_guardian">
@@ -133,7 +162,7 @@
                     </div>
                 </div>
             {% else %}
-            <!-- FULL ACCESS USERS (Admins, Managers, Guardians etc) -->
+            <!-- FULL ACCESS USERS -->
             <!-- Overview Group -->
             <div class="dropdown-group">
                 <button class="dropdown-toggle menu-item w-full" data-group="overview">
@@ -146,15 +175,17 @@
                         <a href="{% if user.role == 'Teacher' %}{% url 'core:teacher-dashboard' %}{% else %}{% url 'core:dashboard' %}{% endif %}" class="menu-item py-2 text-sm {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'teacher-dashboard' %}active{% endif %}">
                             Dashboard
                         </a>
+                        {% if user.role == 'Admin' or user.is_superuser %}
                         <a href="{% url 'core:reports' %}" class="menu-item py-2 text-sm {% if 'reports' in request.path %}active{% endif %}">
                             System Reports
                         </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
 
             <!-- System Control Group (Admin or Managers Only) -->
-            {% if user.role == 'Admin' or user.is_superuser or user.role == 'Teacher' %}
+            {% if user.role == 'Admin' or user.is_superuser or user.role == 'Teacher' and user.is_headteacher or user.role == 'Teacher' and user.is_exam_manager or user.role == 'Teacher' and user.is_exam_officer %}
             <div class="dropdown-group">
                 <button class="dropdown-toggle menu-item w-full" data-group="system">
                     <i class="fas fa-sliders-h w-5 text-lg"></i>
@@ -173,7 +204,7 @@
                             Schools Analytics
                         </a>
 
-                        {% if user.role == 'Admin' or user.is_superuser %}
+                        {% if user.role == 'Admin' or user.role == 'Receptionist' or user.is_superuser %}
                         <a href="{% url 'users:create-user' %}" class="menu-item py-2 text-sm {% if 'create-user' in request.path %}active{% endif %}">
                             Create User
                         </a>
@@ -184,7 +215,7 @@
             {% endif %}
 
             <!-- Academic Group (Admin, Teacher, Receptionist) -->
-            {% if user.role != 'Guardian' %}
+            {% if user.role == 'Admin' or user.is_superuser or user.role == 'Teacher' and user.is_headteacher or user.role == 'Receptionist' %}
             <div class="dropdown-group">
                 <button class="dropdown-toggle menu-item w-full" data-group="academic">
                     <i class="fas fa-graduation-cap w-5 text-lg"></i>
@@ -282,6 +313,7 @@
             {% endif %}
 
             <!-- E-Learning Section -->
+            {% if user.role == 'Admin' or user.is_superuser or user.role == 'Teacher' and user.is_headteacher or user.role == 'Teacher' and user.is_exam_manager or user.role == 'Teacher' and user.is_exam_officer or user.role == 'Guardian' %}
             <div class="dropdown-group">
                 <button class="dropdown-toggle menu-item w-full" data-group="elearning">
                     <i class="fas fa-laptop-code w-5 text-lg"></i>
@@ -318,6 +350,7 @@
                 </div>
             </div>
 
+            {% endif %}
             {% endif %}
         </nav>
 

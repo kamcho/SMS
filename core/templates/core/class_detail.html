@@ -267,9 +267,9 @@
         <!-- Teacher Management Widget -->
         <div class="bg-white rounded-[14px] p-6 border border-slate-200 shadow-sm flex flex-col flex-grow">
             <h3 class="text-[15px] font-bold text-slate-800 mb-4">Teacher Assignments</h3>
-            <div class="overflow-y-auto pr-2 custom-scrollbar h-24 flex-grow mb-4">
+            <div class="overflow-y-auto pr-2 custom-scrollbar h-48 flex-grow mb-4">
                 <div class="space-y-3">
-                    {% for item in subject_teacher_list|slice:":3" %}
+                    {% for item in subject_teacher_list %}
                     <div class="flex items-center justify-between">
                         <span class="text-[12px] font-bold text-slate-700">{{ item.subject.name|truncatechars:18 }}</span>
                         {% if item.teacher %}

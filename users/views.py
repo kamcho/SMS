@@ -13,10 +13,12 @@ class UserCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     success_url = reverse_lazy('users:create-user')
 
     def test_func(self):
-        # Only Admins or superusers can create users here
-        return self.request.user.role == 'Admin' or self.request.user.is_superuser
+        # Only Admins, Superusers or Receptionists can create users here
+        return self.request.user.role in ['Admin', 'Receptionist'] or self.request.user.is_superuser
 
     def form_valid(self, form):
+        if self.request.user.school:
+            form.instance.school = self.request.user.school
         messages.success(self.request, f"User {form.cleaned_data.get('email')} created successfully.")
         return super().form_valid(form)
 
@@ -43,8 +45,8 @@ class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     success_url = reverse_lazy('users:create-user')
 
     def test_func(self):
-        # Only Admins or superusers can update users here
-        return self.request.user.role == 'Admin' or self.request.user.is_superuser
+        # Only Admins, Superusers or Receptionists can update users here
+        return self.request.user.role in ['Admin', 'Receptionist'] or self.request.user.is_superuser
 
     def form_valid(self, form):
         messages.success(self.request, f"User {form.cleaned_data.get('email')} updated successfully.")

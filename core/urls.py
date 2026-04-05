@@ -51,4 +51,5 @@ urlpatterns = [
     path('configurations/term/<int:term_id>/activate/', views.activate_term, name='activate-term'),
     path('reports/', views.ReportDashboardView.as_view(), name='reports'),
     path('link-student/', views.link_student_view, name='link-student'),
+    path('student/<int:pk>/update-status/', views.update_student_status, name='update-student-status'),
 ]
